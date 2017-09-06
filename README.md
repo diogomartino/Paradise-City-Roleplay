@@ -36,6 +36,8 @@ Para utilizarem o comando **/dox** é necessário hospedar um ficheiro PHP que p
 
 Aconselho **vivamente** a diminuirem o **MAX_CARROS** para um valor baixo da primeira vez que entrarem no servidor, caso contrário irão crashar sempre que entrem no servidor. Depois, podem ir para uma parte do mapa não usada e usar o comando **/resetcarros**. Logo de seguida podem aumentar o **MAX_CARROS** para o valor desejado, ir ao mesmo sítio e fazer o **/resetcarros** para aparecerem todos os carros.
 
+Aconselho também a utilizar o PAWN em *debug mode*, para qualquer crash ser mais facilmente lido pelo CrashDetect.
+
 Sistema de pastas dentro dos **scriptfiles** (*scriptfiles/PCRP/(...)*):
 
 ![Pastas](https://i.gyazo.com/a329a2b58bc1294990256b472fd36798.png)
