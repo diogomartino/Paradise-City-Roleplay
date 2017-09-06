@@ -31,6 +31,7 @@ E tem mais, não me lembro de todos. Dinâmico quer dizer que 99% das caracterí
 Aconselho a atualizar todas as includes e plugins que o servidor usa para uma melhor estabilidade. Aconselho também que quando ligarem pela primeira vez o servidor, desliguem e voltem a ligar. 
 
 O AntiCheat é bom, mas quando configurado corretamente. Por default ele vai kickar muita gente inocente. 
+
 Para utilizarem o comando **/dox** é necessário hospedar um ficheiro PHP que pode ser encontrado [aqui](http://forum.sa-mp.com/showthread.php?p=3713480).
 
 Aconselho **vivamente** a diminuirem o **MAX_CARROS** para um valor baixo da primeira vez que entrarem no servidor, caso contrário irão crashar sempre que entrem no servidor. Depois, podem ir para uma parte do mapa não usada e usar o comando **/resetcarros**. Logo de seguida podem aumentar o **MAX_CARROS** para o valor desejado, ir ao mesmo sítio e fazer o **/resetcarros** para aparecerem todos os carros.
