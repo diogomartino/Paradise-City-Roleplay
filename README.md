@@ -5,6 +5,8 @@ Paradise City Roleplay é um GameMode para o GTA San Andreas Multiplayer. Foi de
 ## Sobre o Gamemode
 Gamemode organizado e optimizado. Tem alguns bugs e sistemas incompletos, não me lembro quais são pois já não mexo nisto há muito tempo. O gamemode está pronto a jogar, é só preciso configurar as casas, bizzes, factions, etc. O gamemode utiliza DOF2 para guardar os dados e utiliza SHA256 para encriptar as passwords. Notem que o melhor é usar um Salt diferente para cada conta, o que não acontece aqui (facilmente mudado).
 
+Como não tinha nada para fazer, há uns tempos fiz alterações no código, alterei algumas coisas, refiz alguns sistemas, mas entretanto perdi o changelog, ou seja, já não me lembro que melhorias fiz nem que bugs corrigi. Mas que ficou melhor ficou :)
+
 ## Sistemas
 * Casas dinâmicas
 * Lojas dinâmicas
@@ -48,6 +50,8 @@ Eu - criação do gamemode
 Incognito - Streamer Plugin
 
 BlueG - Socket Plugin
+
+Dan - TimerFix Plugin
 
 Emmet_ - SSCANF Plugin
 
