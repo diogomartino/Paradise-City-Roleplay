@@ -1,4 +1,6 @@
-#include "dynamic_call"
+#include <a_samp>
+
+#include "..\dynamic_call"
 
 forward test(i, &j, s[], t[]);
 
@@ -15,13 +17,13 @@ main() {
 	Push(ref("yeah"));
 	Call(GetPublicAddressFromName("test"));
 
-	print("native - method #1");
-	CallNativeByAddress(GetNativeAddressFromName("printf"), ref("Hello, %s!"), ref("World"));
+//	print("native - method #1");
+//	CallNativeByAddress(GetNativeAddressFromName("printf"), ref("Hello, %s!"), ref("World"));
 
-	print("native - method #2");
-	Push(ref("Hello, %s!"));
-	Push(ref("World"));
-	SysreqD(GetNativeAddressFromName("printf"));
+//	print("native - method #2");
+//	Push(ref("Hello, %s!"));
+//	Push(ref("World"));
+//	SysreqD(GetNativeAddressFromName("printf"));
 }
 
 public test(i, &j, s[], t[]) {

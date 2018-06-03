@@ -29,9 +29,9 @@ new gCustomList[MAX_PLAYERS][mS_CUSTOM_MAX_ITEMS];
 #define mS_INVALID_LISTID		mS_TOTAL_LISTS
 #define mS_CUSTOM_LISTID		(mS_TOTAL_LISTS+1)
 
-#define mS_NEXT_TEXT   "Proximo"
-#define mS_PREV_TEXT   "Anterior"
-#define mS_CANCEL_TEXT   "Cancelar"
+#define mS_NEXT_TEXT   "Next"
+#define mS_PREV_TEXT   "Prev"
+#define mS_CANCEL_TEXT   "Cancel"
 
 #define mS_SELECTION_ITEMS 		21
 #define mS_ITEMS_PER_LINE  		7

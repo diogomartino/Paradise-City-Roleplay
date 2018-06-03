@@ -1,3 +1,75 @@
+/*
+Legal:
+	Version: MPL 1.1
+	
+	The contents of this file are subject to the Mozilla Public License Version 
+	1.1 the "License"; you may not use this file except in compliance with 
+	the License. You may obtain a copy of the License at 
+	http://www.mozilla.org/MPL/
+	
+	Software distributed under the License is distributed on an "AS IS" basis,
+	WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+	for the specific language governing rights and limitations under the
+	License.
+	
+	The Original Code is the YSI framework.
+	
+	The Initial Developer of the Original Code is Alex "Y_Less" Cole.
+	Portions created by the Initial Developer are Copyright C 2011
+	the Initial Developer. All Rights Reserved.
+
+Contributors:
+	Y_Less
+	koolk
+	JoeBullet/Google63
+	g_aSlice/Slice
+	Misiur
+	samphunter
+	tianmeta
+	maddinat0r
+	spacemud
+	Crayder
+	Dayvison
+	Ahmad45123
+	Zeex
+	irinel1996
+	Yiin-
+	Chaprnks
+	Konstantinos
+	Masterchen09
+	Southclaws
+	PatchwerkQWER
+	m0k1
+	paulommu
+	udan111
+
+Thanks:
+	JoeBullet/Google63 - Handy arbitrary ASM jump code using SCTRL.
+	ZeeX - Very productive conversations.
+	koolk - IsPlayerinAreaEx code.
+	TheAlpha - Danish translation.
+	breadfish - German translation.
+	Fireburn - Dutch translation.
+	yom - French translation.
+	50p - Polish translation.
+	Zamaroht - Spanish translation.
+	Los - Portuguese translation.
+	Dracoblue, sintax, mabako, Xtreme, other coders - Producing other modes for
+		me to strive to better.
+	Pixels^ - Running XScripters where the idea was born.
+	Matite - Pestering me to release it and using it.
+
+Very special thanks to:
+	Thiadmer - PAWN, whose limits continue to amaze me!
+	Kye/Kalcor - SA:MP.
+	SA:MP Team past, present and future - SA:MP.
+
+Optional plugins:
+	Gamer_Z - GPS.
+	Incognito - Streamer.
+	Me - sscanf2, fixes2, Whirlpool.
+*/
+
 #assert MAX_PLAYERS >= 50
 
 Test:000_y_groups_Global()
@@ -142,12 +214,451 @@ Test:y_groups_Set3()
 		Group:g = Group_Create("Group 8");
 	Group_SetPlayer(g, 42, true);
 	ASSERT(Group_GetCount(g) == 1);
-	//W@(#On#PlayerDisconnect         ,x:#ii#,42, 0);
 	call OnPlayerDisconnect(42, 0);
-	//ASSERT(Group_GetCount(g) == 0);
-	//call OnPlayerConnect(42);
-	//ASSERT(Group_GetCount(g) == 0);
 	Group_Destroy(g);
+}
+
+Test:y_groups_SetBalanced0()
+{
+	new
+		Group:g1 = Group_Create("Group 1"),
+		Group:g2 = Group_Create("Group 2");
+	
+	call OnPlayerConnect(22);
+	
+	Group_SetPlayer(g2, 22, true);
+	Group_SetBalanced(22, g1, g2);
+	
+	ASSERT(Group_GetCount(g1) == 0 && Group_GetCount(g2) == 1);
+	
+	call OnPlayerDisconnect(22, 0);
+	
+	Group_Destroy(g1);
+	Group_Destroy(g2);
+}
+
+Test:y_groups_SetBalanced1()
+{
+	new
+		Group:g1 = Group_Create("Group 1"),
+		Group:g2 = Group_Create("Group 2");
+	
+	call OnPlayerConnect(23);
+	call OnPlayerConnect(32);
+	
+	Group_SetBalanced(23, g1, g2);
+	Group_SetBalanced(32, g1, g2);
+	
+	ASSERT(Group_GetCount(g1) == 1 && Group_GetCount(g2) == 1);
+	
+	call OnPlayerDisconnect(23, 0);
+	call OnPlayerDisconnect(32, 0);
+	
+	Group_Destroy(g1);
+	Group_Destroy(g2);
+}
+
+Test:y_groups_SetBalanced2()
+{
+	new
+		Group:g1 = Group_Create("Group 1"),
+		Group:g2 = Group_Create("Group 2"),
+		Group:g3 = Group_Create("Group 3");
+	
+	call OnPlayerConnect(1);
+	call OnPlayerConnect(2);
+	call OnPlayerConnect(3);
+	call OnPlayerConnect(4);
+	call OnPlayerConnect(5);
+	call OnPlayerConnect(6);
+	
+	Group_SetBalanced(1, g1, g2, g3);
+	Group_SetBalanced(2, g1, g2, g3);
+	Group_SetBalanced(3, g1, g2, g3);
+	Group_SetBalanced(4, g1, g2, g3);
+	Group_SetBalanced(5, g1, g2, g3);
+	Group_SetBalanced(6, g1, g2, g3);
+	
+	ASSERT(Group_GetCount(g1) == 2 && Group_GetCount(g2) == 2 && Group_GetCount(g3) == 2);
+	
+	call OnPlayerDisconnect(1, 0);
+	call OnPlayerDisconnect(2, 0);
+	call OnPlayerDisconnect(3, 0);
+	call OnPlayerDisconnect(4, 0);
+	call OnPlayerDisconnect(5, 0);
+	call OnPlayerDisconnect(6, 0);
+	
+	Group_Destroy(g1);
+	Group_Destroy(g2);
+	Group_Destroy(g3);
+}
+
+Test:y_groups_SetBalanced3()
+{
+	new
+		Group:g[3];
+	g[0] = Group_Create("Group 1");
+	g[1] = Group_Create("Group 2");
+	g[2] = Group_Create("Group 3");
+
+	call OnPlayerConnect(0);
+	call OnPlayerConnect(1);
+	call OnPlayerConnect(2);
+	call OnPlayerConnect(3);
+	call OnPlayerConnect(4);
+	call OnPlayerConnect(5);
+	call OnPlayerConnect(6);
+
+	Group_SetBalancedArray(0, g, sizeof(g));
+	Group_SetBalancedArray(1, g, sizeof(g));
+	Group_SetBalancedArray(2, g, sizeof(g));
+	Group_SetBalancedArray(3, g, sizeof(g));
+	Group_SetBalancedArray(4, g, sizeof(g));
+	Group_SetBalancedArray(5, g, sizeof(g));
+	Group_SetBalancedArray(6, g, sizeof(g));
+
+	ASSERT(Group_GetCount(g[0]) == 3);
+	ASSERT(Group_GetCount(g[1]) == 2);
+	ASSERT(Group_GetCount(g[2]) == 2);
+
+	call OnPlayerDisconnect(0, 0);
+	call OnPlayerDisconnect(1, 0);
+	call OnPlayerDisconnect(2, 0);
+	call OnPlayerDisconnect(3, 0);
+	call OnPlayerDisconnect(4, 0);
+	call OnPlayerDisconnect(5, 0);
+	call OnPlayerDisconnect(6, 0);
+
+	Group_Destroy(g[0]);
+	Group_Destroy(g[1]);
+	Group_Destroy(g[2]);
+}
+
+Test:y_groups_SetBalancedIn1()
+{
+	new
+		Group:g[3];
+	g[0] = Group_Create("Group 1");
+	g[1] = Group_Create("Group 2");
+	g[2] = Group_Create("Group 3");
+
+	call OnPlayerConnect(0);
+	call OnPlayerConnect(1);
+	call OnPlayerConnect(2);
+	call OnPlayerConnect(3);
+	call OnPlayerConnect(4);
+	call OnPlayerConnect(5);
+	call OnPlayerConnect(6);
+	
+	Group_SetPlayer(g[0], 0, true);
+	Group_SetPlayer(g[0], 1, true);
+	Group_SetPlayer(g[0], 2, true);
+	Group_SetPlayer(g[2], 3, true);
+	Group_SetPlayer(g[2], 4, true);
+	Group_SetPlayer(g[2], 5, true);
+
+	Group_SetBalancedArray(6, g, sizeof(g));
+
+	ASSERT(Group_GetCount(g[0]) == 3);
+	ASSERT(Group_GetCount(g[1]) == 1);
+	ASSERT(Group_GetCount(g[2]) == 3);
+
+	call OnPlayerDisconnect(0, 0);
+	call OnPlayerDisconnect(1, 0);
+	call OnPlayerDisconnect(2, 0);
+	call OnPlayerDisconnect(3, 0);
+	call OnPlayerDisconnect(4, 0);
+	call OnPlayerDisconnect(5, 0);
+	call OnPlayerDisconnect(6, 0);
+
+	Group_Destroy(g[0]);
+	Group_Destroy(g[1]);
+	Group_Destroy(g[2]);
+}
+
+Test:y_groups_SetBalancedIn2()
+{
+	new
+		Group:g[3];
+	g[0] = Group_Create("Group 1");
+	g[1] = Group_Create("Group 2");
+	g[2] = Group_Create("Group 3");
+
+	call OnPlayerConnect(0);
+	call OnPlayerConnect(1);
+	call OnPlayerConnect(2);
+	call OnPlayerConnect(3);
+	call OnPlayerConnect(4);
+	call OnPlayerConnect(5);
+	call OnPlayerConnect(6);
+	
+	Group_SetPlayer(g[0], 0, true);
+	Group_SetPlayer(g[0], 1, true);
+	Group_SetPlayer(g[0], 2, true);
+	Group_SetPlayer(g[2], 3, true);
+	Group_SetPlayer(g[2], 4, true);
+	Group_SetPlayer(g[2], 5, true);
+
+	Group_SetBalancedArray(0, g, sizeof(g));
+
+	ASSERT(Group_GetCount(g[0]) == 3);
+	ASSERT(Group_GetCount(g[1]) == 0);
+	ASSERT(Group_GetCount(g[2]) == 3);
+
+	call OnPlayerDisconnect(0, 0);
+	call OnPlayerDisconnect(1, 0);
+	call OnPlayerDisconnect(2, 0);
+	call OnPlayerDisconnect(3, 0);
+	call OnPlayerDisconnect(4, 0);
+	call OnPlayerDisconnect(5, 0);
+	call OnPlayerDisconnect(6, 0);
+
+	Group_Destroy(g[0]);
+	Group_Destroy(g[1]);
+	Group_Destroy(g[2]);
+}
+
+Test:y_groups_SetBalancedIn3()
+{
+	new
+		Group:g[3];
+	g[0] = Group_Create("Group 1");
+	g[1] = Group_Create("Group 2");
+	g[2] = Group_Create("Group 3");
+
+	call OnPlayerConnect(0);
+	call OnPlayerConnect(1);
+	call OnPlayerConnect(2);
+	call OnPlayerConnect(3);
+	call OnPlayerConnect(4);
+	call OnPlayerConnect(5);
+	call OnPlayerConnect(6);
+	
+	Group_SetPlayer(g[0], 0, true);
+	Group_SetPlayer(g[0], 1, true);
+	Group_SetPlayer(g[0], 2, true);
+	Group_SetPlayer(g[2], 3, true);
+	Group_SetPlayer(g[2], 4, true);
+	Group_SetPlayer(g[2], 5, true);
+
+	Group_SetBalancedArray(4, g, sizeof(g));
+
+	ASSERT(Group_GetCount(g[0]) == 3);
+	ASSERT(Group_GetCount(g[1]) == 0);
+	ASSERT(Group_GetCount(g[2]) == 3);
+
+	call OnPlayerDisconnect(0, 0);
+	call OnPlayerDisconnect(1, 0);
+	call OnPlayerDisconnect(2, 0);
+	call OnPlayerDisconnect(3, 0);
+	call OnPlayerDisconnect(4, 0);
+	call OnPlayerDisconnect(5, 0);
+	call OnPlayerDisconnect(6, 0);
+
+	Group_Destroy(g[0]);
+	Group_Destroy(g[1]);
+	Group_Destroy(g[2]);
+}
+
+Test:y_groups_SetBalancedIn3a()
+{
+	new
+		Group:g[3];
+	g[0] = Group_Create("Group 1");
+	g[1] = Group_Create("Group 2");
+	g[2] = Group_Create("Group 3");
+
+	call OnPlayerConnect(0);
+	call OnPlayerConnect(1);
+	call OnPlayerConnect(2);
+	call OnPlayerConnect(3);
+	call OnPlayerConnect(4);
+	call OnPlayerConnect(5);
+	call OnPlayerConnect(6);
+	
+	Group_SetPlayer(g[0], 0, true);
+	Group_SetPlayer(g[0], 1, true);
+	Group_SetPlayer(g[1], 2, true);
+	Group_SetPlayer(g[1], 3, true);
+	Group_SetPlayer(g[2], 4, true);
+	Group_SetPlayer(g[2], 5, true);
+	
+	Group_SetPlayer(g[0], 6, true);
+
+	Group_SetBalancedArray(0, g, sizeof(g));
+
+	ASSERT(Group_GetCount(g[0]) == 3);
+	ASSERT(Group_GetCount(g[1]) == 2);
+	ASSERT(Group_GetCount(g[2]) == 2);
+
+	call OnPlayerDisconnect(0, 0);
+	call OnPlayerDisconnect(1, 0);
+	call OnPlayerDisconnect(2, 0);
+	call OnPlayerDisconnect(3, 0);
+	call OnPlayerDisconnect(4, 0);
+	call OnPlayerDisconnect(5, 0);
+	call OnPlayerDisconnect(6, 0);
+
+	Group_Destroy(g[0]);
+	Group_Destroy(g[1]);
+	Group_Destroy(g[2]);
+}
+
+Test:y_groups_SetBalancedIn3b()
+{
+	new
+		Group:g[3];
+	g[0] = Group_Create("Group 1");
+	g[1] = Group_Create("Group 2");
+	g[2] = Group_Create("Group 3");
+
+	call OnPlayerConnect(0);
+	call OnPlayerConnect(1);
+	call OnPlayerConnect(2);
+	call OnPlayerConnect(3);
+	call OnPlayerConnect(4);
+	call OnPlayerConnect(5);
+	call OnPlayerConnect(6);
+	
+	Group_SetPlayer(g[0], 0, true);
+	Group_SetPlayer(g[0], 1, true);
+	Group_SetPlayer(g[1], 2, true);
+	Group_SetPlayer(g[1], 3, true);
+	Group_SetPlayer(g[2], 4, true);
+	Group_SetPlayer(g[2], 5, true);
+	
+	Group_SetPlayer(g[1], 6, true);
+
+	Group_SetBalancedArray(0, g, sizeof(g));
+
+	ASSERT(Group_GetCount(g[0]) == 2);
+	ASSERT(Group_GetCount(g[1]) == 3);
+	ASSERT(Group_GetCount(g[2]) == 2);
+
+	call OnPlayerDisconnect(0, 0);
+	call OnPlayerDisconnect(1, 0);
+	call OnPlayerDisconnect(2, 0);
+	call OnPlayerDisconnect(3, 0);
+	call OnPlayerDisconnect(4, 0);
+	call OnPlayerDisconnect(5, 0);
+	call OnPlayerDisconnect(6, 0);
+
+	Group_Destroy(g[0]);
+	Group_Destroy(g[1]);
+	Group_Destroy(g[2]);
+}
+
+Test:y_groups_SetBalancedIn3c()
+{
+	new
+		Group:g[3];
+	g[0] = Group_Create("Group 1");
+	g[1] = Group_Create("Group 2");
+	g[2] = Group_Create("Group 3");
+
+	call OnPlayerConnect(0);
+	call OnPlayerConnect(1);
+	call OnPlayerConnect(2);
+	call OnPlayerConnect(3);
+	call OnPlayerConnect(4);
+	call OnPlayerConnect(5);
+	call OnPlayerConnect(6);
+	
+	Group_SetPlayer(g[0], 0, true);
+	Group_SetPlayer(g[0], 1, true);
+	Group_SetPlayer(g[1], 2, true);
+	Group_SetPlayer(g[1], 3, true);
+	Group_SetPlayer(g[2], 4, true);
+	Group_SetPlayer(g[2], 5, true);
+	
+	Group_SetPlayer(g[2], 6, true);
+
+	Group_SetBalancedArray(0, g, sizeof(g));
+
+	ASSERT(Group_GetCount(g[0]) == 2);
+	ASSERT(Group_GetCount(g[1]) == 2);
+	ASSERT(Group_GetCount(g[2]) == 3);
+
+	call OnPlayerDisconnect(0, 0);
+	call OnPlayerDisconnect(1, 0);
+	call OnPlayerDisconnect(2, 0);
+	call OnPlayerDisconnect(3, 0);
+	call OnPlayerDisconnect(4, 0);
+	call OnPlayerDisconnect(5, 0);
+	call OnPlayerDisconnect(6, 0);
+
+	Group_Destroy(g[0]);
+	Group_Destroy(g[1]);
+	Group_Destroy(g[2]);
+}
+
+Test:y_groups_SetBalancedIn4()
+{
+	new
+		Group:g[3];
+	g[0] = Group_Create("Group 1");
+	g[1] = Group_Create("Group 2");
+	g[2] = Group_Create("Group 3");
+
+	call OnPlayerConnect(0);
+	call OnPlayerConnect(1);
+	call OnPlayerConnect(2);
+	call OnPlayerConnect(3);
+	call OnPlayerConnect(4);
+	call OnPlayerConnect(5);
+	call OnPlayerConnect(6);
+	
+	Group_SetPlayer(g[0], 0, true);
+	Group_SetPlayer(g[0], 1, true);
+	Group_SetPlayer(g[1], 2, true);
+	Group_SetPlayer(g[1], 3, true);
+	Group_SetPlayer(g[2], 4, true);
+	
+	Group_SetPlayer(g[1], 6, true);
+
+	Group_SetBalancedArray(2, g, sizeof(g));
+
+	ASSERT(Group_GetCount(g[0]) == 2);
+	ASSERT(Group_GetCount(g[1]) == 3);
+	ASSERT(Group_GetCount(g[2]) == 1);
+
+	call OnPlayerDisconnect(0, 0);
+	call OnPlayerDisconnect(1, 0);
+	call OnPlayerDisconnect(2, 0);
+	call OnPlayerDisconnect(3, 0);
+	call OnPlayerDisconnect(4, 0);
+	call OnPlayerDisconnect(5, 0);
+	call OnPlayerDisconnect(6, 0);
+
+	Group_Destroy(g[0]);
+	Group_Destroy(g[1]);
+	Group_Destroy(g[2]);
+}
+
+Test:y_groups_SetBalancedSingle()
+{
+	new
+		Group:g1 = Group_Create("Group 1"),
+		Group:result;
+	call OnPlayerConnect(0);
+	
+	result = Group_SetBalanced(0, g1, Group:11);
+	ASSERT(result == g1);
+	
+	call OnPlayerDisconnect(0, 0);
+	Group_Destroy(g1);
+}
+
+Test:y_groups_SetBalancedInvalid()
+{
+	new
+		Group:result;
+	call OnPlayerConnect(0);
+	
+	result = Group_SetBalanced(0, Group:99, Group:88);
+	ASSERT(result == INVALID_GROUP);
+	
+	call OnPlayerDisconnect(0, 0);
 }
 
 #define MASTER 60
