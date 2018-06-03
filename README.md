@@ -55,17 +55,17 @@ Dan - TimerFix Plugin
 
 Emmet_ - SSCANF Plugin
 
-Zeex - CrashDetect Plugin & ZCMD Include
+Zeex - CrashDetect Plugin
 
 Samp Team - SAMP
 
 OstGot - Nex-AC Include
 
-Double-o-Seven - DOF2 Include
+YourShadow - Pawn.CMD
 
 Lós - LosGS Include
 
-Gammix - GMenus Include
+Gammix - GMenus Include & Dini2
 
 Y-Less - Foreach Include
 
