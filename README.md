@@ -51,6 +51,8 @@ Incognito - Streamer Plugin
 
 BlueG - Socket Plugin
 
+Dan - TimerFix Plugin
+
 Emmet_ - SSCANF Plugin
 
 Zeex - CrashDetect Plugin & ZCMD Include
